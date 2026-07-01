@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(gh pr:*)",
+      "Bash(git add:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git push:*)",
+      "Bash(git status:*)",
+      "Bash(git switch:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-branch.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // \"\"' | { read -r f; case \"$f\" in *[Cc]ontroller*|*/routes/*|*/api/*|*/handlers/*) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[doc-guard] API code edited — update the OpenAPI/API spec in the same change. The generated API doc is the source of truth for endpoints; the README must NOT list them.\"}}';; *compose*.yaml|*compose*.yml|*/docker/*|*Dockerfile*) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[doc-guard] Infrastructure file edited — check README.md and any deployment docs.\"}}';; */src/*|*/app/*|*/components/*) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[doc-guard] App source edited — check the relevant README/CLAUDE.md if behaviour changed.\"}}';; esac; } 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-tests.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
