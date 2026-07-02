@@ -150,6 +150,12 @@ When the user reports a bug:
 > Note: the `check-branch.sh` hook enforces this by blocking source edits on the main branch.
 > `MAIN_BRANCHES` in that hook already includes `master`.
 
+### Commit Messages
+
+- **Max two lines.** State what feature/fix was added and, briefly, why — no bullet lists, no
+  file-by-file breakdown, no restating the diff.
+- Skip narrating implementation detail (which classes, which files) — that's what `git show` is for.
+
 ### Documentation Update (mandatory before committing)
 
 Every PR that changes observable behaviour MUST update the relevant documentation in the same
