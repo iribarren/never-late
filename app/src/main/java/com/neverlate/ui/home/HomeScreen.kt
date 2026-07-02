@@ -39,19 +39,20 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeRoute(
     repository: UserPreferencesRepository,
+    onArticlesClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(factory = AppViewModelFactory(repository)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeScreen(uiState = uiState, modifier = modifier)
+    HomeScreen(uiState = uiState, onArticlesClick = onArticlesClick, modifier = modifier)
 }
 
-/** A single placeholder entry rendered on Home (Tasks, Articles, ...). */
-private data class HomeOption(val label: String)
+/** A single entry rendered on Home (Tasks, Articles, ...), each with its own click behaviour. */
+private data class HomeOption(val label: String, val onClick: () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(uiState: HomeUiState, modifier: Modifier = Modifier) {
+fun HomeScreen(uiState: HomeUiState, onArticlesClick: () -> Unit, modifier: Modifier = Modifier) {
     // A Snackbar is triggered from a click callback, which is not a suspend function, so we
     // need our own CoroutineScope (tied to this composable) to launch the suspend `showSnackbar`
     // call from inside it.
@@ -60,8 +61,10 @@ fun HomeScreen(uiState: HomeUiState, modifier: Modifier = Modifier) {
     val comingSoonMessage = stringResource(R.string.home_option_coming_soon)
 
     val options = listOf(
-        HomeOption(stringResource(R.string.home_option_tasks)),
-        HomeOption(stringResource(R.string.home_option_articles)),
+        HomeOption(stringResource(R.string.home_option_tasks)) {
+            coroutineScope.launch { snackbarHostState.showSnackbar(comingSoonMessage) }
+        },
+        HomeOption(stringResource(R.string.home_option_articles), onArticlesClick),
     )
 
     Scaffold(
@@ -85,19 +88,14 @@ fun HomeScreen(uiState: HomeUiState, modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 options.forEach { option ->
-                    HomeOptionCard(
-                        label = option.label,
-                        onClick = {
-                            coroutineScope.launch { snackbarHostState.showSnackbar(comingSoonMessage) }
-                        },
-                    )
+                    HomeOptionCard(label = option.label, onClick = option.onClick)
                 }
             }
         }
     }
 }
 
-/** One clickable placeholder row, styled as a card. Not wired to any real feature yet. */
+/** One clickable row on Home, styled as a card. */
 @Composable
 private fun HomeOptionCard(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
@@ -113,6 +111,6 @@ private fun HomeOptionCard(label: String, onClick: () -> Unit, modifier: Modifie
 @Composable
 private fun HomeScreenPreview() {
     NeverLateTheme {
-        HomeScreen(uiState = HomeUiState(name = "Ada"))
+        HomeScreen(uiState = HomeUiState(name = "Ada"), onArticlesClick = {})
     }
 }

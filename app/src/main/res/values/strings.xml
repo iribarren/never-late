@@ -13,4 +13,11 @@
     <string name="home_option_tasks">Tareas</string>
     <string name="home_option_articles">Artículos</string>
     <string name="home_option_coming_soon">Próximamente</string>
+
+    <!-- Articles screens -->
+    <string name="articles_title">Artículos</string>
+    <string name="articles_empty">No hay artículos disponibles todavía.</string>
+    <string name="articles_back_content_description">Volver</string>
+    <string name="articles_not_found">No se ha encontrado el artículo.</string>
+    <string name="articles_detail_title_fallback">Artículo</string>
 </resources>
