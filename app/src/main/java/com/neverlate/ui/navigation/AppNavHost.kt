@@ -9,10 +9,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.ui.articles.ArticleDetailRoute
+import com.neverlate.ui.articles.ArticlesRoute
 import com.neverlate.ui.home.HomeRoute
 import com.neverlate.ui.onboarding.OnboardingRoute
 
@@ -20,7 +25,12 @@ import com.neverlate.ui.onboarding.OnboardingRoute
 private object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
+    const val ARTICLES = "articles"
+    const val ARTICLE_DETAIL = "articleDetail"
 }
+
+/** Name of the navigation argument carrying an [com.neverlate.data.articles.Article.id]. */
+private const val ARG_ARTICLE_ID = "articleId"
 
 /**
  * App-wide navigation graph (Navigation Compose). It also owns *startup routing*: reading the
@@ -35,6 +45,7 @@ private object Routes {
 @Composable
 fun AppNavHost(
     repository: UserPreferencesRepository,
+    articleRepository: ArticleRepository,
     navController: NavHostController = rememberNavController(),
 ) {
     val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
@@ -58,7 +69,34 @@ fun AppNavHost(
                     )
                 }
                 composable(Routes.HOME) {
-                    HomeRoute(repository = repository)
+                    HomeRoute(
+                        repository = repository,
+                        onArticlesClick = { navController.navigate(Routes.ARTICLES) },
+                    )
+                }
+                composable(Routes.ARTICLES) {
+                    ArticlesRoute(
+                        articleRepository = articleRepository,
+                        onArticleClick = { articleId ->
+                            navController.navigate("${Routes.ARTICLE_DETAIL}/$articleId")
+                        },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    route = "${Routes.ARTICLE_DETAIL}/{$ARG_ARTICLE_ID}",
+                    arguments = listOf(navArgument(ARG_ARTICLE_ID) { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    // Only the id crosses the navigation boundary — never the full Article — so
+                    // the detail screen reloads the article from the repository by id. This
+                    // keeps the route argument small and matches the "no complex objects in
+                    // routes" constraint from the feature spec.
+                    val articleId = backStackEntry.arguments?.getString(ARG_ARTICLE_ID).orEmpty()
+                    ArticleDetailRoute(
+                        articleRepository = articleRepository,
+                        articleId = articleId,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
         }
