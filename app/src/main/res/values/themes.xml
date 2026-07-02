@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The XML theme only needs to exist so the manifest/splash have something to
+      reference before Compose takes over. The real theming lives in Theme.kt.
+    -->
+    <style name="Theme.NeverLate" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
