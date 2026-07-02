@@ -12,7 +12,7 @@ núcleo de la app.
   puede iniciar/pausar.
 - Persistencia local de las tareas para que sobrevivan al cierre de la app.
 
-## Conceptos nuevos a enseñar (lección `tutorial/03-*.md`, en español)
+## Conceptos nuevos a enseñar (lección `tutorial/04-*.md`, en español)
 - **Room** (base de datos SQLite): `@Entity`, `@Dao`, `@Database`, consultas que devuelven `Flow`.
 - CRUD completo desde un repositorio + `ViewModel`.
 - **Coroutines** y `Flow` para el temporizador (cuenta atrás con `delay`).
@@ -25,4 +25,4 @@ núcleo de la app.
 - Este repositorio de tareas lo reutilizarán el **widget** (feature 05) y el **lockscreen**
   (feature 06). Diséñalo pensando en compartirlo.
 - Tests con `qa-engineer` (DAO in-memory + ViewModel + lógica del contador). Lección en
-  `tutorial/03-tareas-contador.md` antes de commitear.
+  `tutorial/04-tareas-contador.md` antes de commitear.
