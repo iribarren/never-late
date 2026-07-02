@@ -11,7 +11,7 @@ pendientes"** siguiendo el flujo `/feature`.
   para terminarlas.
 - El widget se actualiza periódicamente y al cambiar las tareas.
 
-## Conceptos nuevos a enseñar (lección `tutorial/04-*.md`, en español)
+## Conceptos nuevos a enseñar (lección `tutorial/05-*.md`, en español)
 - **App Widgets** con **Glance** (Jetpack Compose para widgets).
 - Cómo un widget lee datos de la app: compartir el **repositorio Room** de tareas.
 - Actualización en segundo plano con **WorkManager** (y/o `updateAll`).
@@ -21,4 +21,4 @@ pendientes"** siguiendo el flujo `/feature`.
 - Rama sugerida: `feature/tasks-widget`.
 - Añade Glance y WorkManager al catálogo `gradle/libs.versions.toml`.
 - Tests con `qa-engineer` donde sea posible (lógica de datos del widget). Lección en
-  `tutorial/04-widget.md` antes de commitear.
+  `tutorial/05-widget.md` antes de commitear.

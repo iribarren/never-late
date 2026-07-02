@@ -49,6 +49,12 @@ private const val ARG_TASK_ID = "taskId"
  * `initialValue` of `null`. While it is `null` we show a neutral loading indicator instead of
  * guessing a start destination — otherwise a returning user could see a flash of Onboarding
  * before the real value arrives (see the feature spec's "startup flash" risk).
+ *
+ * [openTasksOnStart] is a second, narrower override of that same start destination: it is set
+ * when `MainActivity` was opened by tapping the pending-tasks widget (feature 05), and sends an
+ * already-onboarded user straight to [Routes.TASKS] instead of [Routes.HOME]. It is ignored for a
+ * user who has not onboarded yet — Onboarding always wins, so tapping the widget can never skip
+ * it.
  */
 @Composable
 fun AppNavHost(
@@ -56,13 +62,18 @@ fun AppNavHost(
     articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
     navController: NavHostController = rememberNavController(),
+    openTasksOnStart: Boolean = false,
 ) {
     val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
 
     when (val preferences = userPreferences) {
         null -> LoadingIndicator()
         else -> {
-            val startDestination = if (preferences.onboarded) Routes.HOME else Routes.ONBOARDING
+            val startDestination = when {
+                !preferences.onboarded -> Routes.ONBOARDING
+                openTasksOnStart -> Routes.TASKS
+                else -> Routes.HOME
+            }
 
             NavHost(navController = navController, startDestination = startDestination) {
                 composable(Routes.ONBOARDING) {

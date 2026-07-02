@@ -18,6 +18,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Pending-tasks home-screen widget (feature 05). AppWidgetManager delivers
+             APPWIDGET_UPDATE broadcasts here; GlanceAppWidgetReceiver forwards them to
+             PendingTasksWidget. android:exported="true" is required for widget receivers so the
+             launcher (a different app/process) can deliver those broadcasts. -->
+        <receiver
+            android:name=".ui.widget.PendingTasksWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_pending_tasks_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/pending_tasks_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

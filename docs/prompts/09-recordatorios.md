@@ -19,4 +19,4 @@ flujo `/feature`.
 - Rama sugerida: `feature/reminders`.
 - Encaja **antes** del widget/lockscreen (comparte notificaciones/permiso). Si ya se hicieron,
   reutiliza su infraestructura.
-- Tests con `qa-engineer` sobre la lógica de programación. Lección en `tutorial/NN-recordatorios.md`.
+- Tests con `qa-engineer` sobre la lógica de programación. Lección en `tutorial/09-recordatorios.md`.

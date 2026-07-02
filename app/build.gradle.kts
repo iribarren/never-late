@@ -57,6 +57,12 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // Glance: declarative API (Compose-like, but a restricted subset) for building App Widgets —
+    // the home-screen pending-tasks widget (feature 05) is this project's first use of it.
+    implementation(libs.androidx.glance.appwidget)
+    // WorkManager: schedules the widget's periodic background refresh (feature 05), since a
+    // widget has no `delay`-based ticker of its own — see WidgetRefreshWorker.
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))

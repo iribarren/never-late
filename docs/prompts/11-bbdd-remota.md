@@ -24,4 +24,4 @@ Implementa **"Datos en BBDD remota + sincronización"** siguiendo el flujo `/fea
 - Probablemente intervengan los agentes `backend-engineer` (si se añade) y
   `devops-security-engineer`. Puede requerir su propio repo/servicio y `docker compose`.
 - Tests con `qa-engineer` (cliente contra API mock + lógica de sync). Lección en
-  `tutorial/NN-bbdd-remota.md`.
+  `tutorial/11-bbdd-remota.md`.

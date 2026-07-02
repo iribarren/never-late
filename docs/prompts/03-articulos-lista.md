@@ -12,7 +12,7 @@ Lee `CLAUDE.md` (**Tutorial Methodology** + **Mandatory Workflow**) y las leccio
 - Pantalla de **detalle** del artículo al pulsar en uno.
 - Acceso desde una opción de la Home.
 
-## Conceptos nuevos a enseñar (lección `tutorial/02-*.md`, en español)
+## Conceptos nuevos a enseñar (lección `tutorial/03-*.md`, en español)
 - `data class` para modelar un artículo.
 - `LazyColumn` y renderizado eficiente de listas.
 - Navegación **lista → detalle** pasando argumentos con Navigation Compose.
@@ -23,4 +23,4 @@ Lee `CLAUDE.md` (**Tutorial Methodology** + **Mandatory Workflow**) y las leccio
 - Rama sugerida: `feature/articles-list`.
 - Deja el repositorio preparado para, en el futuro, cambiar la fuente local por una API
   (ver `docs/prompts/10-articulos-api.md`).
-- Tests con `qa-engineer`. Lección en `tutorial/02-articulos.md` antes de commitear.
+- Tests con `qa-engineer`. Lección en `tutorial/03-articulos.md` antes de commitear.
