@@ -16,10 +16,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.articles.ArticleDetailRoute
 import com.neverlate.ui.articles.ArticlesRoute
 import com.neverlate.ui.home.HomeRoute
 import com.neverlate.ui.onboarding.OnboardingRoute
+import com.neverlate.ui.tasks.TaskEditRoute
+import com.neverlate.ui.tasks.TasksRoute
 
 /** Destination names for the nav graph, kept as constants so routes can't be mistyped. */
 private object Routes {
@@ -27,10 +30,15 @@ private object Routes {
     const val HOME = "home"
     const val ARTICLES = "articles"
     const val ARTICLE_DETAIL = "articleDetail"
+    const val TASKS = "tasks"
+    const val TASK_EDIT = "taskEdit"
 }
 
 /** Name of the navigation argument carrying an [com.neverlate.data.articles.Article.id]. */
 private const val ARG_ARTICLE_ID = "articleId"
+
+/** Name of the navigation argument carrying a [com.neverlate.data.tasks.Task.id]. */
+private const val ARG_TASK_ID = "taskId"
 
 /**
  * App-wide navigation graph (Navigation Compose). It also owns *startup routing*: reading the
@@ -46,6 +54,7 @@ private const val ARG_ARTICLE_ID = "articleId"
 fun AppNavHost(
     repository: UserPreferencesRepository,
     articleRepository: ArticleRepository,
+    taskRepository: TaskRepository,
     navController: NavHostController = rememberNavController(),
 ) {
     val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
@@ -72,6 +81,7 @@ fun AppNavHost(
                     HomeRoute(
                         repository = repository,
                         onArticlesClick = { navController.navigate(Routes.ARTICLES) },
+                        onTasksClick = { navController.navigate(Routes.TASKS) },
                     )
                 }
                 composable(Routes.ARTICLES) {
@@ -95,6 +105,40 @@ fun AppNavHost(
                     ArticleDetailRoute(
                         articleRepository = articleRepository,
                         articleId = articleId,
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Routes.TASKS) {
+                    TasksRoute(
+                        taskRepository = taskRepository,
+                        onAddTaskClick = { navController.navigate(Routes.TASK_EDIT) },
+                        onTaskClick = { taskId -> navController.navigate("${Routes.TASK_EDIT}/$taskId") },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Routes.TASK_EDIT) {
+                    // No {taskId} argument on this route: TaskEditRoute below gets a null
+                    // taskId, which is exactly what tells TaskEditViewModel to create a new task
+                    // instead of loading an existing one.
+                    TaskEditRoute(
+                        taskRepository = taskRepository,
+                        taskId = null,
+                        onSaved = { navController.popBackStack() },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(
+                    route = "${Routes.TASK_EDIT}/{$ARG_TASK_ID}",
+                    arguments = listOf(navArgument(ARG_TASK_ID) { type = NavType.LongType }),
+                ) { backStackEntry ->
+                    // Only the id crosses the navigation boundary — never the full Task — so the
+                    // edit screen reloads the task from the repository by id, same reasoning as
+                    // the article detail route above.
+                    val taskId = backStackEntry.arguments?.getLong(ARG_TASK_ID)
+                    TaskEditRoute(
+                        taskRepository = taskRepository,
+                        taskId = taskId,
+                        onSaved = { navController.popBackStack() },
                         onBack = { navController.popBackStack() },
                     )
                 }

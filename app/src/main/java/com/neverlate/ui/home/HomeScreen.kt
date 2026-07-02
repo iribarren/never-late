@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -29,7 +28,6 @@ import com.neverlate.R
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
-import kotlinx.coroutines.launch
 
 /**
  * Stateful wrapper: obtains [HomeViewModel] (via [AppViewModelFactory]) and forwards its state
@@ -40,11 +38,12 @@ import kotlinx.coroutines.launch
 fun HomeRoute(
     repository: UserPreferencesRepository,
     onArticlesClick: () -> Unit,
+    onTasksClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(factory = AppViewModelFactory(repository)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeScreen(uiState = uiState, onArticlesClick = onArticlesClick, modifier = modifier)
+    HomeScreen(uiState = uiState, onArticlesClick = onArticlesClick, onTasksClick = onTasksClick, modifier = modifier)
 }
 
 /** A single entry rendered on Home (Tasks, Articles, ...), each with its own click behaviour. */
@@ -52,18 +51,19 @@ private data class HomeOption(val label: String, val onClick: () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(uiState: HomeUiState, onArticlesClick: () -> Unit, modifier: Modifier = Modifier) {
-    // A Snackbar is triggered from a click callback, which is not a suspend function, so we
-    // need our own CoroutineScope (tied to this composable) to launch the suspend `showSnackbar`
-    // call from inside it.
+fun HomeScreen(
+    uiState: HomeUiState,
+    onArticlesClick: () -> Unit,
+    onTasksClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Both options now navigate directly (Tasks and Articles are both implemented), but the
+    // SnackbarHost stays wired up: it's the natural place for a future Home option that isn't
+    // ready yet to show a brief "coming soon" message instead of navigating.
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
-    val comingSoonMessage = stringResource(R.string.home_option_coming_soon)
 
     val options = listOf(
-        HomeOption(stringResource(R.string.home_option_tasks)) {
-            coroutineScope.launch { snackbarHostState.showSnackbar(comingSoonMessage) }
-        },
+        HomeOption(stringResource(R.string.home_option_tasks), onTasksClick),
         HomeOption(stringResource(R.string.home_option_articles), onArticlesClick),
     )
 
@@ -111,6 +111,6 @@ private fun HomeOptionCard(label: String, onClick: () -> Unit, modifier: Modifie
 @Composable
 private fun HomeScreenPreview() {
     NeverLateTheme {
-        HomeScreen(uiState = HomeUiState(name = "Ada"), onArticlesClick = {})
+        HomeScreen(uiState = HomeUiState(name = "Ada"), onArticlesClick = {}, onTasksClick = {})
     }
 }

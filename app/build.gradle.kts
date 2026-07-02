@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -52,6 +53,10 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))
@@ -59,6 +64,10 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    // Only Icons.Filled.Pause (used for the task countdown's pause button) lives outside the
+    // small default icon set bundled with material3/material-icons-core, hence this extra
+    // dependency: it is versioned by the Compose BOM above, same as androidx.material3.
+    implementation(libs.androidx.material.icons.extended)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

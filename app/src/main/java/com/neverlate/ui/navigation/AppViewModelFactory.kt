@@ -4,19 +4,28 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.articles.ArticleDetailViewModel
 import com.neverlate.ui.articles.ArticlesViewModel
 import com.neverlate.ui.home.HomeViewModel
 import com.neverlate.ui.onboarding.OnboardingViewModel
+import com.neverlate.ui.tasks.TaskEditViewModel
+import com.neverlate.ui.tasks.TasksViewModel
 
 /**
  * Manual dependency injection (no Hilt/Dagger yet, on purpose — this is still an early lesson):
  * builds each screen's ViewModel with the repository (or repositories) it needs.
  *
- * [articleRepository] and [articleId] are only used by the two Articles ViewModels, so they
- * default to null: Onboarding and Home keep constructing this factory with just a
- * [userPreferencesRepository], exactly as before this feature. `articleId` in particular is how
- * the navigation argument reaches [ArticleDetailViewModel] — see the explanation on that class.
+ * [articleRepository]/[articleId] and [taskRepository]/[taskId] are only used by their own
+ * feature's ViewModels, so they all default to null: Onboarding and Home keep constructing this
+ * factory with just a [userPreferencesRepository], exactly as before this feature. `articleId`
+ * and `taskId` are how a navigation argument reaches a detail/edit ViewModel — see
+ * [ArticleDetailViewModel] and [TaskEditViewModel].
+ *
+ * Note the difference between the two: a missing [articleId] is a programmer error (every
+ * article screen needs one), so it goes through [requireArticleId] and throws. A missing
+ * [taskId], on the other hand, is a normal, expected value — see [TaskEditViewModel]'s KDoc — so
+ * it is passed straight through to the ViewModel without a `require*` check.
  *
  * Compose's `viewModel(factory = ...)` helper calls [create] instead of a no-arg constructor,
  * which is required here because our ViewModels take constructor parameters.
@@ -25,6 +34,8 @@ class AppViewModelFactory(
     private val userPreferencesRepository: UserPreferencesRepository? = null,
     private val articleRepository: ArticleRepository? = null,
     private val articleId: String? = null,
+    private val taskRepository: TaskRepository? = null,
+    private val taskId: Long? = null,
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -41,6 +52,12 @@ class AppViewModelFactory(
         modelClass.isAssignableFrom(ArticleDetailViewModel::class.java) ->
             ArticleDetailViewModel(requireArticleRepository(), requireArticleId()) as T
 
+        modelClass.isAssignableFrom(TasksViewModel::class.java) ->
+            TasksViewModel(requireTaskRepository()) as T
+
+        modelClass.isAssignableFrom(TaskEditViewModel::class.java) ->
+            TaskEditViewModel(requireTaskRepository(), taskId) as T
+
         else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 
@@ -52,4 +69,7 @@ class AppViewModelFactory(
 
     private fun requireArticleId() =
         requireNotNull(articleId) { "ArticleDetailViewModel requires an articleId" }
+
+    private fun requireTaskRepository() =
+        requireNotNull(taskRepository) { "This ViewModel requires a TaskRepository" }
 }
