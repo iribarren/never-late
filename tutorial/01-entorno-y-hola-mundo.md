@@ -1,4 +1,4 @@
-# Lección 00 — Entorno de desarrollo y "Hola Mundo"
+# Lección 01 — Entorno de desarrollo y "Hola Mundo"
 
 > Objetivo: entender cómo está montado un proyecto Android moderno con Kotlin y Jetpack
 > Compose, compilarlo y verlo funcionando en el emulador. Es el clásico primer paso.

@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Never Late</string>
+
+    <!-- Onboarding screen -->
+    <string name="onboarding_title">Bienvenido</string>
+    <string name="onboarding_prompt">¿Cómo te llamas?</string>
+    <string name="onboarding_name_label">Tu nombre</string>
+    <string name="onboarding_save_button">Guardar</string>
+
+    <!-- Home screen -->
+    <string name="home_greeting">Hola, %1$s</string>
+    <string name="home_option_tasks">Tareas</string>
+    <string name="home_option_articles">Artículos</string>
+    <string name="home_option_coming_soon">Próximamente</string>
 </resources>
