@@ -50,7 +50,7 @@ Añadir sección nueva "Tutorial Methodology" (esto es la "configuración fija" 
 5. Fijar la mandato del tutorial en memoria
 Guardar una memoria project en el store de memoria del usuario para que el mandato "cada feature es una lección progresiva de Kotlin/Android, con doc en español en tutorial/" persista entre sesiones (además de estar en CLAUDE.md).
 6. Primera lección — "Hola Mundo"
-tutorial/00-entorno-y-hola-mundo.md (español): estructura de un proyecto Android con Gradle, qué es el wrapper y el version catalog, AndroidManifest, Activity, y el primer @Composable (la pantalla "Hola Mundo"); cómo compilar, ejecutar en el emulador y ver el saludo en pantalla. Es el clásico primer paso del tutorial.
+tutorial/01-entorno-y-hola-mundo.md (español): estructura de un proyecto Android con Gradle, qué es el wrapper y el version catalog, AndroidManifest, Activity, y el primer @Composable (la pantalla "Hola Mundo"); cómo compilar, ejecutar en el emulador y ver el saludo en pantalla. Es el clásico primer paso del tutorial.
 7. Dejar preparados los prompts de arranque de cada feature
 Crear un fichero por feature en docs/prompts/ (continuando la numeración de 01-inicial.md), cada uno autocontenido para poder pegarlo en una sesión nueva de Claude sin depender del contexto actual. Ver detalle y numeración en la sección "Cómo añadir las siguientes features". Así cada feature futura arranca copiando su prompt.
 Roadmap del resto de funcionalidades (a implementar después, por /feature)
@@ -104,8 +104,8 @@ Verification (Tarea 1)
 Compila: ./gradlew assembleDebug termina en BUILD SUCCESSFUL y genera app/build/outputs/apk/debug/app-debug.apk.
 Arranca el emulador: ~/Android/Sdk/emulator/emulator -avd Nexus_5X_API_29 & y esperar a adb wait-for-device.
 Instala y lanza: ./gradlew installDebug (o adb install -r <apk>), luego adb shell am start -n com.neverlate/.MainActivity. Alternativa visual: abrir el proyecto en Android Studio (~/android-studio/bin/studio.sh) y ejecutar con el botón Run.
-Comprobar visualmente: el "Hola Mundo" aparece en el emulador; captura con adb exec-out screencap -p > tutorial/assets/00-hola-mundo.png (para ilustrar la lección).
-Docs: CLAUDE.md sin ningún placeholder <...>, sección "API Contract" eliminada, <main-branch>→main, y sección "Tutorial Methodology" presente. tutorial/00-*.md creada.
+Comprobar visualmente: el "Hola Mundo" aparece en el emulador; captura con adb exec-out screencap -p > tutorial/assets/01-hola-mundo.png (para ilustrar la lección).
+Docs: CLAUDE.md sin ningún placeholder <...>, sección "API Contract" eliminada, <main-branch>→main, y sección "Tutorial Methodology" presente. tutorial/01-*.md creada.
 Todo se ejecuta dentro del árbol del proyecto (Execution Policy); el caché de Gradle en ~/.gradle es el comportamiento estándar del wrapper, no un workaround de scratch dir.
 Notas / riesgos
 El scaffold se escribe a mano (sin wizard): reproducible y buen material de tutorial. Como alternativa, existe Android Studio (~/android-studio) para abrir/ejecutar visualmente.

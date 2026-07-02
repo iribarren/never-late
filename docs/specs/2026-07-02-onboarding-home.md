@@ -3,14 +3,14 @@
 - **Date:** 2026-07-02
 - **Feature:** Onboarding + Home
 - **Suggested branch:** `feature/onboarding-home`
-- **Tutorial lesson:** `tutorial/01-onboarding-home.md` (Spanish, required before committing)
+- **Tutorial lesson:** `tutorial/02-onboarding-home.md` (Spanish, required before committing)
 - **Status:** Draft — awaiting user approval
 
 ---
 
 ## Overview
 
-This feature replaces the current static "Hola Mundo" screen (Lesson 00) with the app's first
+This feature replaces the current static "Hola Mundo" screen (Lesson 01) with the app's first
 real user flow: a one-time **onboarding** step and a persistent **home** screen.
 
 On the very first launch the user is greeted by an **Onboarding** screen where they enter their
@@ -27,7 +27,7 @@ vehicle for introducing the first substantial Android app-architecture concepts.
 ### New concepts this feature teaches
 
 This is the second lesson and the first to go beyond static UI. It must introduce, building on
-Lesson 00 (`@Composable`, `Scaffold`, `Column`, `Text`, `Modifier`, theme):
+Lesson 01 (`@Composable`, `Scaffold`, `Column`, `Text`, `Modifier`, theme):
 
 - **Compose state:** `remember`, `mutableStateOf`, and **state hoisting** (stateless composables
   driven by state passed in + callbacks passed out).
@@ -52,7 +52,7 @@ each is explained in the mandatory Spanish tutorial lesson.
 - The name and onboarded flag survive app restarts and process death (persisted on-device).
 - Screen state survives configuration changes (e.g. screen rotation) via `ViewModel`.
 - The code remains exemplary/didactic and each new concept above is demonstrated cleanly and
-  explained in `tutorial/01-onboarding-home.md`.
+  explained in `tutorial/02-onboarding-home.md`.
 - Ships with a `ViewModel` unit test and a Compose UI test of the onboarding form.
 
 ### Non-functional requirements
@@ -203,7 +203,7 @@ hardcoded. No new Android permission or manifest change is expected (local-only,
 **Process / project:**
 
 - New feature branch `feature/onboarding-home` off `master` (never commit to `master`).
-- Mandatory Spanish tutorial lesson `tutorial/01-onboarding-home.md` before committing
+- Mandatory Spanish tutorial lesson `tutorial/02-onboarding-home.md` before committing
   (Tutorial Methodology / `/doc-check`).
 - `gradle/libs.versions.toml` updated for the new dependencies (Documentation Update rule).
 - Build/test run in-place via the Gradle wrapper; the Compose UI test needs a running emulator
@@ -211,7 +211,7 @@ hardcoded. No new Android permission or manifest change is expected (local-only,
 
 **Preconditions (already true):**
 
-- Lesson 00 scaffold in place (`MainActivity`, `NeverLateTheme`, single-module Gradle project,
+- Lesson 01 scaffold in place (`MainActivity`, `NeverLateTheme`, single-module Gradle project,
   `compileSdk/targetSdk = 36`, `minSdk = 24`).
 
 ---
@@ -233,7 +233,7 @@ hardcoded. No new Android permission or manifest change is expected (local-only,
   exercise real DataStore only in instrumented tests if needed.
 - **Tutorial scope creep:** five new concepts in one lesson is a lot for a progressive tutorial.
   *Mitigation:* keep each concept's example minimal and clearly sequenced in
-  `tutorial/01-onboarding-home.md`; reference Lesson 00 rather than re-explaining basics.
+  `tutorial/02-onboarding-home.md`; reference Lesson 01 rather than re-explaining basics.
 - **Emulator availability for UI test:** `connectedDebugAndroidTest` requires a running emulator;
   if unavailable, the Compose UI test can't run in place (per Execution Policy, stop and report
   rather than working around it).
@@ -245,4 +245,4 @@ hardcoded. No new Android permission or manifest change is expected (local-only,
 Please review this spec and confirm the scope, user stories, and acceptance criteria. Per the
 Mandatory Workflow, implementation must not begin until you explicitly approve. Once approved,
 next steps are: create `feature/onboarding-home`, implement (`mobile-engineer`), add tests
-(`qa-engineer`), write `tutorial/01-onboarding-home.md`, and commit on the branch.
+(`qa-engineer`), write `tutorial/02-onboarding-home.md`, and commit on the branch.

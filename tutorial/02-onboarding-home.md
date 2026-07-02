@@ -1,4 +1,4 @@
-# Lección 01 — Onboarding + Home: estado, ViewModel, navegación y DataStore
+# Lección 02 — Onboarding + Home: estado, ViewModel, navegación y DataStore
 
 > Objetivo: pasar de una pantalla estática ("Hola Mundo") a nuestro primer **flujo real**. La
 > primera vez que se abre la app, el usuario introduce su nombre (**onboarding**); las siguientes
@@ -8,7 +8,7 @@
 
 ## Conceptos que aprendes aquí
 
-Partiendo de la Lección 00 (`@Composable`, `Scaffold`, `Column`, `Text`, `Modifier`, tema):
+Partiendo de la Lección 01 (`@Composable`, `Scaffold`, `Column`, `Text`, `Modifier`, tema):
 
 - **Estado en Compose:** `remember`, `mutableStateOf` y, sobre todo, el **state hoisting**
   (izar el estado): composables sin estado que reciben datos y devuelven eventos.
@@ -316,7 +316,7 @@ when (val preferences = userPreferences) {
 
 ## 7. Material 3: `Scaffold`, `TopAppBar` y `Snackbar`
 
-Cada pantalla usa un `Scaffold` (estructura base, ya visto en la Lección 00) ahora **con barra
+Cada pantalla usa un `Scaffold` (estructura base, ya visto en la Lección 01) ahora **con barra
 superior**:
 
 ```kotlin
