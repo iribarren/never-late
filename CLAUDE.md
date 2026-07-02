@@ -121,6 +121,7 @@ from `docs/prompts/NN-*.md`.
 ## Mandatory Workflow
 
 ### New Feature Workflow
+
 When the user requests a new feature or enhancement, ALWAYS follow this sequence:
 
 1. **Specification first**: Delegate to the `project-manager-docs` agent to define the feature. The
@@ -135,6 +136,7 @@ When the user requests a new feature or enhancement, ALWAYS follow this sequence
 7. **Commit on the feature branch**: Never directly on `master`.
 
 ### Bug Fix Workflow
+
 When the user reports a bug:
 
 1. **Diagnose**: Understand the bug.
@@ -143,6 +145,7 @@ When the user reports a bug:
 4. **Commit on the bugfix branch**.
 
 ### Branch Rules
+
 - NEVER commit directly to `master`.
 - Branch naming: `feature/<name>` or `bugfix/<name>`, lowercase, hyphen-separated.
 - If already on a feature/bugfix branch, continue on it.
