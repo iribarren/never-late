@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Lock-screen notification (feature 06). POST_NOTIFICATIONS is a runtime permission on
+         Android 13+ (API 33): the app must request it (see RequestNotificationPermissionEffect);
+         declaring it here is harmless on API 24-32, where it is granted implicitly.
+         FOREGROUND_SERVICE + FOREGROUND_SERVICE_SPECIAL_USE let TasksNotificationService run as a
+         foreground service; SPECIAL_USE is the honest type for an ongoing task summary that fits
+         none of the concrete categories (location, media, etc.). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -34,6 +44,20 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/pending_tasks_widget_info" />
         </receiver>
+
+        <!-- Foreground service hosting the ongoing lock-screen notification (feature 06).
+             android:exported="false": nothing outside the app ever starts it — only the app's own
+             decorator/worker/Activity do, via TasksNotificationService.refresh().
+             android:foregroundServiceType="specialUse" is required from API 34+ (targetSdk 36); the
+             matching FOREGROUND_SERVICE_SPECIAL_USE permission is declared above. -->
+        <service
+            android:name=".ui.notification.TasksNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Ongoing summary of the user's pending tasks and their remaining time on the lock screen." />
+        </service>
     </application>
 
 </manifest>
