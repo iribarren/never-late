@@ -22,4 +22,4 @@ flujo `/feature`.
 - Añade Retrofit/OkHttp/serialization al catálogo `gradle/libs.versions.toml`; requiere permiso
   `INTERNET`.
 - Introduce **networking** por primera vez: explícalo con calma en la lección.
-- Tests con `qa-engineer` (repositorio con servidor mock). Lección en `tutorial/NN-articulos-api.md`.
+- Tests con `qa-engineer` (repositorio con servidor mock). Lección en `tutorial/10-articulos-api.md`.

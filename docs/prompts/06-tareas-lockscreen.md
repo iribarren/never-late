@@ -12,7 +12,7 @@ siguiendo el flujo `/feature`.
   muestre las tareas próximas; opcionalmente un servicio en primer plano mientras haya un
   contador activo.
 
-## Conceptos nuevos a enseñar (lección `tutorial/05-*.md`, en español)
+## Conceptos nuevos a enseñar (lección `tutorial/06-*.md`, en español)
 - **Notificaciones**: canales, `NotificationCompat`, notificación continua/actualizable.
 - **Visibilidad en lockscreen** y buenas prácticas de privacidad.
 - Permiso **`POST_NOTIFICATIONS`** (Android 13+) y su solicitud en runtime.
@@ -21,5 +21,5 @@ siguiendo el flujo `/feature`.
 ## Notas
 - Rama sugerida: `feature/tasks-lockscreen`.
 - Declara permisos/servicios en el `AndroidManifest.xml` y explícalo en la lección.
-- Tests con `qa-engineer` donde aplique. Lección en `tutorial/05-lockscreen.md` antes de
+- Tests con `qa-engineer` donde aplique. Lección en `tutorial/06-lockscreen.md` antes de
   commitear.

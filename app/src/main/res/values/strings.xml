@@ -48,4 +48,9 @@
     <string name="tasks_error_invalid_duration">La duración debe ser un número de minutos mayor que 0.</string>
     <string name="tasks_error_invalid_deadline_format">La fecha límite debe tener el formato dd/MM/aaaa HH:mm.</string>
     <string name="tasks_error_missing_duration_or_deadline">Indica una duración estimada o una fecha límite.</string>
+
+    <!-- Pending tasks home-screen widget -->
+    <string name="widget_pending_tasks_title">Tareas pendientes</string>
+    <string name="widget_pending_tasks_empty">No tienes tareas pendientes.</string>
+    <string name="widget_pending_tasks_description">Muestra tus tareas pendientes y el tiempo restante de cada una.</string>
 </resources>

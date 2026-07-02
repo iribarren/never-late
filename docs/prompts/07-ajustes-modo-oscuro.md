@@ -16,4 +16,4 @@ Implementa la feature **"Ajustes + modo oscuro"** siguiendo el flujo `/feature`.
 
 ## Notas
 - Rama sugerida: `feature/settings-dark-mode`.
-- Encaja bien después del onboarding (reutiliza DataStore). Lección en `tutorial/NN-ajustes.md`.
+- Encaja bien después del onboarding (reutiliza DataStore). Lección en `tutorial/07-ajustes.md`.
