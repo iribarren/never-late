@@ -1,18 +1,19 @@
 package com.neverlate.ui.widget
 
 import com.neverlate.data.tasks.Task
-import com.neverlate.data.tasks.computeRemainingMillis
-import com.neverlate.data.tasks.formatRemaining
+import com.neverlate.domain.tasks.pendingRowsFor
 
 /**
- * How many rows [PendingTasksWidget] draws before it stops, most-urgent-first (see
- * [toWidgetModel]). A home-screen widget has little room and no scrolling gesture worth the
- * complexity here — feature 04's app screen is still the place to see everything.
+ * One rendered row of the widget: a task's title paired with its already-formatted countdown.
+ *
+ * A `typealias` rather than a fresh `data class`: this is the exact same shape the lock-screen
+ * notification (feature 06) needs, so the real definition and the "pending/order/cap" rule that
+ * builds it now live in one shared place, [pendingRowsFor] (see its KDoc for why). Keeping the
+ * name `PendingTaskRow` resolvable in this package — instead of forcing every call site here to
+ * import `com.neverlate.domain.tasks.PendingTaskRow` — avoids an unnecessary rename across the
+ * widget's existing code and tests.
  */
-private const val MAX_VISIBLE_TASKS = 5
-
-/** One rendered row of the widget: a task's title paired with its already-formatted countdown. */
-data class PendingTaskRow(val title: String, val remaining: String, val isTimedOut: Boolean)
+typealias PendingTaskRow = com.neverlate.domain.tasks.PendingTaskRow
 
 /** Everything [PendingTasksWidget] needs to draw itself, computed once per redraw. */
 sealed interface PendingTasksWidgetModel {
@@ -26,31 +27,15 @@ sealed interface PendingTasksWidgetModel {
 /**
  * Pure mapping from the repository's [tasks] at instant [now] to what the widget draws.
  *
- * This is the widget's equivalent of [com.neverlate.ui.tasks.TasksViewModel.onTasksTick]: all the
- * decisions that matter (what counts as "pending", the display order, the row cap, the empty
- * state) live here, in plain Kotlin with no Glance/Android imports, precisely so they can be unit
- * tested on the JVM without spinning up a widget host. [PendingTasksWidget] itself stays a thin
- * shell that calls this function and renders its result.
- *
- * "Pending" definition for this feature (the spec left it open, see US-2): every task counts,
- * including ones whose countdown has already reached zero — a widget's job is to show what is
- * outstanding, and quietly dropping timed-out tasks could hide the exact thing the user most
- * needs to notice. Rows are sorted **most-urgent-first** (smallest remaining time first) so the
- * thing closest to running out is always the first line, then capped to [MAX_VISIBLE_TASKS].
+ * This is the widget's equivalent of [com.neverlate.ui.tasks.TasksViewModel.onTasksTick]: the
+ * empty-state decision lives here, in plain Kotlin with no Glance/Android imports, precisely so
+ * it can be unit tested on the JVM without spinning up a widget host. [PendingTasksWidget] itself
+ * stays a thin shell that calls this function and renders its result. The row-level rule (what
+ * counts as "pending", the display order, the row cap) is delegated to [pendingRowsFor], shared
+ * with the lock-screen notification (feature 06, see [com.neverlate.ui.notification]) so the two
+ * surfaces cannot quietly diverge on that rule.
  */
 fun toWidgetModel(tasks: List<Task>, now: Long): PendingTasksWidgetModel {
     if (tasks.isEmpty()) return PendingTasksWidgetModel.Empty
-
-    val rows = tasks
-        .map { task -> task to computeRemainingMillis(task, now) }
-        .sortedBy { (_, remainingMillis) -> remainingMillis }
-        .take(MAX_VISIBLE_TASKS)
-        .map { (task, remainingMillis) ->
-            PendingTaskRow(
-                title = task.title,
-                remaining = formatRemaining(remainingMillis),
-                isTimedOut = remainingMillis == 0L,
-            )
-        }
-    return PendingTasksWidgetModel.Content(rows)
+    return PendingTasksWidgetModel.Content(pendingRowsFor(tasks, now))
 }

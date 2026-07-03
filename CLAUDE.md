@@ -44,7 +44,15 @@ never-late/
 ```
 
 As the app grows, feature code lives under `app/src/main/java/com/neverlate/` in packages such as
-`ui/screens`, `ui/<feature>`, `data` (DataStore/Room), and `domain`.
+`ui/screens`, `ui/<feature>`, `data` (DataStore/Room), and `domain`. Current feature packages of
+note: `ui/widget` (feature 05, home-screen widget), `ui/notification` (feature 06, lock-screen
+notification + foreground service), and `domain/tasks` (rules shared by both surfaces, e.g.
+`pendingRowsFor`).
+
+**Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime
+permission on Android 13+, requested from Compose), plus `FOREGROUND_SERVICE` /
+`FOREGROUND_SERVICE_SPECIAL_USE` for the notification's foreground service
+(`TasksNotificationService`, `foregroundServiceType="specialUse"`).
 
 ## Development
 

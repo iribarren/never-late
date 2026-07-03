@@ -46,6 +46,7 @@ import com.neverlate.data.tasks.formatDeadline
 import com.neverlate.data.tasks.formatDurationLabel
 import com.neverlate.data.tasks.formatRemaining
 import com.neverlate.ui.navigation.AppViewModelFactory
+import com.neverlate.ui.notification.RequestNotificationPermissionEffect
 import com.neverlate.ui.theme.NeverLateTheme
 
 /**
@@ -63,6 +64,10 @@ fun TasksRoute(
     viewModel: TasksViewModel = viewModel(factory = AppViewModelFactory(taskRepository = taskRepository)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Ask for the POST_NOTIFICATIONS permission (Android 13+) in context, the first time the user
+    // reaches their tasks — that is when "also show these on the lock screen" is meaningful. No-op
+    // below Android 13, and denial degrades gracefully (see the effect's KDoc / feature 06).
+    RequestNotificationPermissionEffect()
     TasksScreen(
         uiState = uiState,
         onAddTaskClick = onAddTaskClick,

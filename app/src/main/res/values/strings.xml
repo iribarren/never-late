@@ -53,4 +53,15 @@
     <string name="widget_pending_tasks_title">Tareas pendientes</string>
     <string name="widget_pending_tasks_empty">No tienes tareas pendientes.</string>
     <string name="widget_pending_tasks_description">Muestra tus tareas pendientes y el tiempo restante de cada una.</string>
+
+    <!-- Lock-screen notification (feature 06) -->
+    <string name="notification_channel_name">Tareas pendientes</string>
+    <string name="notification_channel_description">Notificación continua con tus tareas pendientes y su tiempo restante.</string>
+    <string name="notification_title">Tareas pendientes</string>
+    <!-- Collapsed line: most urgent task title + its remaining time, e.g. "Llamar al médico · 12:30". -->
+    <string name="notification_content_text_format">%1$s · %2$s</string>
+    <!-- One expanded InboxStyle row: task title + remaining time. -->
+    <string name="notification_row_format">%1$s · %2$s</string>
+    <!-- Redacted public (lock-screen) summary: count + most urgent remaining time, no titles. -->
+    <string name="notification_public_summary_format">%1$d tareas pendientes · próxima en %2$s</string>
 </resources>

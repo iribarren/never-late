@@ -12,9 +12,10 @@ import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.RoomTaskRepository
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppNavHost
+import com.neverlate.ui.notification.TasksNotificationService
 import com.neverlate.ui.theme.NeverLateTheme
-import com.neverlate.ui.widget.WidgetRefreshWorker
-import com.neverlate.ui.widget.WidgetRefreshingTaskRepository
+import com.neverlate.ui.widget.TaskSurfacesRefreshWorker
+import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
 
 /**
  * Single entry point of the app. In Compose there is usually one Activity that hosts the whole
@@ -27,9 +28,10 @@ import com.neverlate.ui.widget.WidgetRefreshingTaskRepository
  * [NeverLateDatabase], this project's first Room database — [NeverLateDatabase.getInstance]
  * takes care of creating (or reusing) the single instance for the whole process.
  *
- * [TaskRepository] is wrapped in [WidgetRefreshingTaskRepository] (feature 05) so every write
- * made anywhere in the app also redraws the home-screen widget — see that class's KDoc for why a
- * widget cannot simply observe the repository the way this app's `ViewModel`s do.
+ * [TaskRepository] is wrapped in [TaskSurfacesRefreshingRepository] (features 05 + 06) so every
+ * write made anywhere in the app also refreshes both read-only surfaces — the home-screen widget
+ * and the lock-screen notification — see that class's KDoc for why neither can simply observe the
+ * repository the way this app's `ViewModel`s do.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,11 +42,17 @@ class MainActivity : ComponentActivity() {
         val articleRepository: ArticleRepository = LocalArticleRepository(applicationContext)
         val database = NeverLateDatabase.getInstance(applicationContext)
         val taskRepository: TaskRepository =
-            WidgetRefreshingTaskRepository(RoomTaskRepository(database.taskDao()), applicationContext)
+            TaskSurfacesRefreshingRepository(RoomTaskRepository(database.taskDao()), applicationContext)
 
         // Enqueued on every app start, but ExistingPeriodicWorkPolicy.KEEP (inside
         // enqueuePeriodic) makes this idempotent, so it only ever actually schedules once.
-        WidgetRefreshWorker.enqueuePeriodic(applicationContext)
+        TaskSurfacesRefreshWorker.enqueuePeriodic(applicationContext)
+
+        // Evaluate the lock-screen notification right away on launch, so it appears (or is cleared)
+        // immediately based on the current tasks, without waiting for the next write or the ~15-min
+        // periodic worker. The service reads a fresh snapshot and tears itself down if nothing is
+        // pending or notifications are disabled, so calling this unconditionally is safe.
+        TasksNotificationService.refresh(applicationContext)
 
         // Set by PendingTasksWidget's tap action (see its KDoc) so the app opens straight on the
         // tasks list instead of wherever it would normally start.
