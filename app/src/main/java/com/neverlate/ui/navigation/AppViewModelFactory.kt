@@ -9,6 +9,7 @@ import com.neverlate.ui.articles.ArticleDetailViewModel
 import com.neverlate.ui.articles.ArticlesViewModel
 import com.neverlate.ui.home.HomeViewModel
 import com.neverlate.ui.onboarding.OnboardingViewModel
+import com.neverlate.ui.settings.SettingsViewModel
 import com.neverlate.ui.tasks.TaskEditViewModel
 import com.neverlate.ui.tasks.TasksViewModel
 
@@ -45,6 +46,9 @@ class AppViewModelFactory(
 
         modelClass.isAssignableFrom(HomeViewModel::class.java) ->
             HomeViewModel(requireUserPreferencesRepository()) as T
+
+        modelClass.isAssignableFrom(SettingsViewModel::class.java) ->
+            SettingsViewModel(requireUserPreferencesRepository()) as T
 
         modelClass.isAssignableFrom(ArticlesViewModel::class.java) ->
             ArticlesViewModel(requireArticleRepository()) as T

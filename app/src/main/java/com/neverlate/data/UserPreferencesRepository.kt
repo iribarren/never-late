@@ -18,14 +18,40 @@ import kotlinx.coroutines.flow.map
 private val Context.userPrefsDataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
 
 /**
+ * The theme the user has chosen for the whole app.
+ *
+ * [SYSTEM] means "follow whatever the device is set to" (light/dark), so it is not a fixed
+ * colour — the concrete decision is recomputed on every composition. This is why we persist the
+ * three-state *mode* and not a plain light/dark boolean (see [com.neverlate.ui.theme.themeModeToDark]).
+ */
+enum class ThemeMode {
+    LIGHT,
+    DARK,
+    SYSTEM;
+
+    companion object {
+        /**
+         * Turns the stored string back into a [ThemeMode], tolerating anything unexpected.
+         *
+         * We persist [ThemeMode] as its [name] (e.g. "DARK"). A value that is absent (`null`, a
+         * fresh install) or unrecognised (e.g. an old/corrupted key, or a mode removed in a future
+         * version) must never crash — it falls back to the safe default [SYSTEM].
+         */
+        fun fromStorage(value: String?): ThemeMode =
+            entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
+
+/**
  * Immutable snapshot of everything we persist about the user so far.
  *
- * Defaults ([name] empty, [onboarded] false) are what a brand-new install reads before the
- * user has saved anything.
+ * Defaults ([name] empty, [onboarded] false, [themeMode] SYSTEM) are what a brand-new install
+ * reads before the user has saved anything.
  */
 data class UserPreferences(
     val name: String = "",
     val onboarded: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
 
 /**
@@ -41,6 +67,9 @@ interface UserPreferencesRepository {
 
     /** Persists the onboarding step: the (trimmed) name, and marks the user as onboarded. */
     suspend fun saveOnboarding(name: String)
+
+    /** Persists the app-wide theme choice. */
+    suspend fun saveThemeMode(mode: ThemeMode)
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -51,6 +80,9 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
     private object Keys {
         val NAME = stringPreferencesKey("user_name")
         val ONBOARDED = booleanPreferencesKey("onboarded")
+        // Added in feature 07. Stored in the same "user_prefs" file as the onboarding keys — this
+        // repository extends the existing store rather than creating a second one.
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -58,6 +90,9 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
             UserPreferences(
                 name = preferences[Keys.NAME] ?: "",
                 onboarded = preferences[Keys.ONBOARDED] ?: false,
+                // The enum is persisted as a String, so parsing goes through fromStorage, which
+                // maps a missing/unknown value back to the SYSTEM default instead of throwing.
+                themeMode = ThemeMode.fromStorage(preferences[Keys.THEME_MODE]),
             )
         }
 
@@ -66,6 +101,12 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         context.userPrefsDataStore.edit { preferences ->
             preferences[Keys.NAME] = name.trim()
             preferences[Keys.ONBOARDED] = true
+        }
+    }
+
+    override suspend fun saveThemeMode(mode: ThemeMode) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.THEME_MODE] = mode.name
         }
     }
 }

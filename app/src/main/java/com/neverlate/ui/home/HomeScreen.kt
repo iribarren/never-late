@@ -7,8 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -39,11 +43,18 @@ fun HomeRoute(
     repository: UserPreferencesRepository,
     onArticlesClick: () -> Unit,
     onTasksClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(factory = AppViewModelFactory(repository)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeScreen(uiState = uiState, onArticlesClick = onArticlesClick, onTasksClick = onTasksClick, modifier = modifier)
+    HomeScreen(
+        uiState = uiState,
+        onArticlesClick = onArticlesClick,
+        onTasksClick = onTasksClick,
+        onSettingsClick = onSettingsClick,
+        modifier = modifier,
+    )
 }
 
 /** A single entry rendered on Home (Tasks, Articles, ...), each with its own click behaviour. */
@@ -55,6 +66,7 @@ fun HomeScreen(
     uiState: HomeUiState,
     onArticlesClick: () -> Unit,
     onTasksClick: () -> Unit,
+    onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Both options now navigate directly (Tasks and Articles are both implemented), but the
@@ -69,7 +81,19 @@ fun HomeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = stringResource(R.string.home_settings_content_description),
+                        )
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Column(
@@ -111,6 +135,11 @@ private fun HomeOptionCard(label: String, onClick: () -> Unit, modifier: Modifie
 @Composable
 private fun HomeScreenPreview() {
     NeverLateTheme {
-        HomeScreen(uiState = HomeUiState(name = "Ada"), onArticlesClick = {}, onTasksClick = {})
+        HomeScreen(
+            uiState = HomeUiState(name = "Ada"),
+            onArticlesClick = {},
+            onTasksClick = {},
+            onSettingsClick = {},
+        )
     }
 }

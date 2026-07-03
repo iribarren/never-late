@@ -21,6 +21,7 @@ import com.neverlate.ui.articles.ArticleDetailRoute
 import com.neverlate.ui.articles.ArticlesRoute
 import com.neverlate.ui.home.HomeRoute
 import com.neverlate.ui.onboarding.OnboardingRoute
+import com.neverlate.ui.settings.SettingsRoute
 import com.neverlate.ui.tasks.TaskEditRoute
 import com.neverlate.ui.tasks.TasksRoute
 
@@ -32,6 +33,7 @@ private object Routes {
     const val ARTICLE_DETAIL = "articleDetail"
     const val TASKS = "tasks"
     const val TASK_EDIT = "taskEdit"
+    const val SETTINGS = "settings"
 }
 
 /** Name of the navigation argument carrying an [com.neverlate.data.articles.Article.id]. */
@@ -93,6 +95,13 @@ fun AppNavHost(
                         repository = repository,
                         onArticlesClick = { navController.navigate(Routes.ARTICLES) },
                         onTasksClick = { navController.navigate(Routes.TASKS) },
+                        onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    )
+                }
+                composable(Routes.SETTINGS) {
+                    SettingsRoute(
+                        repository = repository,
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable(Routes.ARTICLES) {
