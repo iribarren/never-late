@@ -39,6 +39,11 @@
     <string name="tasks_pause_content_description">Pausar cuenta atrás</string>
     <string name="tasks_time_up">Tiempo agotado</string>
     <string name="tasks_duration_label">Duración: %1$s</string>
+    <!-- Duration pieces, assembled from locale-formatted numbers (%1$s/%2$s) so translators
+         control the unit abbreviations and word order instead of the code concatenating them. -->
+    <string name="tasks_duration_hours_minutes">%1$s h %2$s min</string>
+    <string name="tasks_duration_hours">%1$s h</string>
+    <string name="tasks_duration_minutes">%1$s min</string>
     <string name="tasks_deadline_label">Fecha límite: %1$s</string>
     <string name="tasks_delete_confirm_title">Borrar tarea</string>
     <string name="tasks_delete_confirm_message">¿Seguro que quieres borrar «%1$s»?</string>
@@ -71,6 +76,12 @@
     <string name="notification_content_text_format">%1$s · %2$s</string>
     <!-- One expanded InboxStyle row: task title + remaining time. -->
     <string name="notification_row_format">%1$s · %2$s</string>
-    <!-- Redacted public (lock-screen) summary: count + most urgent remaining time, no titles. -->
-    <string name="notification_public_summary_format">%1$d tareas pendientes · próxima en %2$s</string>
+    <!-- Redacted public (lock-screen) summary: count + most urgent remaining time, no titles.
+         A <plurals> resource so the count agrees grammatically ("1 tarea" vs "3 tareas"); %1$d is
+         the count (locale-formatted by the resource system) and %2$s the most urgent remaining
+         time. -->
+    <plurals name="notification_public_summary">
+        <item quantity="one">%1$d tarea pendiente · próxima en %2$s</item>
+        <item quantity="other">%1$d tareas pendientes · próxima en %2$s</item>
+    </plurals>
 </resources>

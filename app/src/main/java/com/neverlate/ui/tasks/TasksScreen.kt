@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,12 +43,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
-import com.neverlate.data.tasks.formatDeadline
-import com.neverlate.data.tasks.formatDurationLabel
+import com.neverlate.data.tasks.durationParts
+import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.data.tasks.formatRemaining
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.notification.RequestNotificationPermissionEffect
 import com.neverlate.ui.theme.NeverLateTheme
+import java.text.NumberFormat
 
 /**
  * Stateful wrapper: obtains [TasksViewModel] (via [AppViewModelFactory]) and forwards its state
@@ -181,13 +183,19 @@ private fun TaskRow(
 
             task.estimatedDurationMillis?.let { duration ->
                 Text(
-                    text = stringResource(R.string.tasks_duration_label, formatDurationLabel(duration)),
+                    text = stringResource(R.string.tasks_duration_label, durationLabel(duration)),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             task.deadline?.let { deadline ->
+                // Read the current configuration's locale so the date follows the device language;
+                // locales[0] is the user's top preferred locale (available since API 24).
+                val locale = LocalConfiguration.current.locales[0]
                 Text(
-                    text = stringResource(R.string.tasks_deadline_label, formatDeadline(deadline)),
+                    text = stringResource(
+                        R.string.tasks_deadline_label,
+                        formatDeadlineForDisplay(deadline, locale),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -243,6 +251,27 @@ private fun TaskRow(
             },
             onDismiss = { showDeleteConfirm = false },
         )
+    }
+}
+
+/**
+ * Builds a localized estimated-duration label (e.g. "1 h 30 min" / "1h 30min") from an epoch-millis
+ * duration. The numbers are formatted with a locale-aware [NumberFormat] and the units + word order
+ * come from string resources, so nothing is concatenated in code — the whole point of feature 08.
+ */
+@Composable
+private fun durationLabel(millis: Long): String {
+    val locale = LocalConfiguration.current.locales[0]
+    val numberFormat = remember(locale) { NumberFormat.getIntegerInstance(locale) }
+    val (hours, minutes) = durationParts(millis)
+    return when {
+        hours > 0 && minutes > 0 -> stringResource(
+            R.string.tasks_duration_hours_minutes,
+            numberFormat.format(hours),
+            numberFormat.format(minutes),
+        )
+        hours > 0 -> stringResource(R.string.tasks_duration_hours, numberFormat.format(hours))
+        else -> stringResource(R.string.tasks_duration_minutes, numberFormat.format(minutes))
     }
 }
 

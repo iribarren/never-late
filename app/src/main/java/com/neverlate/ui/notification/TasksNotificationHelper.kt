@@ -138,7 +138,15 @@ object TasksNotificationHelper {
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle(context.getString(R.string.notification_title))
             .setContentText(
-                context.getString(R.string.notification_public_summary_format, model.totalPendingCount, mostUrgentLabel),
+                // Plural resource, not a fixed string: the count picks the grammatically correct
+                // wording ("1 tarea" vs "3 tareas"). getQuantityString takes the count twice —
+                // once to choose the plural category, once as the %1$d format argument.
+                context.resources.getQuantityString(
+                    R.plurals.notification_public_summary,
+                    model.totalPendingCount,
+                    model.totalPendingCount,
+                    mostUrgentLabel,
+                ),
             )
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)

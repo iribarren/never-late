@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English translations (values-en). Selected automatically when the device language is English;
+  otherwise Android falls back to the base res/values/strings.xml (Spanish). Every `name` here
+  must mirror a `name` in the base file — the Translation lint inspection flags any that drift.
+-->
+<resources>
+    <string name="app_name">Never Late</string>
+
+    <!-- Onboarding screen -->
+    <string name="onboarding_title">Welcome</string>
+    <string name="onboarding_prompt">What\'s your name?</string>
+    <string name="onboarding_name_label">Your name</string>
+    <string name="onboarding_save_button">Save</string>
+
+    <!-- Home screen -->
+    <string name="home_greeting">Hi, %1$s</string>
+    <string name="home_option_tasks">Tasks</string>
+    <string name="home_option_articles">Articles</string>
+    <string name="home_settings_content_description">Settings</string>
+
+    <!-- Settings screen (feature 07) -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_back_content_description">Back</string>
+    <string name="settings_theme_section">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">Follow the system</string>
+
+    <!-- Articles screens -->
+    <string name="articles_title">Articles</string>
+    <string name="articles_empty">No articles available yet.</string>
+    <string name="articles_back_content_description">Back</string>
+    <string name="articles_not_found">Article not found.</string>
+    <string name="articles_detail_title_fallback">Article</string>
+
+    <!-- Tasks list screen -->
+    <string name="tasks_title">Tasks</string>
+    <string name="tasks_empty">You have no tasks yet. Tap + to add one.</string>
+    <string name="tasks_add_content_description">Add task</string>
+    <string name="tasks_back_content_description">Back</string>
+    <string name="tasks_delete_content_description">Delete task</string>
+    <string name="tasks_start_content_description">Start countdown</string>
+    <string name="tasks_pause_content_description">Pause countdown</string>
+    <string name="tasks_time_up">Time\'s up</string>
+    <string name="tasks_duration_label">Duration: %1$s</string>
+    <!-- Duration pieces, assembled from locale-formatted numbers (%1$s/%2$s) so translators
+         control the unit abbreviations and word order instead of the code concatenating them. -->
+    <string name="tasks_duration_hours_minutes">%1$sh %2$smin</string>
+    <string name="tasks_duration_hours">%1$sh</string>
+    <string name="tasks_duration_minutes">%1$smin</string>
+    <string name="tasks_deadline_label">Deadline: %1$s</string>
+    <string name="tasks_delete_confirm_title">Delete task</string>
+    <string name="tasks_delete_confirm_message">Delete “%1$s”?</string>
+    <string name="tasks_delete_confirm_button">Delete</string>
+    <string name="tasks_delete_cancel_button">Cancel</string>
+
+    <!-- Task create/edit screen -->
+    <string name="task_edit_title_create">New task</string>
+    <string name="task_edit_title_edit">Edit task</string>
+    <string name="task_edit_title_label">Title</string>
+    <string name="task_edit_duration_label">Estimated duration (minutes)</string>
+    <string name="task_edit_deadline_label">Deadline (dd/MM/yyyy HH:mm)</string>
+    <string name="task_edit_save_button">Save</string>
+    <string name="task_edit_delete_button">Delete task</string>
+    <string name="tasks_error_blank_title">The title can\'t be empty.</string>
+    <string name="tasks_error_invalid_duration">The duration must be a number of minutes greater than 0.</string>
+    <string name="tasks_error_invalid_deadline_format">The deadline must use the format dd/MM/yyyy HH:mm.</string>
+    <string name="tasks_error_missing_duration_or_deadline">Enter an estimated duration or a deadline.</string>
+
+    <!-- Pending tasks home-screen widget -->
+    <string name="widget_pending_tasks_title">Pending tasks</string>
+    <string name="widget_pending_tasks_empty">You have no pending tasks.</string>
+    <string name="widget_pending_tasks_description">Shows your pending tasks and the time left on each.</string>
+
+    <!-- Lock-screen notification (feature 06) -->
+    <string name="notification_channel_name">Pending tasks</string>
+    <string name="notification_channel_description">Ongoing notification with your pending tasks and their remaining time.</string>
+    <string name="notification_title">Pending tasks</string>
+    <!-- Collapsed line: most urgent task title + its remaining time, e.g. "Call the doctor · 12:30". -->
+    <string name="notification_content_text_format">%1$s · %2$s</string>
+    <!-- One expanded InboxStyle row: task title + remaining time. -->
+    <string name="notification_row_format">%1$s · %2$s</string>
+    <!-- Redacted public (lock-screen) summary: count + most urgent remaining time, no titles. -->
+    <plurals name="notification_public_summary">
+        <item quantity="one">%1$d pending task · next in %2$s</item>
+        <item quantity="other">%1$d pending tasks · next in %2$s</item>
+    </plurals>
+</resources>
