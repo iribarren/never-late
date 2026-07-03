@@ -40,20 +40,32 @@ object TasksNotificationHelper {
      * `minSdk`), [NotificationCompat] simply ignores the channel id passed to its `Builder` and
      * shows the notification without one.
      *
-     * `IMPORTANCE_LOW` (no sound, no heads-up popup) matches this notification's job: an ongoing,
-     * glanceable summary, not an urgent alert — re-posting it on every refresh must never buzz or
-     * pop up over other apps. Calling this repeatedly is safe: creating a channel with the same id
-     * again is a no-op that leaves the user's own channel settings (they can override importance
-     * in system settings) untouched.
+     * `IMPORTANCE_DEFAULT` is deliberately paired with **no sound and no vibration** below. The
+     * quieter `IMPORTANCE_LOW` seemed like the natural fit for an ongoing, glanceable summary, but
+     * many OEM lock screens (notably Xiaomi's MIUI/HyperOS) classify anything below `DEFAULT` as a
+     * "silent" notification and **hide it from the lock screen entirely** — which defeats this whole
+     * feature. `DEFAULT` keeps it visible on the lock screen, while `setSound(null, null)` +
+     * `setVibrationEnabled(false)` strip the alerting behaviour so re-posting it on every refresh
+     * still never buzzes or pops up (`DEFAULT`, unlike `HIGH`, also shows no heads-up popup).
+     *
+     * Note the importance is only honoured the **first** time a channel id is created: Android
+     * freezes it afterwards so the user stays in control (they can still override it in system
+     * settings). On a device that already created this channel under the old `IMPORTANCE_LOW`, the
+     * app must be reinstalled (or its data cleared) for this new importance to take effect. Calling
+     * this repeatedly is otherwise safe — recreating an existing channel is a no-op.
      */
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannelCompat.Builder(
                 TASKS_NOTIFICATION_CHANNEL_ID,
-                NotificationManagerCompat.IMPORTANCE_LOW,
+                NotificationManagerCompat.IMPORTANCE_DEFAULT,
             )
                 .setName(context.getString(R.string.notification_channel_name))
                 .setDescription(context.getString(R.string.notification_channel_description))
+                // Visible on the lock screen (via DEFAULT importance) but never audible: this is a
+                // status summary, not an alert.
+                .setSound(null, null)
+                .setVibrationEnabled(false)
                 .build()
             NotificationManagerCompat.from(context).createNotificationChannel(channel)
         }
@@ -91,7 +103,12 @@ object TasksNotificationHelper {
             .setNumber(model.totalPendingCount)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            // PRIORITY_DEFAULT is the pre-API-26 counterpart of the channel's IMPORTANCE_DEFAULT
+            // above: on API 24-25 there is no channel, so the priority is what keeps the
+            // notification visible on the lock screen (PRIORITY_LOW/MIN can be hidden there).
+            // setSilent(true) removes any sound/vibration, so a higher priority still never alerts.
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setSilent(true)
             // D3 (approved 2026-07-02): VISIBILITY_PUBLIC for now — task titles show directly on
             // the lockscreen. VISIBILITY_PUBLIC makes Android ignore setPublicVersion below (it
             // only takes effect under VISIBILITY_PRIVATE/VISIBILITY_SECRET), so the redacted
@@ -124,7 +141,8 @@ object TasksNotificationHelper {
                 context.getString(R.string.notification_public_summary_format, model.totalPendingCount, mostUrgentLabel),
             )
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setSilent(true)
             .build()
 
     /**

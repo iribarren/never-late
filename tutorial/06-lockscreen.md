@@ -127,19 +127,35 @@ fun ensureChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         val channel = NotificationChannelCompat.Builder(
             TASKS_NOTIFICATION_CHANNEL_ID,
-            NotificationManagerCompat.IMPORTANCE_LOW,   // sin sonido ni popup: es informativa, no urgente
+            NotificationManagerCompat.IMPORTANCE_DEFAULT,   // visible en el lockscreen…
         )
             .setName(context.getString(R.string.notification_channel_name))
             .setDescription(context.getString(R.string.notification_channel_description))
+            .setSound(null, null)         // …pero sin sonido…
+            .setVibrationEnabled(false)   // …ni vibración: es un resumen, no una alerta
             .build()
         NotificationManagerCompat.from(context).createNotificationChannel(channel)
     }
 }
 ```
 
-`IMPORTANCE_LOW` es deliberado: esta notificación se **reemite** en cada refresco, y no queremos que
-suene o aparezca de golpe una y otra vez. Crear el canal con el mismo id repetidamente es un **no-op**,
-así que llamar a `ensureChannel` cada vez es seguro.
+**La importancia y el problema del lockscreen en Xiaomi.** La primera versión de esta feature usaba
+`IMPORTANCE_LOW`, que parecía lo natural para un resumen permanente que se **reemite** en cada refresco:
+sin sonido y sin popup. Al **probarlo en un móvil real (Xiaomi / MIUI)** descubrimos que la notificación
+salía en la barra de notificaciones pero **nunca en la pantalla de bloqueo** — justo lo contrario del
+objetivo de la feature. El motivo: muchas capas de fabricante (MIUI/HyperOS entre ellas) clasifican todo
+lo que esté por debajo de `IMPORTANCE_DEFAULT` como "silencioso" y **lo ocultan del lockscreen**.
+
+La solución es `IMPORTANCE_DEFAULT` (para que el sistema la considere visible en el lockscreen)
+combinado con `setSound(null, null)` y `setVibrationEnabled(false)` para quitarle el sonido y la
+vibración. Así seguimos teniendo una notificación que **no molesta** al reemitirse, pero que **sí** se
+ve en la pantalla de bloqueo. (`DEFAULT`, a diferencia de `HIGH`, tampoco muestra *heads-up* flotante.)
+
+> ⚠️ **La importancia de un canal solo se aplica la primera vez que se crea.** Android la "congela"
+> después para que mande la persona usuaria (puede cambiarla en Ajustes). En un móvil que ya creó el
+> canal con la importancia antigua, hay que **reinstalar la app o borrar sus datos** para que la nueva
+> importancia tenga efecto. Recrear un canal existente con el mismo id es, por lo demás, un **no-op**,
+> así que llamar a `ensureChannel` en cada refresco es seguro.
 
 ---
 
@@ -157,7 +173,8 @@ NotificationCompat.Builder(context, TASKS_NOTIFICATION_CHANNEL_ID)
     .setNumber(model.totalPendingCount)
     .setOngoing(true)              // no se puede descartar mientras haya tareas
     .setOnlyAlertOnce(true)        // reemitir no vuelve a sonar/vibrar
-    .setPriority(NotificationCompat.PRIORITY_LOW)
+    .setPriority(NotificationCompat.PRIORITY_DEFAULT)      // equivalente a IMPORTANCE_DEFAULT en API 24-25
+    .setSilent(true)               // …pero sin sonido/vibración (ver sección 4)
     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)   // ver sección 6
     .setPublicVersion(buildPublicVersion(...))
     .setContentIntent(buildContentIntent(context))         // tocar → abrir la app
@@ -289,8 +306,8 @@ private suspend fun refreshNotification() {
 > publicada, `specialUse` requiere justificación ante Google Play; aquí, al ser local, no aplica.
 
 > **El coste.** Un foreground service activo mientras haya tareas puede durar horas. El sistema vigila
-> estos servicios. Por eso el canal es de importancia baja y el servicio se **para** en cuanto no queda
-> nada pendiente. (De hecho, para una señal informativa como esta, una notificación normal sin servicio
+> estos servicios. Por eso el canal es silencioso (sin sonido ni vibración) y el servicio se **para** en
+> cuanto no queda nada pendiente. (De hecho, para una señal informativa como esta, una notificación normal sin servicio
 > habría bastado; usamos el servicio aquí sobre todo para **aprender el concepto**.)
 
 ---
