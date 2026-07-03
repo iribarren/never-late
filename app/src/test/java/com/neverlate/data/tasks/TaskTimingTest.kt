@@ -1,9 +1,11 @@
 package com.neverlate.data.tasks
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Locale
 
 class TaskTimingTest {
 
@@ -104,38 +106,40 @@ class TaskTimingTest {
         assertEquals("1:01:01", formatRemaining(3_600_000L + 61_000L))
     }
 
-    // formatDurationLabel -----------------------------------------------------------------------
+    // durationParts -----------------------------------------------------------------------------
+    // Pure split into (hours, minutes); the localized "1 h 30 min" label is assembled in the UI
+    // layer from string resources, so it is exercised by TasksScreen's Compose tests, not here.
 
     @Test
-    fun `formatDurationLabel renders whole hours and minutes together`() {
-        assertEquals("1 h 30 min", formatDurationLabel(90 * 60_000L))
+    fun `durationParts splits into whole hours and leftover minutes`() {
+        assertEquals(1L to 30L, durationParts(90 * 60_000L))
     }
 
     @Test
-    fun `formatDurationLabel omits minutes when the duration is a whole number of hours`() {
-        assertEquals("2 h", formatDurationLabel(120 * 60_000L))
+    fun `durationParts returns zero minutes for a whole number of hours`() {
+        assertEquals(2L to 0L, durationParts(120 * 60_000L))
     }
 
     @Test
-    fun `formatDurationLabel renders sub-hour durations as minutes only`() {
-        assertEquals("45 min", formatDurationLabel(45 * 60_000L))
+    fun `durationParts returns zero hours for a sub-hour duration`() {
+        assertEquals(0L to 45L, durationParts(45 * 60_000L))
     }
 
     @Test
-    fun `formatDurationLabel renders zero as 0 min`() {
-        assertEquals("0 min", formatDurationLabel(0L))
+    fun `durationParts returns zero, zero for a zero duration`() {
+        assertEquals(0L to 0L, durationParts(0L))
     }
 
-    // formatDeadline / parseDeadline -------------------------------------------------------------
+    // formatDeadlineForInput / parseDeadline -----------------------------------------------------
 
     @Test
-    fun `parseDeadline and formatDeadline round-trip a valid date-time string`() {
+    fun `parseDeadline and formatDeadlineForInput round-trip a valid date-time string`() {
         val text = "24/12/2026 20:30"
 
         val millis = parseDeadline(text)
 
         assertTrue("expected \"$text\" to parse successfully", millis != null)
-        assertEquals(text, formatDeadline(millis!!))
+        assertEquals(text, formatDeadlineForInput(millis!!))
     }
 
     @Test
@@ -148,5 +152,36 @@ class TaskTimingTest {
     fun `parseDeadline rejects out-of-range dates instead of rolling them over`() {
         assertNull(parseDeadline("32/13/2026 20:30"))
         assertNull(parseDeadline("24/12/2026 25:30"))
+    }
+
+    @Test
+    fun `parseDeadline reads the fixed pattern regardless of the default locale`() {
+        // The input round-trip is pinned to Locale.ROOT, so switching the JVM default locale must
+        // not change how a typed deadline parses — that determinism is the whole point of keeping
+        // input parsing separate from locale-aware display.
+        val text = "24/12/2026 20:30"
+        val previous = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.forLanguageTag("ar")) // a locale with very different formats
+            assertEquals(parseDeadline(text), parseDeadline(text))
+            assertTrue(parseDeadline(text) != null)
+        } finally {
+            Locale.setDefault(previous)
+        }
+    }
+
+    // formatDeadlineForDisplay -------------------------------------------------------------------
+
+    @Test
+    fun `formatDeadlineForDisplay follows the requested locale`() {
+        val millis = parseDeadline("24/12/2026 20:30")!!
+
+        val english = formatDeadlineForDisplay(millis, Locale.US)
+        val spanish = formatDeadlineForDisplay(millis, Locale.forLanguageTag("es-ES"))
+
+        // We avoid asserting an exact string (it depends on the JDK's CLDR data), but the two
+        // locales must render the same instant differently — e.g. month/day order and 12h vs 24h.
+        assertTrue("expected a non-empty display string", english.isNotBlank())
+        assertNotEquals(english, spanish)
     }
 }

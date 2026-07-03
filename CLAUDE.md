@@ -50,6 +50,15 @@ notification + foreground service), `ui/settings` (feature 07, Settings screen +
 theme preference persisted via the shared `user_prefs` DataStore and applied in `NeverLateTheme`),
 and `domain/tasks` (rules shared by both surfaces, e.g. `pendingRowsFor`).
 
+**Localization** (feature 08, i18n): all user-facing text lives in string resources.
+`res/values/strings.xml` is the Spanish base/fallback; `res/values-en/strings.xml` is the English
+variant (selected by device language). Counts use `<plurals>` (`getQuantityString` /
+`pluralStringResource`); numbers/dates are formatted per device `Locale` via `NumberFormat` /
+`java.time` `DateTimeFormatter` (see `data/tasks/TaskTiming.kt`, where display formatting is
+locale-aware and the deadline input round-trip is pinned to `Locale.ROOT`). `java.time` on
+`minSdk = 24` is enabled by **core library desugaring** (`isCoreLibraryDesugaringEnabled` +
+`coreLibraryDesugaring(libs.desugar.jdk.libs)`).
+
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime
 permission on Android 13+, requested from Compose), plus `FOREGROUND_SERVICE` /
 `FOREGROUND_SERVICE_SPECIAL_USE` for the notification's foreground service

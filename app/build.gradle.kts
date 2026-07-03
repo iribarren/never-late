@@ -33,6 +33,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Back-ports the java.time APIs (used for feature 08's locale-aware date formatting) so
+        // they run on minSdk = 24; without this they would require API 26.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -63,6 +66,8 @@ dependencies {
     // WorkManager: schedules the widget's periodic background refresh (feature 05), since a
     // widget has no `delay`-based ticker of its own — see WidgetRefreshWorker.
     implementation(libs.androidx.work.runtime.ktx)
+    // Enables the java.time APIs on minSdk = 24 (see compileOptions.isCoreLibraryDesugaringEnabled).
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))

@@ -6,7 +6,7 @@ import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskFormResult
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.TaskValidationError
-import com.neverlate.data.tasks.formatDeadline
+import com.neverlate.data.tasks.formatDeadlineForInput
 import com.neverlate.data.tasks.validateTaskForm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,7 +57,7 @@ class TaskEditViewModel(
                     estimatedDurationMinutes = task.estimatedDurationMillis
                         ?.let { (it / 60_000L).toString() }
                         .orEmpty(),
-                    deadlineText = task.deadline?.let(::formatDeadline).orEmpty(),
+                    deadlineText = task.deadline?.let(::formatDeadlineForInput).orEmpty(),
                 )
             }
         }
