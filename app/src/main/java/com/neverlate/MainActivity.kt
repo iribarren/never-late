@@ -4,7 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neverlate.data.DataStoreUserPreferencesRepository
+import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.data.articles.LocalArticleRepository
@@ -14,6 +18,7 @@ import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppNavHost
 import com.neverlate.ui.notification.TasksNotificationService
 import com.neverlate.ui.theme.NeverLateTheme
+import com.neverlate.ui.theme.themeModeToDark
 import com.neverlate.ui.widget.TaskSurfacesRefreshWorker
 import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
 
@@ -59,7 +64,15 @@ class MainActivity : ComponentActivity() {
         val openTasksOnStart = intent?.getBooleanExtra(EXTRA_OPEN_TASKS, false) ?: false
 
         setContent {
-            NeverLateTheme {
+            // Read the persisted theme preference at the very top of the composition, so it drives
+            // colours for the whole app (not just the Settings screen). While DataStore is still
+            // loading from disk the value is null; we fall back to SYSTEM to avoid a flash of the
+            // wrong theme, the same "startup flash" reasoning AppNavHost uses for its start route.
+            val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
+            val themeMode = userPreferences?.themeMode ?: ThemeMode.SYSTEM
+            val darkTheme = themeModeToDark(themeMode, isSystemInDarkTheme())
+
+            NeverLateTheme(darkTheme = darkTheme) {
                 AppNavHost(
                     repository = repository,
                     articleRepository = articleRepository,

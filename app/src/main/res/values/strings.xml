@@ -12,6 +12,15 @@
     <string name="home_greeting">Hola, %1$s</string>
     <string name="home_option_tasks">Tareas</string>
     <string name="home_option_articles">Artículos</string>
+    <string name="home_settings_content_description">Ajustes</string>
+
+    <!-- Settings screen (feature 07) -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_back_content_description">Volver</string>
+    <string name="settings_theme_section">Tema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_theme_system">Seguir el sistema</string>
 
     <!-- Articles screens -->
     <string name="articles_title">Artículos</string>

@@ -9,6 +9,21 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.neverlate.data.ThemeMode
+
+/**
+ * Resolves the user's [ThemeMode] preference into the plain light/dark boolean that
+ * [NeverLateTheme] already understands.
+ *
+ * Kept as a small pure function (no Android/Compose types) so it can be unit-tested on the JVM
+ * and reused wherever the app needs to turn the preference into a concrete decision. [SYSTEM]
+ * defers to [systemInDark], which the caller obtains from `isSystemInDarkTheme()`.
+ */
+fun themeModeToDark(mode: ThemeMode, systemInDark: Boolean): Boolean = when (mode) {
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
+    ThemeMode.SYSTEM -> systemInDark
+}
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,

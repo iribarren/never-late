@@ -34,6 +34,10 @@ private class FakeUserPreferencesRepository(
         savedNames.add(name)
         userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
     }
+
+    override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) {
+        userPreferences.value = userPreferences.value.copy(themeMode = mode)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
