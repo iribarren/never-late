@@ -16,6 +16,10 @@ import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.RoomTaskRepository
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppNavHost
+import com.neverlate.ui.notification.AlarmManagerReminderScheduler
+import com.neverlate.ui.notification.ReminderNotificationHelper
+import com.neverlate.ui.notification.ReminderScheduler
+import com.neverlate.ui.notification.ReminderSchedulingRepository
 import com.neverlate.ui.notification.TasksNotificationService
 import com.neverlate.ui.theme.NeverLateTheme
 import com.neverlate.ui.theme.themeModeToDark
@@ -33,10 +37,12 @@ import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
  * [NeverLateDatabase], this project's first Room database — [NeverLateDatabase.getInstance]
  * takes care of creating (or reusing) the single instance for the whole process.
  *
- * [TaskRepository] is wrapped in [TaskSurfacesRefreshingRepository] (features 05 + 06) so every
- * write made anywhere in the app also refreshes both read-only surfaces — the home-screen widget
- * and the lock-screen notification — see that class's KDoc for why neither can simply observe the
- * repository the way this app's `ViewModel`s do.
+ * [TaskRepository] is wrapped in two decorators, composed in the order they should run: features
+ * 05 + 06's [TaskSurfacesRefreshingRepository] (refreshes the widget/lock-screen summary) wraps
+ * feature 09's [ReminderSchedulingRepository] (schedules/cancels each task's alarm), which in turn
+ * wraps the real, Room-backed [RoomTaskRepository]. Every write made anywhere in the app therefore
+ * both refreshes those read-only surfaces and keeps reminders in sync — see each decorator's KDoc
+ * for why neither can simply observe the repository the way this app's `ViewModel`s do.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,8 +52,16 @@ class MainActivity : ComponentActivity() {
         val repository: UserPreferencesRepository = DataStoreUserPreferencesRepository(applicationContext)
         val articleRepository: ArticleRepository = LocalArticleRepository(applicationContext)
         val database = NeverLateDatabase.getInstance(applicationContext)
-        val taskRepository: TaskRepository =
-            TaskSurfacesRefreshingRepository(RoomTaskRepository(database.taskDao()), applicationContext)
+        val reminderScheduler: ReminderScheduler = AlarmManagerReminderScheduler(applicationContext)
+        val taskRepository: TaskRepository = TaskSurfacesRefreshingRepository(
+            ReminderSchedulingRepository(RoomTaskRepository(database.taskDao()), reminderScheduler, repository),
+            applicationContext,
+        )
+
+        // The reminders channel must exist before ReminderReceiver can ever post to it; creating
+        // it here (in addition to defensively inside that receiver) means it is ready the moment
+        // the very first task with a deadline is saved.
+        ReminderNotificationHelper.ensureChannel(applicationContext)
 
         // Enqueued on every app start, but ExistingPeriodicWorkPolicy.KEEP (inside
         // enqueuePeriodic) makes this idempotent, so it only ever actually schedules once.
@@ -77,6 +91,7 @@ class MainActivity : ComponentActivity() {
                     repository = repository,
                     articleRepository = articleRepository,
                     taskRepository = taskRepository,
+                    reminderScheduler = reminderScheduler,
                     openTasksOnStart = openTasksOnStart,
                 )
             }

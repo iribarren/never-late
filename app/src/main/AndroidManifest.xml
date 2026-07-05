@@ -11,6 +11,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Task reminders (feature 09). SCHEDULE_EXACT_ALARM (API 31+) lets the app ask AlarmManager
+         for exact, Doze-aware alarms via setExactAndAllowWhileIdle; canScheduleExactAlarms() is
+         still checked at runtime (see AlarmManagerReminderScheduler) because this permission can
+         be revoked, and the app gracefully falls back to an inexact alarm when it is not granted.
+         Declaring it is a no-op on API < 31, where exact alarms need no special permission at all;
+         OQ-1 deliberately does NOT declare USE_EXACT_ALARM (API 33+), which Google Play restricts
+         to alarm/clock/calendar apps.
+         RECEIVE_BOOT_COMPLETED (a normal permission, granted at install time) lets BootReceiver
+         hear BOOT_COMPLETED and reprogram every future reminder that the reboot just wiped. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -58,6 +70,25 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Ongoing summary of the user's pending tasks and their remaining time on the lock screen." />
         </service>
+
+        <!-- Fires one task's reminder at the exact instant AlarmManagerReminderScheduler
+             scheduled it (feature 09). exported="false": only this app's own alarm PendingIntent
+             can deliver this broadcast, never another app. -->
+        <receiver
+            android:name=".ui.notification.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Reprograms every future reminder after a device restart (US-2), which wipes all
+             AlarmManager alarms. exported="true" is required for the system to deliver
+             BOOT_COMPLETED here; the receiver itself does no sensitive work, it only enqueues
+             BootRescheduleWorker. -->
+        <receiver
+            android:name=".ui.notification.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

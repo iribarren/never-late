@@ -23,8 +23,15 @@ interface TaskRepository {
     /** The task whose [Task.id] matches [id], or null once no such task exists (e.g. deleted). */
     fun observeTask(id: Long): Flow<Task?>
 
-    /** Inserts [task] if it has never been saved ([Task.id] is 0), otherwise updates its row. */
-    suspend fun saveTask(task: Task)
+    /**
+     * Inserts [task] if it has never been saved ([Task.id] is 0), otherwise updates its row.
+     * Returns the persisted id — the id SQLite just generated on insert, or the same [Task.id] on
+     * update — so a caller that only has a brand-new, id-less [Task] can still learn which row it
+     * became. [com.neverlate.ui.notification.ReminderSchedulingRepository] (feature 09) needs
+     * exactly that: it schedules a task's reminder keyed by id, including for a task that has
+     * never been saved before.
+     */
+    suspend fun saveTask(task: Task): Long
 
     /** Removes the task with [id], if it exists. */
     suspend fun deleteTask(id: Long)

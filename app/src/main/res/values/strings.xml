@@ -22,6 +22,18 @@
     <string name="settings_theme_dark">Oscuro</string>
     <string name="settings_theme_system">Seguir el sistema</string>
 
+    <!-- Settings screen: reminders (feature 09) -->
+    <string name="settings_reminders_section">Recordatorios</string>
+    <string name="settings_reminders_enabled_label">Avisar antes de que venza una tarea</string>
+    <string name="settings_reminder_lead_time_label">Avisar con antelación de</string>
+    <!-- Lead-time choice, e.g. "5 minutos". %1$d is the number of minutes (locale-formatted). -->
+    <plurals name="settings_reminder_lead_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+    <string name="settings_exact_alarm_notice">Para que los avisos suenen en el instante exacto, concede el permiso de alarmas y recordatorios exactos.</string>
+    <string name="settings_exact_alarm_action">Abrir ajustes</string>
+
     <!-- Articles screens -->
     <string name="articles_title">Artículos</string>
     <string name="articles_empty">No hay artículos disponibles todavía.</string>
@@ -83,5 +95,15 @@
     <plurals name="notification_public_summary">
         <item quantity="one">%1$d tarea pendiente · próxima en %2$s</item>
         <item quantity="other">%1$d tareas pendientes · próxima en %2$s</item>
+    </plurals>
+
+    <!-- Task reminders (feature 09): the alerting channel, separate from tasks_pending above. -->
+    <string name="reminder_channel_name">Recordatorios de tareas</string>
+    <string name="reminder_channel_description">Aviso puntual antes de que venza una tarea.</string>
+    <!-- Reminder notification body: minutes remaining (plural) + formatted deadline instant, e.g.
+         "Vence en 10 minutos · 24/12/2026 20:30". %1$d is the minute count, %2$s the deadline. -->
+    <plurals name="reminder_notification_body">
+        <item quantity="one">Vence en %1$d minuto · %2$s</item>
+        <item quantity="other">Vence en %1$d minutos · %2$s</item>
     </plurals>
 </resources>
