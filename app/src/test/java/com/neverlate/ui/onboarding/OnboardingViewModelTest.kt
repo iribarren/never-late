@@ -38,6 +38,14 @@ private class FakeUserPreferencesRepository(
     override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) {
         userPreferences.value = userPreferences.value.copy(themeMode = mode)
     }
+
+    override suspend fun saveRemindersEnabled(enabled: Boolean) {
+        userPreferences.value = userPreferences.value.copy(remindersEnabled = enabled)
+    }
+
+    override suspend fun saveReminderLeadMinutes(minutes: Int) {
+        userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

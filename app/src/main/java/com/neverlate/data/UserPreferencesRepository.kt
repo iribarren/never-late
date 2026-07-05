@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -46,13 +47,22 @@ enum class ThemeMode {
  * Immutable snapshot of everything we persist about the user so far.
  *
  * Defaults ([name] empty, [onboarded] false, [themeMode] SYSTEM) are what a brand-new install
- * reads before the user has saved anything.
+ * reads before the user has saved anything. [remindersEnabled]/[reminderLeadMinutes] (feature 09)
+ * default to **on, 10 minutes** — a fresh install starts sending reminders without the person
+ * having to find a setting first (US-4).
  */
 data class UserPreferences(
     val name: String = "",
     val onboarded: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-)
+    val remindersEnabled: Boolean = true,
+    val reminderLeadMinutes: Int = DEFAULT_REMINDER_LEAD_MINUTES,
+) {
+    companion object {
+        /** Default lead time (minutes) a reminder fires before a task's deadline. */
+        const val DEFAULT_REMINDER_LEAD_MINUTES = 10
+    }
+}
 
 /**
  * Reads and writes the user's onboarding data.
@@ -70,6 +80,22 @@ interface UserPreferencesRepository {
 
     /** Persists the app-wide theme choice. */
     suspend fun saveThemeMode(mode: ThemeMode)
+
+    /**
+     * Persists the reminders on/off switch (feature 09, US-4). Turning reminders off does not, by
+     * itself, cancel anything already scheduled — see
+     * [com.neverlate.ui.settings.SettingsViewModel.onRemindersEnabledChanged] for that half of the
+     * behaviour, which needs the task list and the scheduler, neither of which this repository
+     * knows about.
+     */
+    suspend fun saveRemindersEnabled(enabled: Boolean)
+
+    /**
+     * Persists the default lead time (in minutes). OQ-3 (approved): this only affects reminders
+     * scheduled from this point on — existing alarms already scheduled under the old lead time are
+     * not retroactively rescheduled.
+     */
+    suspend fun saveReminderLeadMinutes(minutes: Int)
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -83,6 +109,9 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         // Added in feature 07. Stored in the same "user_prefs" file as the onboarding keys — this
         // repository extends the existing store rather than creating a second one.
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        // Added in feature 09 — same "user_prefs" file yet again, no second DataStore.
+        val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
+        val REMINDER_LEAD_MINUTES = intPreferencesKey("reminder_lead_minutes")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -93,6 +122,11 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
                 // The enum is persisted as a String, so parsing goes through fromStorage, which
                 // maps a missing/unknown value back to the SYSTEM default instead of throwing.
                 themeMode = ThemeMode.fromStorage(preferences[Keys.THEME_MODE]),
+                // A missing key (fresh install, or an install from before feature 09) falls back
+                // to UserPreferences' own defaults — tolerant parsing, same as the two keys above.
+                remindersEnabled = preferences[Keys.REMINDERS_ENABLED] ?: true,
+                reminderLeadMinutes = preferences[Keys.REMINDER_LEAD_MINUTES]
+                    ?: UserPreferences.DEFAULT_REMINDER_LEAD_MINUTES,
             )
         }
 
@@ -107,6 +141,18 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
     override suspend fun saveThemeMode(mode: ThemeMode) {
         context.userPrefsDataStore.edit { preferences ->
             preferences[Keys.THEME_MODE] = mode.name
+        }
+    }
+
+    override suspend fun saveRemindersEnabled(enabled: Boolean) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.REMINDERS_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun saveReminderLeadMinutes(minutes: Int) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.REMINDER_LEAD_MINUTES] = minutes
         }
     }
 }

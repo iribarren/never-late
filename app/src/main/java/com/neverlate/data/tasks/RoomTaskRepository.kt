@@ -10,10 +10,14 @@ class RoomTaskRepository(private val dao: TaskDao) : TaskRepository {
 
     override fun observeTask(id: Long): Flow<Task?> = dao.observeTask(id)
 
-    override suspend fun saveTask(task: Task) {
+    override suspend fun saveTask(task: Task): Long {
         // A fresh, never-saved Task keeps Room's default id (0); autoGenerate then assigns a
-        // real one on insert. Any other id means a row already exists for it, so it is an update.
-        if (task.id == 0L) dao.insert(task) else dao.update(task)
+        // real one on insert, which dao.insert returns. Any other id means a row already exists
+        // for it, so it is an update — nothing new to report back, the id stays what it was.
+        return if (task.id == 0L) dao.insert(task) else {
+            dao.update(task)
+            task.id
+        }
     }
 
     override suspend fun deleteTask(id: Long) {

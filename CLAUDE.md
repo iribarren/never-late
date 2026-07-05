@@ -46,9 +46,24 @@ never-late/
 As the app grows, feature code lives under `app/src/main/java/com/neverlate/` in packages such as
 `ui/screens`, `ui/<feature>`, `data` (DataStore/Room), and `domain`. Current feature packages of
 note: `ui/widget` (feature 05, home-screen widget), `ui/notification` (feature 06, lock-screen
-notification + foreground service), `ui/settings` (feature 07, Settings screen + light/dark/system
-theme preference persisted via the shared `user_prefs` DataStore and applied in `NeverLateTheme`),
-and `domain/tasks` (rules shared by both surfaces, e.g. `pendingRowsFor`).
+notification + foreground service; feature 09 also adds the reminder scheduler + receivers here),
+`ui/settings` (feature 07, Settings screen + light/dark/system theme preference persisted via the
+shared `user_prefs` DataStore and applied in `NeverLateTheme`; feature 09 adds the reminders on/off
++ lead-time controls), and `domain/tasks` (rules shared across surfaces, e.g. `pendingRowsFor` and
+feature 09's pure reminder-scheduling logic in `ReminderPlanning.kt`).
+
+**Reminders** (feature 09): schedules a one-shot *alerting* local notification a configurable lead
+time before a task's `deadline`, firing even with the app closed, and reschedules after reboot. Pure
+scheduling logic (`reminderTimeFor`, `isReminderInFuture`, `remindersToSchedule`) lives in
+`domain/tasks/ReminderPlanning.kt`; the Android shells live in `ui/notification`:
+`AlarmManagerReminderScheduler` (exact `setExactAndAllowWhileIdle`, graceful fallback to inexact when
+`canScheduleExactAlarms()` is false), `ReminderReceiver` (posts the notification, `exported=false`),
+`ReminderNotificationHelper` (a **second**, alerting `IMPORTANCE_HIGH` channel `task_reminders`,
+distinct from feature 06's silent `tasks_pending`), `BootReceiver` + `BootRescheduleWorker`
+(reschedule on `BOOT_COMPLETED`, delegated to WorkManager), and `ReminderSchedulingRepository` (a
+second `TaskRepository` decorator, composed with `TaskSurfacesRefreshingRepository` in `MainActivity`,
+that (re)schedules/cancels a task's alarm on save/delete). Reminder prefs (`remindersEnabled`,
+`reminderLeadMinutes`) are stored in the same `user_prefs` DataStore.
 
 **Localization** (feature 08, i18n): all user-facing text lives in string resources.
 `res/values/strings.xml` is the Spanish base/fallback; `res/values-en/strings.xml` is the English
@@ -62,7 +77,11 @@ locale-aware and the deadline input round-trip is pinned to `Locale.ROOT`). `jav
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime
 permission on Android 13+, requested from Compose), plus `FOREGROUND_SERVICE` /
 `FOREGROUND_SERVICE_SPECIAL_USE` for the notification's foreground service
-(`TasksNotificationService`, `foregroundServiceType="specialUse"`).
+(`TasksNotificationService`, `foregroundServiceType="specialUse"`). Feature 09 adds
+`SCHEDULE_EXACT_ALARM` (exact alarms on API 31+, checked at runtime via `canScheduleExactAlarms()`
+with graceful fallback to inexact; `USE_EXACT_ALARM` is deliberately **not** declared) and
+`RECEIVE_BOOT_COMPLETED` (reschedule reminders after reboot), plus two `<receiver>`s: `ReminderReceiver`
+(`exported="false"`) and `BootReceiver` (`exported="true"`, `BOOT_COMPLETED` filter).
 
 ## Development
 

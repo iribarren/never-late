@@ -20,6 +20,7 @@ import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.articles.ArticleDetailRoute
 import com.neverlate.ui.articles.ArticlesRoute
 import com.neverlate.ui.home.HomeRoute
+import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingRoute
 import com.neverlate.ui.settings.SettingsRoute
 import com.neverlate.ui.tasks.TaskEditRoute
@@ -63,6 +64,7 @@ fun AppNavHost(
     repository: UserPreferencesRepository,
     articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
+    reminderScheduler: ReminderScheduler,
     navController: NavHostController = rememberNavController(),
     openTasksOnStart: Boolean = false,
 ) {
@@ -101,6 +103,8 @@ fun AppNavHost(
                 composable(Routes.SETTINGS) {
                     SettingsRoute(
                         repository = repository,
+                        taskRepository = taskRepository,
+                        reminderScheduler = reminderScheduler,
                         onBack = { navController.popBackStack() },
                     )
                 }

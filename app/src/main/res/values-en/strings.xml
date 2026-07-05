@@ -27,6 +27,18 @@
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_system">Follow the system</string>
 
+    <!-- Settings screen: reminders (feature 09) -->
+    <string name="settings_reminders_section">Reminders</string>
+    <string name="settings_reminders_enabled_label">Remind me before a task is due</string>
+    <string name="settings_reminder_lead_time_label">Remind me</string>
+    <!-- Lead-time choice, e.g. "5 minutes before". %1$d is the number of minutes. -->
+    <plurals name="settings_reminder_lead_minutes">
+        <item quantity="one">%1$d minute before</item>
+        <item quantity="other">%1$d minutes before</item>
+    </plurals>
+    <string name="settings_exact_alarm_notice">For reminders to sound at the exact time, grant the alarms &amp; reminders permission.</string>
+    <string name="settings_exact_alarm_action">Open settings</string>
+
     <!-- Articles screens -->
     <string name="articles_title">Articles</string>
     <string name="articles_empty">No articles available yet.</string>
@@ -85,5 +97,15 @@
     <plurals name="notification_public_summary">
         <item quantity="one">%1$d pending task · next in %2$s</item>
         <item quantity="other">%1$d pending tasks · next in %2$s</item>
+    </plurals>
+
+    <!-- Task reminders (feature 09): the alerting channel, separate from tasks_pending above. -->
+    <string name="reminder_channel_name">Task reminders</string>
+    <string name="reminder_channel_description">A one-off alert before a task is due.</string>
+    <!-- Reminder notification body: minutes remaining (plural) + formatted deadline instant, e.g.
+         "Due in 10 minutes · 12/24/2026 8:30 PM". %1$d is the minute count, %2$s the deadline. -->
+    <plurals name="reminder_notification_body">
+        <item quantity="one">Due in %1$d minute · %2$s</item>
+        <item quantity="other">Due in %1$d minutes · %2$s</item>
     </plurals>
 </resources>

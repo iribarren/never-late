@@ -36,9 +36,10 @@ class TaskSurfacesRefreshingRepository(
 
     override fun observeTask(id: Long): Flow<Task?> = delegate.observeTask(id)
 
-    override suspend fun saveTask(task: Task) {
-        delegate.saveTask(task)
+    override suspend fun saveTask(task: Task): Long {
+        val id = delegate.saveTask(task)
         refreshSurfaces()
+        return id
     }
 
     override suspend fun deleteTask(id: Long) {

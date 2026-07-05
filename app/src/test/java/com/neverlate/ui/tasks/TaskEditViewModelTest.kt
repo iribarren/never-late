@@ -41,16 +41,17 @@ private class FakeTaskRepositoryForEdit(initialTasks: List<Task> = emptyList()) 
 
     override fun observeTask(id: Long): Flow<Task?> = tasksFlow.map { tasks -> tasks.firstOrNull { it.id == id } }
 
-    override suspend fun saveTask(task: Task) {
+    override suspend fun saveTask(task: Task): Long {
         savedTasks += task
+        val id = if (task.id == 0L) (tasksFlow.value.maxOfOrNull { it.id } ?: 0L) + 1 else task.id
         tasksFlow.update { tasks ->
             if (task.id == 0L) {
-                val newId = (tasks.maxOfOrNull { it.id } ?: 0L) + 1
-                tasks + task.copy(id = newId)
+                tasks + task.copy(id = id)
             } else {
                 tasks.map { if (it.id == task.id) task else it }
             }
         }
+        return id
     }
 
     override suspend fun deleteTask(id: Long) {
