@@ -108,4 +108,31 @@
         <item quantity="one">Vence en %1$d minuto · %2$s</item>
         <item quantity="other">Vence en %1$d minutos · %2$s</item>
     </plurals>
+
+    <!-- Auth screens (feature 11): shared field labels -->
+    <string name="auth_email_label">Correo electrónico</string>
+    <string name="auth_password_label">Contraseña</string>
+    <string name="auth_error_email_taken">Ese correo ya está registrado.</string>
+    <string name="auth_error_invalid_credentials">Correo o contraseña incorrectos.</string>
+    <string name="auth_error_validation">Revisa los datos: el correo debe ser válido y la contraseña debe tener al menos 8 caracteres.</string>
+    <string name="auth_error_network">No hay conexión. Inténtalo de nuevo.</string>
+    <string name="auth_error_unknown">Ha ocurrido un error. Inténtalo de nuevo.</string>
+
+    <!-- Login screen -->
+    <string name="login_title">Iniciar sesión</string>
+    <string name="login_button">Entrar</string>
+    <string name="login_register_prompt">¿No tienes cuenta? Regístrate</string>
+
+    <!-- Register screen -->
+    <string name="register_title">Crear cuenta</string>
+    <string name="register_button">Registrarme</string>
+    <string name="register_back_content_description">Volver</string>
+
+    <!-- Settings screen: account (feature 11) -->
+    <string name="settings_account_section">Cuenta</string>
+    <string name="settings_logout_button">Cerrar sesión</string>
+
+    <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
+    <string name="tasks_sync_offline">Sin conexión. Los cambios se sincronizarán más tarde.</string>
+    <string name="tasks_sync_error">No se ha podido sincronizar. Se reintentará automáticamente.</string>
 </resources>

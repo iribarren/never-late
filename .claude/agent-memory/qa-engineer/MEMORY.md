@@ -1,3 +1,3 @@
 # Memory Index
 
-_No memories yet. This file is the index the agent loads each session._
+- [Feature 11 sync test coverage](feature11-sync-test-coverage.md) — why Robolectric was added; a real OutboxTaskRepository bug this session's tests caught and fixed.

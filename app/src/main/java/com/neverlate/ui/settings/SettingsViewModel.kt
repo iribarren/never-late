@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferences
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.notification.ReminderScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,11 +35,17 @@ data class SettingsUiState(
  * does not belong in [com.neverlate.ui.notification.ReminderSchedulingRepository] — that decorator
  * only reacts to a *task* being saved or deleted, never to a *preference* changing — so it lives
  * here instead, the one place that already knows the preference just flipped.
+ *
+ * [authRepository] (feature 11) backs the one new action this screen gains, [logout]. Like
+ * [com.neverlate.ui.auth.LoginViewModel], this ViewModel does not navigate anywhere itself
+ * afterwards: [com.neverlate.ui.navigation.AppNavHost] reacts to [AuthRepository]'s own
+ * `authState` flipping to `LoggedOut` and swaps back to the login graph on its own (US-2).
  */
 class SettingsViewModel(
     private val repository: UserPreferencesRepository,
     private val taskRepository: TaskRepository,
     private val reminderScheduler: ReminderScheduler,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -86,6 +93,16 @@ class SettingsViewModel(
     fun onReminderLeadMinutesSelected(minutes: Int) {
         viewModelScope.launch {
             repository.saveReminderLeadMinutes(minutes)
+        }
+    }
+
+    /**
+     * Clears the session and the locally-cached, backend-owned data (US-2) — see
+     * [AuthRepository.logout]'s KDoc for exactly what that wipes.
+     */
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.logout()
         }
     }
 }

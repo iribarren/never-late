@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,9 +17,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.data.auth.AuthRepository
+import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.articles.ArticleDetailRoute
 import com.neverlate.ui.articles.ArticlesRoute
+import com.neverlate.ui.auth.LoginRoute
+import com.neverlate.ui.auth.RegisterRoute
 import com.neverlate.ui.home.HomeRoute
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingRoute
@@ -28,6 +33,8 @@ import com.neverlate.ui.tasks.TasksRoute
 
 /** Destination names for the nav graph, kept as constants so routes can't be mistyped. */
 private object Routes {
+    const val LOGIN = "login"
+    const val REGISTER = "register"
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val ARTICLES = "articles"
@@ -44,8 +51,63 @@ private const val ARG_ARTICLE_ID = "articleId"
 private const val ARG_TASK_ID = "taskId"
 
 /**
- * App-wide navigation graph (Navigation Compose). It also owns *startup routing*: reading the
- * persisted `onboarded` flag once to decide whether the user should land on Onboarding or Home.
+ * App-wide navigation graph (Navigation Compose). Feature 11 adds an **auth gate** on top of
+ * everything this composable already did: it observes [authRepository]'s `authState` and shows
+ * either [AuthGateNavHost] (login/register) or [MainAppNavHost] (the pre-existing
+ * onboarding/home/tasks/etc. graph) — reactively, so a successful login/logout on either side
+ * simply swaps which graph is composed, with no explicit navigation call needed from
+ * [com.neverlate.ui.auth.LoginViewModel]/[com.neverlate.ui.auth.RegisterViewModel]/
+ * [com.neverlate.ui.settings.SettingsViewModel] (see each one's KDoc). Each branch keeps its own
+ * `rememberNavController()`, so switching branches naturally starts with a fresh back stack
+ * instead of carrying over stale routes from the other graph.
+ */
+@Composable
+fun AppNavHost(
+    authRepository: AuthRepository,
+    repository: UserPreferencesRepository,
+    articleRepository: ArticleRepository,
+    taskRepository: TaskRepository,
+    reminderScheduler: ReminderScheduler,
+    openTasksOnStart: Boolean = false,
+) {
+    val authState by authRepository.authState.collectAsStateWithLifecycle()
+
+    when (authState) {
+        is AuthState.LoggedOut -> AuthGateNavHost(authRepository = authRepository)
+        is AuthState.LoggedIn -> MainAppNavHost(
+            repository = repository,
+            articleRepository = articleRepository,
+            taskRepository = taskRepository,
+            reminderScheduler = reminderScheduler,
+            authRepository = authRepository,
+            openTasksOnStart = openTasksOnStart,
+        )
+    }
+}
+
+/** Login/register graph, shown while [AuthState.LoggedOut] (US-1: account is mandatory in this feature). */
+@Composable
+private fun AuthGateNavHost(authRepository: AuthRepository, navController: NavHostController = rememberNavController()) {
+    NavHost(navController = navController, startDestination = Routes.LOGIN) {
+        composable(Routes.LOGIN) {
+            LoginRoute(
+                authRepository = authRepository,
+                onRegisterClick = { navController.navigate(Routes.REGISTER) },
+            )
+        }
+        composable(Routes.REGISTER) {
+            RegisterRoute(
+                authRepository = authRepository,
+                onBack = { navController.popBackStack() },
+            )
+        }
+    }
+}
+
+/**
+ * The graph that existed before feature 11, unchanged apart from being reached only once
+ * [AuthState.LoggedIn] — it also owns *startup routing*: reading the persisted `onboarded` flag
+ * once to decide whether the user should land on Onboarding or Home.
  *
  * Reading that flag is asynchronous (it comes from disk via DataStore), so
  * [repository.userPreferences][UserPreferencesRepository.userPreferences] is collected with an
@@ -60,14 +122,23 @@ private const val ARG_TASK_ID = "taskId"
  * it.
  */
 @Composable
-fun AppNavHost(
+private fun MainAppNavHost(
     repository: UserPreferencesRepository,
     articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
     reminderScheduler: ReminderScheduler,
+    authRepository: AuthRepository,
     navController: NavHostController = rememberNavController(),
     openTasksOnStart: Boolean = false,
 ) {
+    // Sync trigger (US-4): app open/foreground. This composable is only ever reached while
+    // AuthState.LoggedIn (see AppNavHost above), and is freshly composed each time that becomes
+    // true — right after a login/register, and on every cold start that finds an existing
+    // session — so a single LaunchedEffect(Unit) here covers both triggers. taskRepository is the
+    // only sync-shaped thing this screen touches, via the additive TaskRepository.refreshFromServer
+    // (US-7) — never SyncEngine/Retrofit directly.
+    LaunchedEffect(Unit) { taskRepository.refreshFromServer() }
+
     val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
 
     when (val preferences = userPreferences) {
@@ -105,6 +176,7 @@ fun AppNavHost(
                         repository = repository,
                         taskRepository = taskRepository,
                         reminderScheduler = reminderScheduler,
+                        authRepository = authRepository,
                         onBack = { navController.popBackStack() },
                     )
                 }

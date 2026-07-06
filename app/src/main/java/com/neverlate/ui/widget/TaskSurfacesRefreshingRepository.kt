@@ -2,6 +2,7 @@ package com.neverlate.ui.widget
 
 import android.content.Context
 import androidx.glance.appwidget.updateAll
+import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.notification.TasksNotificationService
@@ -56,6 +57,14 @@ class TaskSurfacesRefreshingRepository(
         delegate.pauseTimer(id)
         refreshSurfaces()
     }
+
+    // Additive feature 11 capability (US-7): forwarded to delegate, same reasoning as
+    // com.neverlate.ui.notification.ReminderSchedulingRepository's overrides of these two methods
+    // — this decorator has no sync concept of its own and must not swallow the call behind the
+    // interface's no-op default.
+    override suspend fun refreshFromServer() = delegate.refreshFromServer()
+
+    override fun observeSyncStatus(): Flow<SyncStatus> = delegate.observeSyncStatus()
 
     private suspend fun refreshSurfaces() {
         // updateAll is a no-op (cheap) when the user has never placed the widget, so this never

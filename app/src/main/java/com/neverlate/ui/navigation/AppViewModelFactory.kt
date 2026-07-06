@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.articles.ArticleDetailViewModel
 import com.neverlate.ui.articles.ArticlesViewModel
+import com.neverlate.ui.auth.LoginViewModel
+import com.neverlate.ui.auth.RegisterViewModel
 import com.neverlate.ui.home.HomeViewModel
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingViewModel
@@ -35,6 +38,9 @@ import com.neverlate.ui.tasks.TasksViewModel
  * [reminderScheduler] follows [taskRepository]'s example: only [SettingsViewModel] needs it (to
  * cancel every alarm when reminders are switched off, see its KDoc), so it defaults to null and
  * every other screen's factory call is unaffected.
+ *
+ * [authRepository] (feature 11) follows the same pattern again: [LoginViewModel]/[RegisterViewModel]
+ * need it to register/log in, and [SettingsViewModel] needs it for its logout action.
  */
 class AppViewModelFactory(
     private val userPreferencesRepository: UserPreferencesRepository? = null,
@@ -43,6 +49,7 @@ class AppViewModelFactory(
     private val taskRepository: TaskRepository? = null,
     private val taskId: Long? = null,
     private val reminderScheduler: ReminderScheduler? = null,
+    private val authRepository: AuthRepository? = null,
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -54,7 +61,12 @@ class AppViewModelFactory(
             HomeViewModel(requireUserPreferencesRepository()) as T
 
         modelClass.isAssignableFrom(SettingsViewModel::class.java) ->
-            SettingsViewModel(requireUserPreferencesRepository(), requireTaskRepository(), requireReminderScheduler()) as T
+            SettingsViewModel(
+                requireUserPreferencesRepository(),
+                requireTaskRepository(),
+                requireReminderScheduler(),
+                requireAuthRepository(),
+            ) as T
 
         modelClass.isAssignableFrom(ArticlesViewModel::class.java) ->
             ArticlesViewModel(requireArticleRepository()) as T
@@ -67,6 +79,12 @@ class AppViewModelFactory(
 
         modelClass.isAssignableFrom(TaskEditViewModel::class.java) ->
             TaskEditViewModel(requireTaskRepository(), taskId) as T
+
+        modelClass.isAssignableFrom(LoginViewModel::class.java) ->
+            LoginViewModel(requireAuthRepository()) as T
+
+        modelClass.isAssignableFrom(RegisterViewModel::class.java) ->
+            RegisterViewModel(requireAuthRepository()) as T
 
         else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
@@ -85,4 +103,7 @@ class AppViewModelFactory(
 
     private fun requireReminderScheduler() =
         requireNotNull(reminderScheduler) { "This ViewModel requires a ReminderScheduler" }
+
+    private fun requireAuthRepository() =
+        requireNotNull(authRepository) { "This ViewModel requires an AuthRepository" }
 }

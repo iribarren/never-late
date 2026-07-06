@@ -39,6 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.notification.ReminderScheduler
@@ -48,13 +49,15 @@ import com.neverlate.ui.theme.NeverLateTheme
  * Stateful wrapper: obtains [SettingsViewModel] (via [AppViewModelFactory]) and forwards its
  * state to the stateless [SettingsScreen], following the same route/screen split used across the
  * app (see [com.neverlate.ui.home.HomeRoute]). [taskRepository]/[reminderScheduler] are only
- * needed by [SettingsViewModel]'s reminders on/off switch — see its KDoc.
+ * needed by [SettingsViewModel]'s reminders on/off switch — see its KDoc. [authRepository]
+ * (feature 11) backs the logout action.
  */
 @Composable
 fun SettingsRoute(
     repository: UserPreferencesRepository,
     taskRepository: TaskRepository,
     reminderScheduler: ReminderScheduler,
+    authRepository: AuthRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(
@@ -62,6 +65,7 @@ fun SettingsRoute(
             userPreferencesRepository = repository,
             taskRepository = taskRepository,
             reminderScheduler = reminderScheduler,
+            authRepository = authRepository,
         ),
     ),
 ) {
@@ -71,6 +75,7 @@ fun SettingsRoute(
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
         onReminderLeadMinutesSelected = viewModel::onReminderLeadMinutesSelected,
+        onLogoutClick = viewModel::logout,
         onBack = onBack,
         modifier = modifier,
     )
@@ -103,6 +108,7 @@ fun SettingsScreen(
     onThemeModeSelected: (ThemeMode) -> Unit,
     onRemindersEnabledChanged: (Boolean) -> Unit,
     onReminderLeadMinutesSelected: (Int) -> Unit,
+    onLogoutClick: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -192,6 +198,18 @@ fun SettingsScreen(
 
                 ExactAlarmPermissionNotice(modifier = Modifier.padding(top = 16.dp))
             }
+
+            // Feature 11: account section, own logout action. A plain TextButton (rather than a
+            // dialog-guarded destructive action) matches this screen's existing minimal-UI style —
+            // see OQ-1's "minimal sync UI" call in the feature spec for the same restraint.
+            Text(
+                text = stringResource(R.string.settings_account_section),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 24.dp),
+            )
+            TextButton(onClick = onLogoutClick, modifier = Modifier.padding(top = 8.dp)) {
+                Text(stringResource(R.string.settings_logout_button))
+            }
         }
     }
 }
@@ -270,6 +288,7 @@ private fun SettingsScreenPreview() {
             onThemeModeSelected = {},
             onRemindersEnabledChanged = {},
             onReminderLeadMinutesSelected = {},
+            onLogoutClick = {},
             onBack = {},
         )
     }

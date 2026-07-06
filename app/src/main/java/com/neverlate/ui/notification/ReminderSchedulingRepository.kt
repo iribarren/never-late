@@ -1,6 +1,7 @@
 package com.neverlate.ui.notification
 
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.domain.tasks.isReminderInFuture
@@ -49,6 +50,13 @@ class ReminderSchedulingRepository(
     override suspend fun startTimer(id: Long) = delegate.startTimer(id)
 
     override suspend fun pauseTimer(id: Long) = delegate.pauseTimer(id)
+
+    // Additive feature 11 capability (US-7): this decorator has no sync concept of its own, so it
+    // simply forwards to whichever decorator further down the chain does — see TaskRepository's
+    // KDoc for why a pass-through decorator must override these instead of inheriting the default.
+    override suspend fun refreshFromServer() = delegate.refreshFromServer()
+
+    override fun observeSyncStatus(): Flow<SyncStatus> = delegate.observeSyncStatus()
 
     /**
      * Always cancels the task's previous alarm first, then schedules a new one only if reminders

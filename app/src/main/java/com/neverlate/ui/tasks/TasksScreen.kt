@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
+import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.durationParts
@@ -66,12 +68,15 @@ fun TasksRoute(
     viewModel: TasksViewModel = viewModel(factory = AppViewModelFactory(taskRepository = taskRepository)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     // Ask for the POST_NOTIFICATIONS permission (Android 13+) in context, the first time the user
     // reaches their tasks — that is when "also show these on the lock screen" is meaningful. No-op
     // below Android 13, and denial degrades gracefully (see the effect's KDoc / feature 06).
     RequestNotificationPermissionEffect()
     TasksScreen(
         uiState = uiState,
+        syncStatus = syncStatus,
+        onRefresh = viewModel::refresh,
         onAddTaskClick = onAddTaskClick,
         onTaskClick = onTaskClick,
         onStartClick = viewModel::startTimer,
@@ -85,11 +90,19 @@ fun TasksRoute(
 /**
  * Stateless composable: renders a [TasksUiState] and reports user intent through callbacks only
  * (state hoisting), same as [com.neverlate.ui.articles.ArticlesScreen].
+ *
+ * Feature 11 adds the minimal sync UI (OQ-1): `PullToRefreshBox` (same widget
+ * [com.neverlate.ui.articles.ArticlesScreen] already uses for its own refresh) wraps the content,
+ * and [SyncStatusHint] shows a single subtle line only while [syncStatus] is worth mentioning
+ * (syncing in the background, or offline) — nothing is shown once synced, keeping this
+ * deliberately short of a rich per-task sync badge.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
     uiState: TasksUiState,
+    syncStatus: SyncStatus,
+    onRefresh: () -> Unit,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
     onStartClick: (Long) -> Unit,
@@ -119,20 +132,54 @@ fun TasksScreen(
             }
         },
     ) { innerPadding ->
-        when (uiState) {
-            // Nothing to show yet: avoids a one-frame flash of the empty state while loading.
-            is TasksUiState.Loading -> Unit
-            is TasksUiState.Empty -> EmptyTasks(modifier = Modifier.padding(innerPadding))
-            is TasksUiState.Content -> TaskList(
-                tasks = uiState.tasks,
-                onTaskClick = onTaskClick,
-                onStartClick = onStartClick,
-                onPauseClick = onPauseClick,
-                onDeleteClick = onDeleteClick,
-                modifier = Modifier.padding(innerPadding),
-            )
+        PullToRefreshBox(
+            isRefreshing = syncStatus == SyncStatus.Syncing,
+            onRefresh = onRefresh,
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                SyncStatusHint(syncStatus)
+
+                when (uiState) {
+                    // Nothing to show yet: avoids a one-frame flash of the empty state while loading.
+                    is TasksUiState.Loading -> Unit
+                    is TasksUiState.Empty -> EmptyTasks(modifier = Modifier.fillMaxSize())
+                    is TasksUiState.Content -> TaskList(
+                        tasks = uiState.tasks,
+                        onTaskClick = onTaskClick,
+                        onStartClick = onStartClick,
+                        onPauseClick = onPauseClick,
+                        onDeleteClick = onDeleteClick,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
     }
+}
+
+/**
+ * The "subtle hint" half of OQ-1's minimal sync UI: a single caption line, shown only for the two
+ * statuses worth surfacing outside of the pull-to-refresh spinner itself — [SyncStatus.Offline]
+ * (so a user who tried to sync understands why nothing happened) and [SyncStatus.Error]. Idle and
+ * UpToDate render nothing, and Syncing is already covered by the spinner in [TasksScreen].
+ */
+@Composable
+private fun SyncStatusHint(syncStatus: SyncStatus, modifier: Modifier = Modifier) {
+    val textRes = when (syncStatus) {
+        SyncStatus.Offline -> R.string.tasks_sync_offline
+        SyncStatus.Error -> R.string.tasks_sync_error
+        SyncStatus.Idle, SyncStatus.Syncing, SyncStatus.UpToDate -> null
+    } ?: return
+
+    Text(
+        text = stringResource(textRes),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
 }
 
 @Composable
@@ -316,6 +363,8 @@ private fun TasksScreenContentPreview() {
                     ),
                 ),
             ),
+            syncStatus = SyncStatus.UpToDate,
+            onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},
             onStartClick = {},
@@ -332,6 +381,8 @@ private fun TasksScreenEmptyPreview() {
     NeverLateTheme {
         TasksScreen(
             uiState = TasksUiState.Empty,
+            syncStatus = SyncStatus.Idle,
+            onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},
             onStartClick = {},

@@ -13,6 +13,14 @@ import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.data.articles.ArticlesNetwork
 import com.neverlate.data.articles.CachingArticleRepository
+import com.neverlate.data.auth.AuthNetwork
+import com.neverlate.data.auth.AuthRepository
+import com.neverlate.data.auth.AuthRepositoryImpl
+import com.neverlate.data.auth.EncryptedTokenStorage
+import com.neverlate.data.sync.OutboxTaskRepository
+import com.neverlate.data.sync.SyncEngine
+import com.neverlate.data.sync.SyncWorker
+import com.neverlate.data.sync.TasksNetwork
 import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.RoomTaskRepository
 import com.neverlate.data.tasks.TaskRepository
@@ -40,12 +48,21 @@ import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
  * [ArticleRepository]'s concrete implementation, [CachingArticleRepository], additionally needs a
  * network client ([ArticlesNetwork.create]) to refresh that cache from the remote articles API.
  *
- * [TaskRepository] is wrapped in two decorators, composed in the order they should run: features
+ * [TaskRepository] is wrapped in three decorators, composed in the order they should run: features
  * 05 + 06's [TaskSurfacesRefreshingRepository] (refreshes the widget/lock-screen summary) wraps
- * feature 09's [ReminderSchedulingRepository] (schedules/cancels each task's alarm), which in turn
- * wraps the real, Room-backed [RoomTaskRepository]. Every write made anywhere in the app therefore
- * both refreshes those read-only surfaces and keeps reminders in sync — see each decorator's KDoc
- * for why neither can simply observe the repository the way this app's `ViewModel`s do.
+ * feature 09's [ReminderSchedulingRepository] (schedules/cancels each task's alarm), which wraps
+ * feature 11's [OutboxTaskRepository] (stamps sync metadata and enqueues an outbox row for every
+ * write), which in turn wraps the real, Room-backed [RoomTaskRepository]. Every write made
+ * anywhere in the app therefore refreshes those read-only surfaces, keeps reminders in sync, *and*
+ * queues itself for the backend — see each decorator's KDoc for why neither can simply observe
+ * the repository the way this app's `ViewModel`s do.
+ *
+ * Feature 11 also adds an account layer *above* [TaskRepository]: [AuthRepository] (backed by
+ * [EncryptedTokenStorage] for the JWT) gates the whole nav graph in [AppNavHost] — see that
+ * function's KDoc — and [SyncEngine] is the thing [OutboxTaskRepository] actually talks to for
+ * push/pull, built here with a [com.neverlate.data.sync.TasksApi] whose
+ * [com.neverlate.data.sync.AuthInterceptor] attaches the session token and routes a `401` back to
+ * [AuthRepository.notifyUnauthorized].
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,8 +74,23 @@ class MainActivity : ComponentActivity() {
         val articleRepository: ArticleRepository =
             CachingArticleRepository(ArticlesNetwork.create(), database.articleDao())
         val reminderScheduler: ReminderScheduler = AlarmManagerReminderScheduler(applicationContext)
+
+        // Auth (feature 11): the token storage and AuthRepository are built first, since the
+        // tasks network client below needs a way to attach the current token and to report a 401
+        // back — see AuthRepositoryImpl.notifyUnauthorized.
+        val tokenStorage = EncryptedTokenStorage(applicationContext)
+        val authRepositoryImpl = AuthRepositoryImpl(AuthNetwork.create(), tokenStorage, database, repository)
+        val authRepository: AuthRepository = authRepositoryImpl
+
+        val tasksApi = TasksNetwork.create(tokenStorage = tokenStorage, onUnauthorized = authRepositoryImpl::notifyUnauthorized)
+        val syncEngine = SyncEngine(tasksApi, database, repository, tokenStorage)
+
         val taskRepository: TaskRepository = TaskSurfacesRefreshingRepository(
-            ReminderSchedulingRepository(RoomTaskRepository(database.taskDao()), reminderScheduler, repository),
+            ReminderSchedulingRepository(
+                OutboxTaskRepository(database, RoomTaskRepository(database.taskDao()), syncEngine),
+                reminderScheduler,
+                repository,
+            ),
             applicationContext,
         )
 
@@ -70,6 +102,12 @@ class MainActivity : ComponentActivity() {
         // Enqueued on every app start, but ExistingPeriodicWorkPolicy.KEEP (inside
         // enqueuePeriodic) makes this idempotent, so it only ever actually schedules once.
         TaskSurfacesRefreshWorker.enqueuePeriodic(applicationContext)
+
+        // Feature 11: drains the outbox (and pulls remote changes) once connectivity returns,
+        // even if the app is not in the foreground — the WorkManager backstop described in
+        // SyncEngine's KDoc. Same enqueuePeriodic-on-every-start + KEEP idempotency as the worker
+        // above.
+        SyncWorker.enqueuePeriodic(applicationContext)
 
         // Evaluate the lock-screen notification right away on launch, so it appears (or is cleared)
         // immediately based on the current tasks, without waiting for the next write or the ~15-min
@@ -92,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
             NeverLateTheme(darkTheme = darkTheme) {
                 AppNavHost(
+                    authRepository = authRepository,
                     repository = repository,
                     articleRepository = articleRepository,
                     taskRepository = taskRepository,

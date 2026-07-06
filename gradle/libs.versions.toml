@@ -28,6 +28,16 @@ desugarJdkLibs = "2.1.5"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 retrofit2KotlinxSerializationConverter = "1.0.0"
+# Remote DB + sync (feature 11): Jetpack Security's EncryptedSharedPreferences, backed by the
+# Android Keystore, is where the auth JWT lives — never in the plaintext `user_prefs` DataStore
+# that holds theme/reminder preferences (see TokenStorage).
+securityCrypto = "1.1.0"
+# Feature 11 test coverage: Robolectric provides a real (shadowed) Android runtime for JVM unit
+# tests, needed to exercise real Room transactions (`database.withTransaction`) in
+# OutboxTaskRepository/SyncEngine tests — a hand-written DAO fake (this project's pre-11 pattern,
+# see CachingArticleRepositoryTest) cannot stand in for Room's own transactional guarantees, which
+# is exactly what those tests need to verify (US-3's "same transaction" requirement).
+robolectric = "4.16.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -64,6 +74,8 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 retrofit-kotlinx-serialization-converter = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofit2KotlinxSerializationConverter" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

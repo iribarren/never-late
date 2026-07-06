@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Debug-build-only network security config (feature 11). Lives under src/debug/, so it is
+    merged into debug builds ONLY — release builds get no cleartext exception at all and keep the
+    platform default (cleartext blocked outright on targetSdk 36).
+
+    Without this file, targetSdk 36 blocks ALL cleartext traffic by default (Android's
+    NetworkSecurityConfig treats targetSdk >= 28 as "cleartextTrafficPermitted=false" unless a
+    config says otherwise), so debug builds could not reach the local backend at
+    http://10.0.2.2:8080 (docs/api/contract.md) at all — this both unblocks local dev *and* scopes
+    the exception to exactly the dev host, instead of a manifest-wide
+    android:usesCleartextTraffic="true" that would also apply to release and to arbitrary hosts.
+
+    Before any real deployment: the backend must be served over HTTPS (see spec Out of Scope) and
+    this file (plus its debug-only wiring in src/debug/AndroidManifest.xml) should remain
+    debug-only — never add an equivalent exception to the main/release manifest.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- 10.0.2.2 is the Android emulator's alias for the host loopback (contract.md). -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- localhost, for the (less common) case of running the app on the host itself, or a
+             test harness that talks to the backend via loopback instead of the emulator alias. -->
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

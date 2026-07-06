@@ -3,9 +3,14 @@ package com.neverlate.ui.settings
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferences
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.auth.AuthRepository
+import com.neverlate.data.auth.AuthResult
+import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.Task
 import com.neverlate.ui.notification.FakeReminderScheduler
 import com.neverlate.ui.notification.FakeTaskRepository
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,12 +62,34 @@ private class FakeUserPreferencesRepository(
         savedReminderLeadMinutes.add(minutes)
         userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
     }
+
+    override suspend fun saveSyncCursor(cursor: Long) {
+        userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
+    }
 }
 
 // FakeTaskRepository and FakeReminderScheduler are promoted to
 // com.neverlate.ui.notification.ReminderTestDoubles.kt (imported above) since
 // ReminderSchedulingRepositoryTest needs the exact same in-memory behaviour — see that file's
 // doc comments for why each fake behaves the way it does.
+
+/** Minimal in-memory [AuthRepository] fake: only [logout] is exercised from this ViewModel. */
+private class FakeAuthRepository : AuthRepository {
+    private val _authState = MutableStateFlow<AuthState>(AuthState.LoggedIn(1, "ada@example.com"))
+    override val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    var logoutCallCount = 0
+        private set
+
+    override suspend fun register(email: String, password: String): AuthResult = AuthResult.Success
+
+    override suspend fun login(email: String, password: String): AuthResult = AuthResult.Success
+
+    override suspend fun logout() {
+        logoutCallCount++
+        _authState.value = AuthState.LoggedOut
+    }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
@@ -71,6 +98,7 @@ class SettingsViewModelTest {
     private lateinit var repository: FakeUserPreferencesRepository
     private lateinit var taskRepository: FakeTaskRepository
     private lateinit var reminderScheduler: FakeReminderScheduler
+    private lateinit var authRepository: FakeAuthRepository
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -78,6 +106,7 @@ class SettingsViewModelTest {
         Dispatchers.setMain(testDispatcher)
         taskRepository = FakeTaskRepository()
         reminderScheduler = FakeReminderScheduler()
+        authRepository = FakeAuthRepository()
     }
 
     @After
@@ -88,7 +117,7 @@ class SettingsViewModelTest {
     @Test
     fun `initial state reflects the persisted theme mode`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(themeMode = ThemeMode.DARK))
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
 
         // The ViewModel collects the repository flow on viewModelScope; let that coroutine run.
         testDispatcher.scheduler.advanceUntilIdle()
@@ -99,7 +128,7 @@ class SettingsViewModelTest {
     @Test
     fun `selecting a theme persists it and updates the state`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(themeMode = ThemeMode.SYSTEM))
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.onThemeModeSelected(ThemeMode.LIGHT)
@@ -114,7 +143,7 @@ class SettingsViewModelTest {
     fun `disabling reminders cancels every task's reminder`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(remindersEnabled = true))
         taskRepository = FakeTaskRepository(listOf(Task(id = 1, title = "A"), Task(id = 2, title = "B")))
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.onRemindersEnabledChanged(false)
@@ -128,7 +157,7 @@ class SettingsViewModelTest {
     fun `disabling reminders with no tasks cancels nothing`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(remindersEnabled = true))
         taskRepository = FakeTaskRepository(emptyList())
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.onRemindersEnabledChanged(false)
@@ -142,7 +171,7 @@ class SettingsViewModelTest {
     fun `disabling reminders with a single task cancels exactly that task's reminder`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(remindersEnabled = true))
         taskRepository = FakeTaskRepository(listOf(Task(id = 7, title = "Solo una")))
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.onRemindersEnabledChanged(false)
@@ -155,7 +184,7 @@ class SettingsViewModelTest {
     fun `enabling reminders persists the switch but does not mass-cancel any task`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(remindersEnabled = false))
         taskRepository = FakeTaskRepository(listOf(Task(id = 1, title = "A"), Task(id = 2, title = "B")))
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.onRemindersEnabledChanged(true)
@@ -174,7 +203,7 @@ class SettingsViewModelTest {
     @Test
     fun `selecting a lead time persists it via saveReminderLeadMinutes and updates the state`() = runTest {
         repository = FakeUserPreferencesRepository(UserPreferences(reminderLeadMinutes = 10))
-        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.onReminderLeadMinutesSelected(30)
@@ -183,5 +212,18 @@ class SettingsViewModelTest {
         assertEquals(listOf(30), repository.savedReminderLeadMinutes)
         assertEquals(30, repository.userPreferences.value.reminderLeadMinutes)
         assertEquals(30, viewModel.uiState.value.reminderLeadMinutes)
+    }
+
+    @Test
+    fun `logout delegates to the auth repository`() = runTest {
+        repository = FakeUserPreferencesRepository()
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.logout()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, authRepository.logoutCallCount)
+        assertEquals(AuthState.LoggedOut, authRepository.authState.value)
     }
 }
