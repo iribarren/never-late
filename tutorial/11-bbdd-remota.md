@@ -485,6 +485,34 @@ cd backend && docker compose up --build      # el backend queda en el puerto 808
 Secuencia de humo (registrar → crear tarea → listar → login) documentada en el contrato (§6) y en
 `backend/README.md`.
 
+### 7.1 Probarlo en un dispositivo físico (nota añadida)
+
+Todo lo anterior asume el **emulador**, que llega al host vía el alias `10.0.2.2`. Un **móvil físico**
+no tiene ese alias — esa dirección no existe fuera del emulador — así que hace falta otra ruta. Tres
+ideas nuevas, breves:
+
+- **`BuildConfig` desde Gradle, leído de `local.properties`.** Igual que la lección 10 generó
+  `BuildConfig.DEBUG`, `app/build.gradle.kts` ahora genera `BuildConfig.BACKEND_BASE_URL` a partir de
+  una propiedad `neverlate.backendBaseUrl` en `local.properties` (fichero **no versionado**, en
+  `.gitignore`). Si la propiedad no existe, cae al valor por defecto de siempre,
+  `http://10.0.2.2:8080/`, así que un checkout limpio sigue funcionando en el emulador sin tocar nada.
+  Es la misma idea de "inyectar configuración en tiempo de build" que ya vimos, aplicada a una URL en
+  vez de a un booleano — y evita que la IP de la red de nadie acabe en un commit.
+
+- **`adb reverse` frente a `10.0.2.2`.** En vez de perseguir la IP de tu Wi-Fi, `adb reverse tcp:8080
+  tcp:8080` le dice al teléfono, por USB: "tu `localhost:8080` en realidad es el `localhost:8080` del
+  PC". Así el móvil puede usar `http://localhost:8080/` tal cual — sin abrir puertos ni depender de
+  estar en la misma red — poniendo esa URL en `local.properties`.
+
+- **Recordatorio del Network Security Config (solo debug).** `localhost` ya estaba en la lista blanca
+  de `app/src/debug/res/xml/network_security_config.xml` (§ arriba), así que la ruta USB no toca ese
+  fichero. La alternativa por Wi-Fi (poner la IP LAN del PC) sí exige añadir esa IP a la lista, siempre
+  bajo `src/debug/` y nunca al manifest de release: el HTTPS real sigue siendo obligatorio antes de
+  cualquier despliegue de verdad.
+
+Detalles completos (pasos, prerrequisitos) en `CLAUDE.md` → Development → Backend → "Testing on a
+physical device".
+
 ---
 
 ## 8. Resumen
