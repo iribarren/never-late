@@ -2,6 +2,7 @@ package com.neverlate.ui.articles
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -17,6 +19,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -36,6 +39,11 @@ import com.neverlate.ui.theme.NeverLateTheme
  * Stateful wrapper: obtains [ArticlesViewModel] (via [AppViewModelFactory]) and forwards its
  * state to the stateless [ArticlesScreen], following the same route/screen split used for Home
  * and Onboarding (see [com.neverlate.ui.home.HomeRoute]).
+ *
+ * [ArticlesViewModel.isRefreshing] and [ArticlesViewModel.refresh] are collected/forwarded here
+ * alongside [ArticlesViewModel.uiState], feature 10's additions to this ViewModel: the former
+ * drives [ArticlesScreen]'s pull-to-refresh spinner, the latter is what both that gesture and the
+ * Error state's retry button call.
  */
 @Composable
 fun ArticlesRoute(
@@ -48,17 +56,34 @@ fun ArticlesRoute(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    ArticlesScreen(uiState = uiState, onArticleClick = onArticleClick, onBack = onBack, modifier = modifier)
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    ArticlesScreen(
+        uiState = uiState,
+        isRefreshing = isRefreshing,
+        onRefresh = viewModel::refresh,
+        onArticleClick = onArticleClick,
+        onBack = onBack,
+        modifier = modifier,
+    )
 }
 
 /**
  * Stateless composable: renders an [ArticlesUiState] and reports user intent through callbacks
  * only (state hoisting), same as [com.neverlate.ui.onboarding.OnboardingScreen].
+ *
+ * `PullToRefreshBox` (Material 3, still `@ExperimentalMaterial3Api`) wraps the whole content area
+ * below the top bar: it recognizes a downward swipe gesture on its content and calls [onRefresh]
+ * when the user releases past its threshold, showing a spinner driven by [isRefreshing] while the
+ * refresh is in flight. It works the same regardless of which [uiState] is currently displayed
+ * underneath — including [ArticlesUiState.Error], so a failed load can also be retried by
+ * swiping down, not just by tapping the on-screen retry button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArticlesScreen(
     uiState: ArticlesUiState,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
     onArticleClick: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -79,15 +104,24 @@ fun ArticlesScreen(
             )
         },
     ) { innerPadding ->
-        when (uiState) {
-            // Nothing to show yet: avoids a one-frame flash of the empty state while loading.
-            is ArticlesUiState.Loading -> Unit
-            is ArticlesUiState.Empty -> EmptyArticles(modifier = Modifier.padding(innerPadding))
-            is ArticlesUiState.Content -> ArticleList(
-                articles = uiState.articles,
-                onArticleClick = onArticleClick,
-                modifier = Modifier.padding(innerPadding),
-            )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+        ) {
+            when (uiState) {
+                // Nothing to show yet: avoids a one-frame flash of the empty state while loading.
+                is ArticlesUiState.Loading -> Unit
+                is ArticlesUiState.Empty -> EmptyArticles(modifier = Modifier.fillMaxSize())
+                is ArticlesUiState.Error -> ErrorArticles(onRetry = onRefresh, modifier = Modifier.fillMaxSize())
+                is ArticlesUiState.Content -> ArticleList(
+                    articles = uiState.articles,
+                    onArticleClick = onArticleClick,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
@@ -127,6 +161,26 @@ private fun EmptyArticles(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Rendered for [ArticlesUiState.Error]: a short message plus a **Reintentar** / **Retry** button
+ * that calls [onRetry] — [ArticlesRoute] wires this to the same [ArticlesViewModel.refresh] that
+ * pull-to-refresh uses, so both paths retry identically.
+ */
+@Composable
+private fun ErrorArticles(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 32.dp),
+        ) {
+            Text(stringResource(R.string.articles_error))
+            Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
+                Text(stringResource(R.string.articles_retry))
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun ArticlesScreenContentPreview() {
@@ -148,6 +202,8 @@ private fun ArticlesScreenContentPreview() {
                     ),
                 ),
             ),
+            isRefreshing = false,
+            onRefresh = {},
             onArticleClick = {},
             onBack = {},
         )
@@ -158,6 +214,26 @@ private fun ArticlesScreenContentPreview() {
 @Composable
 private fun ArticlesScreenEmptyPreview() {
     NeverLateTheme {
-        ArticlesScreen(uiState = ArticlesUiState.Empty, onArticleClick = {}, onBack = {})
+        ArticlesScreen(
+            uiState = ArticlesUiState.Empty,
+            isRefreshing = false,
+            onRefresh = {},
+            onArticleClick = {},
+            onBack = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ArticlesScreenErrorPreview() {
+    NeverLateTheme {
+        ArticlesScreen(
+            uiState = ArticlesUiState.Error,
+            isRefreshing = false,
+            onRefresh = {},
+            onArticleClick = {},
+            onBack = {},
+        )
     }
 }

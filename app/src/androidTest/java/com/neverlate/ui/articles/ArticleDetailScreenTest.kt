@@ -25,6 +25,10 @@ class ArticleDetailScreenTest {
 
     private fun notFoundMessage(): String = targetContext.getString(R.string.articles_not_found)
 
+    private fun errorMessage(): String = targetContext.getString(R.string.articles_error)
+
+    private fun retryButtonText(): String = targetContext.getString(R.string.articles_retry)
+
     private fun backContentDescription(): String =
         targetContext.getString(R.string.articles_back_content_description)
 
@@ -41,6 +45,7 @@ class ArticleDetailScreenTest {
             NeverLateTheme {
                 ArticleDetailScreen(
                     uiState = ArticleDetailUiState.Content(pomodoro),
+                    onRetry = {},
                     onBack = {},
                 )
             }
@@ -56,12 +61,48 @@ class ArticleDetailScreenTest {
             NeverLateTheme {
                 ArticleDetailScreen(
                     uiState = ArticleDetailUiState.NotFound,
+                    onRetry = {},
                     onBack = {},
                 )
             }
         }
 
         composeTestRule.onNodeWithText(notFoundMessage()).assertExists()
+    }
+
+    @Test
+    fun errorState_showsErrorMessageAndRetryButton() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                ArticleDetailScreen(
+                    uiState = ArticleDetailUiState.Error,
+                    onRetry = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(errorMessage()).assertExists()
+        composeTestRule.onNodeWithText(retryButtonText()).assertExists()
+    }
+
+    @Test
+    fun errorState_tappingRetryButton_invokesOnRetry() {
+        var retryCount = 0
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                ArticleDetailScreen(
+                    uiState = ArticleDetailUiState.Error,
+                    onRetry = { retryCount++ },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(retryButtonText()).performClick()
+
+        assert(retryCount == 1) { "Expected onRetry to be invoked exactly once, was $retryCount" }
     }
 
     @Test
@@ -72,6 +113,7 @@ class ArticleDetailScreenTest {
             NeverLateTheme {
                 ArticleDetailScreen(
                     uiState = ArticleDetailUiState.Content(pomodoro),
+                    onRetry = {},
                     onBack = { backCount++ },
                 )
             }
