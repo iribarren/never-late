@@ -11,7 +11,8 @@ import com.neverlate.data.DataStoreUserPreferencesRepository
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
-import com.neverlate.data.articles.LocalArticleRepository
+import com.neverlate.data.articles.ArticlesNetwork
+import com.neverlate.data.articles.CachingArticleRepository
 import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.RoomTaskRepository
 import com.neverlate.data.tasks.TaskRepository
@@ -33,9 +34,11 @@ import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
  * The [UserPreferencesRepository], [ArticleRepository] and [TaskRepository] are created once
  * here (manual dependency injection — no framework needed for a project this size) and threaded
  * down into [AppNavHost], which passes each to whichever screen needs it via
- * [com.neverlate.ui.navigation.AppViewModelFactory]. [TaskRepository] is backed by
- * [NeverLateDatabase], this project's first Room database — [NeverLateDatabase.getInstance]
+ * [com.neverlate.ui.navigation.AppViewModelFactory]. [TaskRepository] and, since feature 10,
+ * [ArticleRepository] are both backed by [NeverLateDatabase] — [NeverLateDatabase.getInstance]
  * takes care of creating (or reusing) the single instance for the whole process.
+ * [ArticleRepository]'s concrete implementation, [CachingArticleRepository], additionally needs a
+ * network client ([ArticlesNetwork.create]) to refresh that cache from the remote articles API.
  *
  * [TaskRepository] is wrapped in two decorators, composed in the order they should run: features
  * 05 + 06's [TaskSurfacesRefreshingRepository] (refreshes the widget/lock-screen summary) wraps
@@ -50,8 +53,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val repository: UserPreferencesRepository = DataStoreUserPreferencesRepository(applicationContext)
-        val articleRepository: ArticleRepository = LocalArticleRepository(applicationContext)
         val database = NeverLateDatabase.getInstance(applicationContext)
+        val articleRepository: ArticleRepository =
+            CachingArticleRepository(ArticlesNetwork.create(), database.articleDao())
         val reminderScheduler: ReminderScheduler = AlarmManagerReminderScheduler(applicationContext)
         val taskRepository: TaskRepository = TaskSurfacesRefreshingRepository(
             ReminderSchedulingRepository(RoomTaskRepository(database.taskDao()), reminderScheduler, repository),

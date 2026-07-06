@@ -23,6 +23,12 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Articles from a remote API (feature 10). INTERNET is a *normal* permission: it is granted
+         automatically at install time and needs no runtime request (unlike POST_NOTIFICATIONS
+         above). Required by ArticlesApi/ArticlesNetwork (Retrofit + OkHttp) to reach the remote
+         JSON endpoint over HTTPS. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"

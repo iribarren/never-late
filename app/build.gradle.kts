@@ -44,6 +44,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Generates BuildConfig.DEBUG, used by ArticlesNetwork to gate verbose OkHttp body
+        // logging to debug builds only (feature 10).
+        buildConfig = true
     }
 }
 
@@ -69,6 +72,15 @@ dependencies {
     // Enables the java.time APIs on minSdk = 24 (see compileOptions.isCoreLibraryDesugaringEnabled).
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
+    // Networking (feature 10): Retrofit is the typed HTTP client; OkHttp is the engine underneath
+    // it (and the one whose logging-interceptor prints requests/responses for the lesson); the
+    // kotlinx.serialization converter lets Retrofit deserialize JSON with the same library the
+    // project already uses (see kotlinx.serialization.json above) instead of adding Moshi/Gson.
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.retrofit.kotlinx.serialization.converter)
+
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -82,6 +94,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // MockWebServer: a fake HTTP server for testing CachingArticleRepository/ArticlesApi without
+    // touching the real network (feature 10).
+    testImplementation(libs.okhttp.mockwebserver)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -25,6 +25,10 @@ class ArticlesScreenTest {
 
     private fun emptyMessage(): String = targetContext.getString(R.string.articles_empty)
 
+    private fun errorMessage(): String = targetContext.getString(R.string.articles_error)
+
+    private fun retryButtonText(): String = targetContext.getString(R.string.articles_retry)
+
     private val pomodoro = Article(
         id = "pomodoro",
         title = "La técnica Pomodoro",
@@ -45,6 +49,8 @@ class ArticlesScreenTest {
             NeverLateTheme {
                 ArticlesScreen(
                     uiState = ArticlesUiState.Content(listOf(pomodoro, timeBlocking)),
+                    isRefreshing = false,
+                    onRefresh = {},
                     onArticleClick = {},
                     onBack = {},
                 )
@@ -65,6 +71,8 @@ class ArticlesScreenTest {
             NeverLateTheme {
                 ArticlesScreen(
                     uiState = ArticlesUiState.Content(listOf(pomodoro, timeBlocking)),
+                    isRefreshing = false,
+                    onRefresh = {},
                     onArticleClick = { clickedId = it },
                     onBack = {},
                 )
@@ -84,6 +92,8 @@ class ArticlesScreenTest {
             NeverLateTheme {
                 ArticlesScreen(
                     uiState = ArticlesUiState.Empty,
+                    isRefreshing = false,
+                    onRefresh = {},
                     onArticleClick = {},
                     onBack = {},
                 )
@@ -94,6 +104,45 @@ class ArticlesScreenTest {
     }
 
     @Test
+    fun errorState_showsErrorMessageAndRetryButton() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                ArticlesScreen(
+                    uiState = ArticlesUiState.Error,
+                    isRefreshing = false,
+                    onRefresh = {},
+                    onArticleClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(errorMessage()).assertExists()
+        composeTestRule.onNodeWithText(retryButtonText()).assertExists()
+    }
+
+    @Test
+    fun errorState_tappingRetryButton_invokesOnRefresh() {
+        var refreshCount = 0
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                ArticlesScreen(
+                    uiState = ArticlesUiState.Error,
+                    isRefreshing = false,
+                    onRefresh = { refreshCount++ },
+                    onArticleClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(retryButtonText()).performClick()
+
+        assert(refreshCount == 1) { "Expected onRefresh to be invoked exactly once, was $refreshCount" }
+    }
+
+    @Test
     fun tappingBackButton_invokesOnBack() {
         var backCount = 0
 
@@ -101,6 +150,8 @@ class ArticlesScreenTest {
             NeverLateTheme {
                 ArticlesScreen(
                     uiState = ArticlesUiState.Content(listOf(pomodoro)),
+                    isRefreshing = false,
+                    onRefresh = {},
                     onArticleClick = {},
                     onBack = { backCount++ },
                 )

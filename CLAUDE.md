@@ -40,7 +40,8 @@ never-late/
 ├─ tutorial/                    # Spanish lessons, one per feature (see Tutorial Methodology)
 └─ docs/
    ├─ prompts/                  # Ready-to-paste prompts to start each feature in a new session
-   └─ specs/                    # Feature specs (project-manager-docs)
+   ├─ specs/                    # Feature specs (project-manager-docs)
+   └─ articles-api/             # Static JSON served over HTTPS via GitHub raw (feature 10)
 ```
 
 As the app grows, feature code lives under `app/src/main/java/com/neverlate/` in packages such as
@@ -81,7 +82,24 @@ permission on Android 13+, requested from Compose), plus `FOREGROUND_SERVICE` /
 `SCHEDULE_EXACT_ALARM` (exact alarms on API 31+, checked at runtime via `canScheduleExactAlarms()`
 with graceful fallback to inexact; `USE_EXACT_ALARM` is deliberately **not** declared) and
 `RECEIVE_BOOT_COMPLETED` (reschedule reminders after reboot), plus two `<receiver>`s: `ReminderReceiver`
-(`exported="false"`) and `BootReceiver` (`exported="true"`, `BOOT_COMPLETED` filter).
+(`exported="false"`) and `BootReceiver` (`exported="true"`, `BOOT_COMPLETED` filter). Feature 10 adds
+`INTERNET` (a normal permission, no runtime request) for the articles API.
+
+**Articles from a remote API** (feature 10): replaces feature 03's bundled `assets/articles.json`
+with a real network fetch. `data/articles/` gains `ArticlesApi` + `ArticlesNetwork` (Retrofit +
+OkHttp, `HttpLoggingInterceptor` gated to debug builds via `BuildConfig.DEBUG`, deserializing with
+the existing `kotlinx.serialization` through a Retrofit converter), `ArticleDto` (the wire shape,
+deliberately different from the `Article` domain model — `article_id`/`content`, no `summary` —
+mapped by `ArticleDto.toDomain()`), and `ArticleEntity` + `ArticleDao` (the Room cache). The remote
+source is a static JSON file at `docs/articles-api/articles.json`, served over HTTPS via GitHub
+raw once pushed to `master`. `CachingArticleRepository` implements `ArticleRepository` with Room as
+the **single source of truth** (`getArticles()`/`getArticleById()` always read the cache) and adds
+an additive `refresh(): RefreshResult` that the ViewModels use for a *stale-while-revalidate*
+strategy (show the cache immediately, then update it from the network) plus pull-to-refresh and a
+retry action on failure. `ArticleEntity` lives in the same `NeverLateDatabase` as `Task`, which
+bumps `version` 1 → 2 — per that database's existing `fallbackToDestructiveMigration` policy, this
+wipes tasks on devices that already have data, accepted pre-release the same way earlier schema
+changes were.
 
 ## Development
 
