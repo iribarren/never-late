@@ -10,14 +10,21 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 
 /**
- * Where this project's own backend (`backend/`, feature 11) listens. `10.0.2.2` is the special
- * address the Android **emulator** uses to reach the host machine's `localhost` — see
- * `docs/api/contract.md`. A physical device on the same network would need the host's real LAN IP
- * instead; that override is exactly what every `create(baseUrl = ...)` parameter below is for
- * (tests point it at a local `MockWebServer` the same way, following feature 10's
- * [com.neverlate.data.articles.ArticlesNetwork] precedent).
+ * Where this project's own backend (`backend/`, feature 11) listens. Read from
+ * [BuildConfig.BACKEND_BASE_URL], which `app/build.gradle.kts` injects from a
+ * `neverlate.backendBaseUrl` property in `local.properties` (untracked — never committed),
+ * defaulting to `http://10.0.2.2:8080/` when that property is absent.
+ *
+ * `10.0.2.2` is the special address the Android **emulator** uses to reach the host machine's
+ * `localhost` — see `docs/api/contract.md`. A **physical device** doesn't have that alias, so it
+ * needs `local.properties` set to either `http://localhost:8080/` (with `adb reverse tcp:8080
+ * tcp:8080` forwarding the phone's `localhost` to the host, recommended) or the host's real LAN
+ * IP (see `CLAUDE.md` → Development → Backend → "Testing on a physical device"). Either way, the
+ * `create(baseUrl = ...)` parameter below is the seam that lets tests point this at a local
+ * `MockWebServer` instead, following feature 10's [com.neverlate.data.articles.ArticlesNetwork]
+ * precedent.
  */
-const val DEFAULT_BACKEND_BASE_URL = "http://10.0.2.2:8080/"
+const val DEFAULT_BACKEND_BASE_URL = BuildConfig.BACKEND_BASE_URL
 
 /**
  * Shared Retrofit wiring for this app's own backend (feature 11), used by both

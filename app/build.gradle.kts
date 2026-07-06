@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +8,24 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
+
+// Dev-environment fix (bugfix/backend-url-dispositivo-fisico): makes the backend base URL
+// configurable per developer without editing Kotlin source or committing anyone's network
+// details. `local.properties` is untracked (see .gitignore), so it's the right place for a
+// personal value; unlike `gradle.properties`, it never gets committed. Gradle does NOT expose
+// local.properties to the build script automatically, so it's loaded by hand here. A property
+// named "neverlate.backendBaseUrl" wins if present; otherwise we fall back to a same-named
+// Gradle/project property (e.g. from gradle.properties), and finally to the emulator's
+// host-loopback alias so a clean checkout keeps working with zero configuration.
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        FileInputStream(localPropertiesFile).use { load(it) }
+    }
+}
+val backendBaseUrl: String = localProperties.getProperty("neverlate.backendBaseUrl")
+    ?: findProperty("neverlate.backendBaseUrl") as String?
+    ?: "http://10.0.2.2:8080/"
 
 android {
     namespace = "com.neverlate"
@@ -18,6 +39,12 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Injects the backend base URL computed above into BuildConfig.BACKEND_BASE_URL, read by
+        // BackendNetwork.DEFAULT_BACKEND_BASE_URL. Defined in defaultConfig (not gated to debug)
+        // so every build type gets a value; release builds keep the same emulator-alias default
+        // since no developer sets this property for a release build.
+        buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
     }
 
     buildTypes {

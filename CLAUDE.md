@@ -191,6 +191,47 @@ cd backend && docker compose up --build
 # The emulator reaches the host backend at http://10.0.2.2:8080 (see docs/api/contract.md)
 ```
 
+#### Testing on a physical device
+
+The app's backend base URL is a `BuildConfig` field (`BuildConfig.BACKEND_BASE_URL`, wired in
+`app/build.gradle.kts` and read by `BackendNetwork.DEFAULT_BACKEND_BASE_URL`) fed from a
+`neverlate.backendBaseUrl` property in **`local.properties`** (git-ignored — never put a personal
+IP/URL in a tracked file). With no property set it defaults to `http://10.0.2.2:8080/`, so the
+emulator flow needs no configuration at all.
+
+To run the debug app on a **physical device**, add one line to your own `local.properties` (create
+the file if you don't have one) and pick one of:
+
+- **Recommended — USB / `adb reverse`:** connect the phone via USB, then:
+
+  ```bash
+  adb reverse tcp:8080 tcp:8080
+  ```
+
+  and set:
+
+  ```properties
+  neverlate.backendBaseUrl=http://localhost:8080/
+  ```
+
+  `localhost` is already in the debug-only cleartext allowlist
+  (`app/src/debug/res/xml/network_security_config.xml`), so **no manifest/config change is
+  needed** for this path.
+
+- **Alternative — Wi-Fi / LAN IP:** set your PC's LAN IP instead:
+
+  ```properties
+  neverlate.backendBaseUrl=http://192.168.x.x:8080/
+  ```
+
+  This requires: the backend listening on `0.0.0.0` (not just `localhost`), port 8080 open on the
+  host firewall, and the phone on the **same Wi-Fi network**. It also requires adding that same LAN
+  IP as a `<domain>` entry to the debug-only
+  `app/src/debug/res/xml/network_security_config.xml` — a per-developer edit; do not commit your
+  real IP there, and never copy this exception into the release manifest.
+
+Rebuild/reinstall after changing `local.properties` (Gradle only re-reads it on a new build).
+
 ## Key Conventions
 
 - All code (variables, functions, comments, resource ids) MUST be in English. Tutorial lessons
