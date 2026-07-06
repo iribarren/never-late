@@ -32,7 +32,7 @@ field alimentado desde `local.properties`/`gradle.properties` (no versionado), c
 `10.0.2.2:8080/` para no romper el flujo del emulador. Así cada quien pone su IP/USB sin tocar
 `.kt` ni commitear su red local.
 
-## Conceptos nuevos a enseñar (nota breve, no lección completa)
+## Conceptos nuevos a enseñar. Se añaden en el tutorial 11 para completar la leccion
 
 - **`BuildConfig` fields desde Gradle:** cómo inyectar config de build (URLs, flags) sin hardcodear
   en Kotlin, leyéndola de `local.properties` para que no acabe en git.
