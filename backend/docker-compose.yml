@@ -1,0 +1,32 @@
+# Local dev only (per the feature spec's Out of Scope — no production hosting/TLS here).
+# Usage: cp .env.example .env, fill in real values, then `docker compose up --build`.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # Exposed on the host too, for poking at the DB directly with psql while developing.
+      - "5432:5432"
+    volumes:
+      - never-late-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    env_file: .env
+    ports:
+      # The Android emulator reaches this at http://10.0.2.2:8080 (docs/api/contract.md).
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  never-late-db-data:

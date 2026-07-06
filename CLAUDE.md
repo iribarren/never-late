@@ -11,15 +11,20 @@ This is also a **teaching project**: the app is built as a progressive tutorial 
 and Android development. Each new feature must introduce new concepts, from the basics up. See
 **Tutorial Methodology** below — it is binding for every feature.
 
-The app is **local-only** for now (no backend). Data is persisted on-device.
+The app is **client + backend** as of feature 11: the Android app is an **offline-first client** of a
+small **Kotlin/Ktor + Postgres backend** that owns user accounts and tasks. Data is still cached and
+fully usable on-device (Room), but the backend is the source of truth for synced data. The backend
+runs locally via `docker compose` for the tutorial (cloud hosting is out of scope). Earlier features
+(01–10) were local-only; that history is preserved in the tutorial lessons.
 
 ## Structure
 
-Standard single-module Gradle project:
+Monorepo: the Android app (`app/`) plus a sibling backend service (`backend/`), sharing one API
+contract.
 
 ```
 never-late/
-├─ settings.gradle.kts          # Modules + repositories
+├─ settings.gradle.kts          # Modules + repositories (Android app)
 ├─ build.gradle.kts             # Root: declares plugins (apply false)
 ├─ gradle.properties            # Gradle/AndroidX flags
 ├─ gradle/
@@ -37,8 +42,14 @@ never-late/
 │     │  └─ res/                      # strings, themes, launcher icon
 │     ├─ test/                        # Local JVM unit tests
 │     └─ androidTest/                 # Instrumented / Compose UI tests
+├─ backend/                     # Kotlin + Ktor + Postgres service (feature 11) — its own Gradle build
+│  ├─ build.gradle.kts          # Backend module config + dependencies (separate from the app)
+│  ├─ docker-compose.yml        # Backend + Postgres for local dev
+│  ├─ README.md                 # Run + smoke instructions (does NOT re-list endpoints; see contract)
+│  └─ src/                      # Ktor app: auth (JWT), tasks REST, persistence
 ├─ tutorial/                    # Spanish lessons, one per feature (see Tutorial Methodology)
 └─ docs/
+   ├─ api/                      # API contract — source of truth for client + server (feature 11)
    ├─ prompts/                  # Ready-to-paste prompts to start each feature in a new session
    ├─ specs/                    # Feature specs (project-manager-docs)
    └─ articles-api/             # Static JSON served over HTTPS via GitHub raw (feature 10)
@@ -83,7 +94,9 @@ permission on Android 13+, requested from Compose), plus `FOREGROUND_SERVICE` /
 with graceful fallback to inexact; `USE_EXACT_ALARM` is deliberately **not** declared) and
 `RECEIVE_BOOT_COMPLETED` (reschedule reminders after reboot), plus two `<receiver>`s: `ReminderReceiver`
 (`exported="false"`) and `BootReceiver` (`exported="true"`, `BOOT_COMPLETED` filter). Feature 10 adds
-`INTERNET` (a normal permission, no runtime request) for the articles API.
+`INTERNET` (a normal permission, no runtime request) for the articles API. Feature 11 adds
+`ACCESS_NETWORK_STATE` (also a normal permission, no runtime request) for the sync engine's
+connectivity-aware WorkManager job.
 
 **Articles from a remote API** (feature 10): replaces feature 03's bundled `assets/articles.json`
 with a real network fetch. `data/articles/` gains `ArticlesApi` + `ArticlesNetwork` (Retrofit +
@@ -100,6 +113,41 @@ retry action on failure. `ArticleEntity` lives in the same `NeverLateDatabase` a
 bumps `version` 1 → 2 — per that database's existing `fallbackToDestructiveMigration` policy, this
 wipes tasks on devices that already have data, accepted pre-release the same way earlier schema
 changes were.
+
+**Remote DB + offline-first sync** (feature 11): the app gains a real backend (`backend/`, Kotlin +
+Ktor + Postgres) that owns accounts and tasks; the Android app becomes an **offline-first client**.
+Basic email/password **auth** issues a stateless **JWT** (no refresh in v1), attached to every task
+call via an OkHttp interceptor and stored in **Keystore-backed encrypted storage** (not the plaintext
+`user_prefs` DataStore). Room stays the **local single source of truth**; each mutation writes the
+task row **and** a `task_outbox` change row in the same transaction. A sync engine does **push** (replay
+the outbox — idempotent creates keyed by `clientRef`, tombstones for deletes) and **pull**
+(`GET /tasks?since=`), reconciling with **last-write-wins by `updatedAt`** (delete wins over edit); the
+pure reconciliation lives in `domain/sync/` (JVM-testable, like `ReminderPlanning.kt`). Tasks gain sync
+metadata (`serverId`, `updatedAt`, `syncState`, `deleted`), bumping `NeverLateDatabase` **2 → 3**
+(destructive migration per project precedent — the cache repopulates from the backend after login). The
+`TaskRepository` seam is preserved: sync/auth enter behind it. See **API Contract** below.
+
+The local dev backend is plaintext HTTP (`http://10.0.2.2:8080`), which `targetSdk 36` blocks by
+default; a **debug-build-only** network security config (`app/src/debug/res/xml/network_security_config.xml`,
+wired via `app/src/debug/AndroidManifest.xml`) scopes the cleartext exception to `10.0.2.2`/`localhost`
+only — release builds get no exception at all. **Before any real deployment, the backend must be served
+over HTTPS** and this debug-only exception must not be widened or copied into the release manifest.
+
+## API Contract
+
+The app now talks to a backend, so the HTTP contract between client (`app/`) and server (`backend/`)
+is a **first-class, committed artifact** and the **single source of truth** for both sides: it is
+authored/changed **first**, and client and server follow. Do not let the client and server drift from
+it, and do not re-document endpoints elsewhere (the backend `README.md` points to the contract rather
+than re-listing routes).
+
+- **Contract:** [`docs/api/contract.md`](docs/api/contract.md) — endpoints (`/auth/register`,
+  `/auth/login`, `/tasks` CRUD + `GET ?since=` for pull), the `TaskDto` wire shape (deliberately
+  distinct from the Room `Task` entity), the JSON error envelope, auth (Bearer JWT), and sync
+  semantics.
+- **Rule:** any change to request/response shapes, status codes, or auth updates `docs/api/contract.md`
+  in the same change, and both sides are reconciled to it. Sensitive logic (ownership checks,
+  validation, authority over `id`/`updatedAt`) lives on the **server**; the client is untrusted.
 
 ## Development
 
@@ -129,6 +177,19 @@ the Run button.
 | Target | How to run |
 |--------|-----------|
 | Android emulator | `~/Android/Sdk/emulator/emulator -avd Nexus_5X_API_29_x86 &` then `adb wait-for-device` |
+
+### Backend (feature 11)
+
+The backend is a separate Gradle project under `backend/` with its own `docker compose` (backend +
+Postgres). Secrets (JWT signing key, DB credentials) come from **environment variables** — never
+committed. See `backend/README.md` for the authoritative run/smoke steps.
+
+```bash
+# Start the backend + Postgres for local dev (from backend/)
+cd backend && docker compose up --build
+
+# The emulator reaches the host backend at http://10.0.2.2:8080 (see docs/api/contract.md)
+```
 
 ## Key Conventions
 

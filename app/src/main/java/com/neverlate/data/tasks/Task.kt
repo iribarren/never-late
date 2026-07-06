@@ -26,6 +26,13 @@ import androidx.room.PrimaryKey
  *   much time was left the last time it was paused, so resuming can recompute a fresh
  *   [timerEndsAt]. A task that has never been started keeps both fields null — see
  *   [computeRemainingMillis] for how "remaining time" is still derived in that case.
+ *
+ * Feature 11 (remote DB + offline-first sync) adds sync metadata additively, on top of the
+ * fields feature 04 shipped: [serverId], [updatedAt], [syncState] and [deleted]. Per the API
+ * contract (`docs/api/contract.md`), [timerEndsAt]/[remainingMillis] above are deliberately
+ * **not** synced — a live countdown is local, wall-clock-bound state, not something the backend
+ * needs to know about. [com.neverlate.data.sync.OutboxTaskRepository] is the only place that
+ * writes [serverId]/[updatedAt]/[syncState]/[deleted]; this class stays a plain data holder.
  */
 @Entity(tableName = "tasks")
 data class Task(
@@ -35,6 +42,14 @@ data class Task(
     val deadline: Long? = null,
     val timerEndsAt: Long? = null,
     val remainingMillis: Long? = null,
+    /** The backend's id for this task, or null until the first successful `POST /tasks`. */
+    val serverId: Long? = null,
+    /** Last-modified time (epoch millis); the last-write-wins conflict key (see `domain/sync`). */
+    val updatedAt: Long = 0L,
+    /** Where this row stands with the backend — see [SyncState]. */
+    val syncState: SyncState = SyncState.PENDING_CREATE,
+    /** Tombstone flag: true once deleted locally but not yet hard-deleted (awaiting push ack). */
+    val deleted: Boolean = false,
 ) {
     /**
      * True while the countdown is actively ticking down towards [timerEndsAt].

@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -57,6 +58,14 @@ data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val remindersEnabled: Boolean = true,
     val reminderLeadMinutes: Int = DEFAULT_REMINDER_LEAD_MINUTES,
+    /**
+     * The **pull** cursor (feature 11): the server time of the last successful sync, so the next
+     * `GET /tasks?since=` only asks for what changed after it. `0` (the default) means "never
+     * synced" — the contract treats a missing/zero `since` as "give me everything". Not sensitive,
+     * so — per the spec — it lives in this same non-encrypted store rather than alongside the
+     * auth token (see [com.neverlate.data.auth.TokenStorage]).
+     */
+    val syncCursor: Long = 0L,
 ) {
     companion object {
         /** Default lead time (minutes) a reminder fires before a task's deadline. */
@@ -96,6 +105,9 @@ interface UserPreferencesRepository {
      * not retroactively rescheduled.
      */
     suspend fun saveReminderLeadMinutes(minutes: Int)
+
+    /** Persists the sync pull cursor (feature 11) — see [UserPreferences.syncCursor]. */
+    suspend fun saveSyncCursor(cursor: Long)
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -112,6 +124,8 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         // Added in feature 09 — same "user_prefs" file yet again, no second DataStore.
         val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
         val REMINDER_LEAD_MINUTES = intPreferencesKey("reminder_lead_minutes")
+        // Added in feature 11 — same "user_prefs" file yet again, no second DataStore.
+        val SYNC_CURSOR = longPreferencesKey("sync_cursor")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -127,6 +141,7 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
                 remindersEnabled = preferences[Keys.REMINDERS_ENABLED] ?: true,
                 reminderLeadMinutes = preferences[Keys.REMINDER_LEAD_MINUTES]
                     ?: UserPreferences.DEFAULT_REMINDER_LEAD_MINUTES,
+                syncCursor = preferences[Keys.SYNC_CURSOR] ?: 0L,
             )
         }
 
@@ -153,6 +168,12 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
     override suspend fun saveReminderLeadMinutes(minutes: Int) {
         context.userPrefsDataStore.edit { preferences ->
             preferences[Keys.REMINDER_LEAD_MINUTES] = minutes
+        }
+    }
+
+    override suspend fun saveSyncCursor(cursor: Long) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.SYNC_CURSOR] = cursor
         }
     }
 }

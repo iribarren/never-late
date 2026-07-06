@@ -46,6 +46,10 @@ private class FakeUserPreferencesRepository(
     override suspend fun saveReminderLeadMinutes(minutes: Int) {
         userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
     }
+
+    override suspend fun saveSyncCursor(cursor: Long) {
+        userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

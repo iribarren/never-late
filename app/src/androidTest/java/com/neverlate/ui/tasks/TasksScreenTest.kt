@@ -33,6 +33,8 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Empty,
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
@@ -57,6 +59,8 @@ class TasksScreenTest {
                     uiState = TasksUiState.Content(
                         listOf(TaskUiModel(task = task, remainingMillis = 25 * 60_000L, isTimedOut = false)),
                     ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = { clickedId = it },
                     onStartClick = {},

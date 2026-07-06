@@ -2,6 +2,7 @@ package com.neverlate.ui.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.computeRemainingMillis
@@ -46,6 +47,15 @@ class TasksViewModel(private val repository: TaskRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<TasksUiState>(TasksUiState.Loading)
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
 
+    /**
+     * Feature 11's minimal sync indicator (OQ-1): forwarded straight from
+     * [TaskRepository.observeSyncStatus] — this ViewModel touches nothing sync-shaped beyond that
+     * one additive method (see [TaskRepository]'s KDoc, US-7). [refresh] is what
+     * `PullToRefreshBox`'s gesture (see [TasksScreen]) calls.
+     */
+    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
+
     init {
         viewModelScope.launch {
             repository.observeTasks()
@@ -54,6 +64,15 @@ class TasksViewModel(private val repository: TaskRepository) : ViewModel() {
                 }
                 .collect { tasks -> onTasksTick(tasks) }
         }
+
+        viewModelScope.launch {
+            repository.observeSyncStatus().collect { status -> _syncStatus.value = status }
+        }
+    }
+
+    /** Triggers an on-demand sync (US-4) — bound to [TasksScreen]'s pull-to-refresh gesture. */
+    fun refresh() {
+        viewModelScope.launch { repository.refreshFromServer() }
     }
 
     private fun onTasksTick(tasks: List<Task>) {

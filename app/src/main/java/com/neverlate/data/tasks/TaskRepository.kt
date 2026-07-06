@@ -1,6 +1,8 @@
 package com.neverlate.data.tasks
 
+import com.neverlate.data.sync.SyncStatus
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Reads and writes tasks.
@@ -41,4 +43,28 @@ interface TaskRepository {
 
     /** Pauses the countdown for the task with [id], freezing its remaining time. */
     suspend fun pauseTimer(id: Long)
+
+    /**
+     * Triggers an on-demand sync (push then pull) against the backend, added **additively** for
+     * feature 11 (US-7: the existing five methods above keep their exact pre-feature-11 meaning
+     * and signature). [com.neverlate.ui.tasks.TasksViewModel] calls this for pull-to-refresh —
+     * this is the only sync-shaped thing it, or any other task-related ViewModel, ever touches;
+     * none of them depend on [com.neverlate.data.sync.SyncEngine] or Retrofit directly.
+     *
+     * Defaults to a no-op: only [com.neverlate.data.sync.OutboxTaskRepository] (the decorator
+     * that actually talks to the backend) overrides it. A pass-through decorator
+     * ([ReminderSchedulingRepository][com.neverlate.ui.notification.ReminderSchedulingRepository],
+     * [TaskSurfacesRefreshingRepository][com.neverlate.ui.widget.TaskSurfacesRefreshingRepository])
+     * must still forward the call to its delegate — see each class's override — or this default
+     * would silently swallow it instead of reaching the real implementation further down the chain.
+     */
+    suspend fun refreshFromServer() {}
+
+    /**
+     * The current best-effort sync status, for the minimal sync indicator (OQ-1: a pull-to-refresh
+     * spinner plus a subtle offline/syncing hint, not a rich per-task badge). Defaults to
+     * [SyncStatus.Idle] for implementations with no sync concept — same reasoning as
+     * [refreshFromServer].
+     */
+    fun observeSyncStatus(): Flow<SyncStatus> = flowOf(SyncStatus.Idle)
 }

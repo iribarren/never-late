@@ -48,6 +48,12 @@ android {
         // logging to debug builds only (feature 10).
         buildConfig = true
     }
+
+    testOptions {
+        // Robolectric (feature 11) needs the merged manifest/resources to build its simulated
+        // Android environment for the OutboxTaskRepository/SyncEngine Room tests.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -81,6 +87,11 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.retrofit.kotlinx.serialization.converter)
 
+    // Remote DB + sync (feature 11): EncryptedSharedPreferences (Keystore-backed) is where the
+    // auth token lives — see com.neverlate.data.auth.TokenStorage for why it must not be the
+    // plaintext DataStore used for theme/reminder preferences.
+    implementation(libs.androidx.security.crypto)
+
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -97,6 +108,9 @@ dependencies {
     // MockWebServer: a fake HTTP server for testing CachingArticleRepository/ArticlesApi without
     // touching the real network (feature 10).
     testImplementation(libs.okhttp.mockwebserver)
+    // Robolectric (feature 11): a real in-memory Room database (with real transactions) for
+    // OutboxTaskRepository/SyncEngine tests — see the version catalog comment on `robolectric`.
+    testImplementation(libs.robolectric)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

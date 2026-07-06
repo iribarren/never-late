@@ -1,0 +1,3 @@
+# Real secrets — never commit. .env.example (committed) documents every variable with a
+# placeholder value; docker-compose.yml reads the real .env at runtime.
+.env

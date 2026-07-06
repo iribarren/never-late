@@ -1,0 +1,48 @@
+# Backend version catalog — mirrors the convention used by the root app's
+# gradle/libs.versions.toml (single source of truth for versions; never hardcode versions in
+# build.gradle.kts). Kept separate from the app's catalog because this is an independent
+# Gradle build (JVM only, no Android Gradle Plugin).
+[versions]
+# Newer than the Android app's Kotlin (2.1.0, gradle/libs.versions.toml at the repo root) —
+# these are two independent Gradle builds, so they don't need to share a Kotlin version. Ktor
+# 3.5.1's published artifacts require a compiler new enough to read their metadata format.
+kotlin = "2.3.21"
+ktor = "3.5.1"
+logback = "1.5.18"
+javaJwt = "4.5.2"
+jbcrypt = "0.4"
+hikariCp = "6.3.0"
+postgresql = "42.7.12"
+kotlinxCoroutines = "1.9.0"
+kotlinxSerializationJson = "1.7.3"
+junit = "5.11.4"
+
+[libraries]
+# --- Ktor server ---
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core-jvm", version.ref = "ktor" }
+ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty-jvm", version.ref = "ktor" }
+ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation-jvm", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json-jvm", version.ref = "ktor" }
+ktor-server-auth = { group = "io.ktor", name = "ktor-server-auth-jvm", version.ref = "ktor" }
+ktor-server-auth-jwt = { group = "io.ktor", name = "ktor-server-auth-jwt-jvm", version.ref = "ktor" }
+ktor-server-status-pages = { group = "io.ktor", name = "ktor-server-status-pages-jvm", version.ref = "ktor" }
+ktor-server-call-logging = { group = "io.ktor", name = "ktor-server-call-logging-jvm", version.ref = "ktor" }
+# --- Ktor test client (used from testApplication in tests) ---
+ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host-jvm", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation-jvm", version.ref = "ktor" }
+# --- JSON ---
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+# --- Logging (Ktor/Netty require an SLF4J backend) ---
+logback-classic = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
+# --- Auth: JWT signing/verification + password hashing ---
+java-jwt = { group = "com.auth0", name = "java-jwt", version.ref = "javaJwt" }
+jbcrypt = { group = "org.mindrot", name = "jbcrypt", version.ref = "jbcrypt" }
+# --- Persistence: plain JDBC + a connection pool (no ORM — see backend/README.md for why) ---
+hikaricp = { group = "com.zaxxer", name = "HikariCP", version.ref = "hikariCp" }
+postgresql-driver = { group = "org.postgresql", name = "postgresql", version.ref = "postgresql" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
