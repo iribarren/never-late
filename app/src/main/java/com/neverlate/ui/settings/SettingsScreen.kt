@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
@@ -139,6 +141,10 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
+                // The content can outgrow the viewport once reminders are on (the lead-time radio
+                // list + exact-alarm notice), which would otherwise push the Account section off
+                // the bottom with no way to reach it — so make the whole screen scrollable.
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
             Text(
