@@ -12,13 +12,16 @@
 Partiendo de las lecciones 02 (`ViewModel` + `StateFlow`, DI manual) y 03 (`LazyColumn`, navegación
 con argumentos, repositorio tras interfaz, `sealed interface` para el estado):
 
-- **Room (SQLite):** `@Entity` (una tabla), `@Dao` (las consultas), `@Database` (la base de datos), y
-  **KSP** como generador de código en tiempo de compilación.
+- **[Room (SQLite)](https://developer.android.com/training/data-storage/room):** `@Entity` (una
+  tabla), `@Dao` (las consultas), `@Database` (la base de datos), y
+  **[KSP](https://developer.android.com/build/migrate-to-ksp)** como generador de código en tiempo
+  de compilación.
 - **Consultas que devuelven `Flow`:** lecturas **reactivas** que vuelven a emitir cada vez que cambian
   los datos, en lugar de una lectura de una vez.
 - **CRUD completo** (crear / leer / actualizar / borrar) desde el DAO → repositorio → `ViewModel`.
-- **Corrutinas y `Flow` para un temporizador:** una cuenta atrás con `delay`, mantenida **fuera de la
-  UI**.
+- **[Corrutinas](https://developer.android.com/kotlin/coroutines) y
+  [`Flow`](https://kotlinlang.org/docs/flow.html) para un temporizador:** una cuenta atrás con
+  `delay`, mantenida **fuera de la UI**.
 - **Estado más complejo en Compose:** una lista donde cada fila tiene su propio tiempo restante que se
   refresca cada segundo, con `collectAsStateWithLifecycle`.
 - **Diseño para el reloj de pared:** derivar el tiempo restante de la hora del sistema para que
@@ -455,6 +458,20 @@ adb shell am start -n com.neverlate/.MainActivity
   contador corriendo, el restante es el correcto (reloj de pared).
 - Deja que una cuenta atrás llegue a **cero**: se detiene sola en `00:00`, sin números negativos.
 - Todo funciona en **modo avión**: es local.
+
+---
+
+## Documentación oficial
+
+- **Room** — [Save data in a local database using Room](https://developer.android.com/training/data-storage/room)
+  · [Referencia de consultas con `@Query`](https://developer.android.com/training/data-storage/room/accessing-data)
+- **KSP** — [Migrate from kapt to KSP](https://developer.android.com/build/migrate-to-ksp)
+- **Corrutinas en Android** — [Kotlin coroutines on Android](https://developer.android.com/kotlin/coroutines)
+  · [Coroutines (Kotlin)](https://kotlinlang.org/docs/coroutines-overview.html)
+- **`Flow`** — [Asynchronous Flow (Kotlin)](https://kotlinlang.org/docs/flow.html)
+  · [Flows en Android](https://developer.android.com/kotlin/flow)
+- **Room + Flow (lecturas reactivas)** — [Read data using observable queries](https://developer.android.com/training/data-storage/room/async-queries)
+- **Fechas y horas** — [`SimpleDateFormat`](https://developer.android.com/reference/java/text/SimpleDateFormat)
 
 ---
 

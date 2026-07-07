@@ -24,9 +24,12 @@ last-write-wins) y 12 (par access/refresh token, `Authenticator`, estado de auth
   idempotencia por `clientRef` de la 11: las creaciones que el invitado dejó encoladas se empujan a la
   cuenta **sin pérdidas y sin duplicados**, y se reconcilian contra lo que ya hubiera en el servidor por
   last-write-wins. Y lo poco que cuesta cuando el motor de sync se diseñó con las *costuras* correctas.
-- **Un estado de auth de tres caras.** Ampliar una `sealed interface` (`LoggedOut` / `LoggedIn`) con un
-  tercer caso, `Guest`, y cómo la navegación reactiva mapea cada estado a un grafo — más *por qué*
-  mantenemos `Guest` (elegido, usable) y `LoggedOut` (involuntario, con puerta) **distintos**.
+- **Un estado de auth de tres caras.** Ampliar una [`sealed
+  interface`](https://kotlinlang.org/docs/sealed-classes.html) (`LoggedOut` / `LoggedIn`) con un
+  tercer caso, `Guest`, y cómo la [navegación
+  reactiva](https://developer.android.com/develop/ui/compose/navigation) mapea cada estado a un
+  grafo — más *por qué* mantenemos `Guest` (elegido, usable) y `LoggedOut` (involuntario, con puerta)
+  **distintos**.
 - **Decisiones de producto sobre la fusión.** Fusión silenciosa vs. preguntar; por qué el logout debe
   **borrar** en vez de conservar (evitar duplicados y fugas entre cuentas); y por qué **no** hay
   de-duplicación por contenido. Razonar sobre riesgos de pérdida y duplicación de datos, no solo escribir
@@ -487,3 +490,13 @@ necesitamos para probar la idempotencia).
   de-duplicación por contenido.
 - **Cero cambios en backend, contrato, base de datos, dependencias o permisos.** Toda la feature entra por
   detrás de las *costuras* de la 11 — la recompensa de haberlas diseñado bien.
+
+---
+
+## Documentación oficial
+
+- **`sealed interface` / `sealed class`** — [Sealed classes and interfaces (Kotlin)](https://kotlinlang.org/docs/sealed-classes.html)
+- **Navegación reactiva en Compose** — [Navigation with Compose](https://developer.android.com/develop/ui/compose/navigation)
+- **Efectos y `LaunchedEffect`** — [Side-effects in Compose](https://developer.android.com/develop/ui/compose/side-effects)
+- **Idempotencia y `Mutex`** — [Shared mutable state and concurrency (Kotlin)](https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html)
+- **Sincronizar con WorkManager** — [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)

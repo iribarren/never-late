@@ -11,16 +11,20 @@
 Partiendo de las lecciones 01–06 (Compose, `ViewModel`/`StateFlow`, DI manual, repositorio tras
 interfaz, DataStore del onboarding, navegación, Room + `Flow`):
 
-- **DataStore, otra vuelta de tuerca:** cómo **ampliar** un repositorio de preferencias existente
-  con una **clave nueva** en el **mismo fichero**, en vez de crear un segundo almacén.
-- **Persistir un `enum` como `String`:** guardar `mode.name` y volver a leerlo con un *parse
-  tolerante* que nunca revienta (un valor ausente o desconocido cae en un valor por defecto seguro).
-- **Tematizado dinámico de Material 3:** una preferencia (`ThemeMode`) que se traduce a un `Boolean`
-  y entra por el parámetro `darkTheme` de `NeverLateTheme`, sin duplicar la lógica de color.
+- **[DataStore](https://developer.android.com/topic/libraries/architecture/datastore), otra vuelta
+  de tuerca:** cómo **ampliar** un repositorio de preferencias existente con una **clave nueva** en
+  el **mismo fichero**, en vez de crear un segundo almacén.
+- **Persistir un [`enum`](https://kotlinlang.org/docs/enum-classes.html) como `String`:** guardar
+  `mode.name` y volver a leerlo con un *parse tolerante* que nunca revienta (un valor ausente o
+  desconocido cae en un valor por defecto seguro).
+- **[Tematizado dinámico de Material 3](https://developer.android.com/develop/ui/views/theming/darktheme):**
+  una preferencia (`ThemeMode`) que se traduce a un `Boolean` y entra por el parámetro `darkTheme`
+  de `NeverLateTheme`, sin duplicar la lógica de color.
 - **Exponer preferencias de forma reactiva:** leer el `Flow` de preferencias en `setContent` con
   `collectAsStateWithLifecycle`, y elegir un **valor inicial** para evitar el *parpadeo* de arranque.
 - **Selección única en Compose:** una lista de opciones con `RadioButton`, `selectableGroup()` y
-  `Modifier.selectable(role = Role.RadioButton)` (accesibilidad incluida).
+  `Modifier.selectable(role = Role.RadioButton)` ([accesibilidad](https://developer.android.com/develop/ui/compose/accessibility)
+  incluida).
 - **Función pura y testeable:** aislar la decisión "modo → claro/oscuro" en una función sin tipos de
   Android para poder probarla en la JVM.
 
@@ -285,6 +289,17 @@ Lo que **no** se testea en unidad —que `NeverLateTheme` aplique de verdad el e
 sin parpadeo, la navegación Home↔Ajustes— se comprueba **a mano** en el emulador: cambia a oscuro y
 mira que Home y el resto cambian; mata y reabre la app (debe recordar el modo); con "seguir sistema"
 activo, cambia el modo del dispositivo y observa que la app reacciona sola.
+
+---
+
+## Documentación oficial
+
+- **DataStore (Preferences)** — [DataStore](https://developer.android.com/topic/libraries/architecture/datastore)
+- **`enum class`** — [Enum classes (Kotlin)](https://kotlinlang.org/docs/enum-classes.html)
+- **Tema claro/oscuro** — [Dark theme](https://developer.android.com/develop/ui/views/theming/darktheme)
+  · [Material 3 en Compose](https://developer.android.com/develop/ui/compose/designsystems/material3)
+- **Controles de selección** — [Radio buttons](https://developer.android.com/develop/ui/compose/components/radio-button)
+- **Accesibilidad en Compose** — [Accessibility in Compose](https://developer.android.com/develop/ui/compose/accessibility)
 
 ---
 

@@ -12,17 +12,21 @@
 Partiendo de la lección 04 (Room + `Flow`, repositorio tras interfaz, funciones puras de tiempo,
 reloj de pared):
 
-- **App Widgets con Glance:** qué es un widget, el `GlanceAppWidget` y su `GlanceAppWidgetReceiver`, y
-  cómo Glance traduce composables a `RemoteViews` para dibujar en el proceso del *launcher*.
+- **[App Widgets con Glance](https://developer.android.com/develop/ui/compose/glance):** qué es un
+  widget, el `GlanceAppWidget` y su `GlanceAppWidgetReceiver`, y cómo Glance traduce composables a
+  `RemoteViews` para dibujar en el proceso del *launcher*.
 - **Un widget leyendo los datos de la app:** obtener el **singleton** de la base de datos desde el
   `Context` del widget y leer un **snapshot** con `.first()` (un widget se dibuja, no observa).
 - **Reutilizar las funciones puras de tiempo** de la lección 04 desde una **nueva función pura de
   mapeo** — la única parte del widget testeable en JVM.
 - **El patrón decorador:** envolver `TaskRepository` para refrescar el widget en cada escritura, sin
   tocar el repositorio original ni los `ViewModel`.
-- **WorkManager:** un `CoroutineWorker` periódico para refrescar en segundo plano, y por qué su
-  intervalo mínimo (~15 min) impide una cuenta atrás segundo a segundo.
-- **Ciclo de vida y límites de los widgets**, el `PendingIntent` para abrir la app, y un **deep-link**
+- **[WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager):** un
+  `CoroutineWorker` periódico para refrescar en segundo plano, y por qué su intervalo mínimo
+  (~15 min) impide una cuenta atrás segundo a segundo.
+- **Ciclo de vida y límites de los widgets**, el
+  [`PendingIntent`](https://developer.android.com/reference/android/app/PendingIntent) para abrir la
+  app, y un **[deep-link](https://developer.android.com/develop/ui/compose/navigation#deeplinks)**
   para arrancar directamente en la lista de tareas.
 
 ---
@@ -433,6 +437,19 @@ adb shell am start -n com.neverlate/.MainActivity
 - Deja el widget quieto: su cifra se refresca **periódicamente** en segundo plano (hasta ~15 min de
   desfase; no cuenta segundo a segundo — es esperado).
 - Todo funciona **sin conexión**: es local.
+
+---
+
+## Documentación oficial
+
+- **Glance (App Widgets con Compose)** — [Jetpack Glance](https://developer.android.com/develop/ui/compose/glance)
+  · [Crear un widget](https://developer.android.com/develop/ui/compose/glance/create-app-widget)
+- **App Widgets (fundamentos)** — [App widgets overview](https://developer.android.com/develop/ui/views/appwidgets/overview)
+- **WorkManager** — [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)
+  · [Definir el trabajo (`CoroutineWorker`)](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work)
+- **`PendingIntent`** — [PendingIntent (referencia)](https://developer.android.com/reference/android/app/PendingIntent)
+- **Deep links en Compose** — [Navigation with Compose · deep links](https://developer.android.com/develop/ui/compose/navigation#deeplinks)
+- **Patrón decorador** — [Delegation (Kotlin)](https://kotlinlang.org/docs/delegation.html)
 
 ---
 

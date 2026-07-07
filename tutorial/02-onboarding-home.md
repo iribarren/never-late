@@ -10,16 +10,20 @@
 
 Partiendo de la Lección 01 (`@Composable`, `Scaffold`, `Column`, `Text`, `Modifier`, tema):
 
-- **Estado en Compose:** `remember`, `mutableStateOf` y, sobre todo, el **state hoisting**
-  (izar el estado): composables sin estado que reciben datos y devuelven eventos.
+- **[Estado en Compose](https://developer.android.com/develop/ui/compose/state):** `remember`,
+  `mutableStateOf` y, sobre todo, el **[state
+  hoisting](https://developer.android.com/develop/ui/compose/state-hoisting)** (izar el estado):
+  composables sin estado que reciben datos y devuelven eventos.
 - **Entrada y formularios:** `OutlinedTextField`, `Button` y **validación básica** (nombre no vacío).
-- **`ViewModel` + `StateFlow`:** exponer el estado de una pantalla de forma que **sobreviva a la
-  rotación**, recolectándolo con `collectAsStateWithLifecycle`.
-- **Navigation Compose:** un **grafo de navegación** con dos destinos (onboarding y home) y el
-  *routing* de arranque.
-- **DataStore (Preferences):** persistir el nombre y el flag `onboarded` en el dispositivo,
-  leídos como un `Flow`.
-- **Material 3:** `Scaffold` con `TopAppBar` y un `Snackbar`.
+- **[`ViewModel`](https://developer.android.com/topic/libraries/architecture/viewmodel) +
+  `StateFlow`:** exponer el estado de una pantalla de forma que **sobreviva a la rotación**,
+  recolectándolo con `collectAsStateWithLifecycle`.
+- **[Navigation Compose](https://developer.android.com/develop/ui/compose/navigation):** un
+  **grafo de navegación** con dos destinos (onboarding y home) y el *routing* de arranque.
+- **[DataStore (Preferences)](https://developer.android.com/topic/libraries/architecture/datastore):**
+  persistir el nombre y el flag `onboarded` en el dispositivo, leídos como un `Flow`.
+- **[Material 3](https://developer.android.com/develop/ui/compose/designsystems/material3):**
+  `Scaffold` con `TopAppBar` y un `Snackbar`.
 - **Inyección de dependencias manual:** un `ViewModelProvider.Factory` para construir ViewModels
   con parámetros, sin ninguna librería extra (todavía).
 
@@ -422,6 +426,21 @@ adb shell am start -n com.neverlate/.MainActivity
 - Pulsa una opción (Tareas / Artículos): aparece "Próximamente".
 - Gira la pantalla mientras escribes en el onboarding: el texto **no se pierde** (está en el
   ViewModel).
+
+---
+
+## Documentación oficial
+
+- **Estado en Compose** — [State and Jetpack Compose](https://developer.android.com/develop/ui/compose/state)
+- **State hoisting / UDF** — [State hoisting](https://developer.android.com/develop/ui/compose/state-hoisting)
+  · [Guía de arquitectura de apps](https://developer.android.com/topic/architecture)
+- **ViewModel** — [ViewModel overview](https://developer.android.com/topic/libraries/architecture/viewmodel)
+- **StateFlow / Flow en Android** — [Kotlin flows on Android](https://developer.android.com/kotlin/flow)
+  · [`collectAsStateWithLifecycle`](https://developer.android.com/topic/libraries/architecture/coroutines#viewmodelscope)
+- **Navigation Compose** — [Navigation with Compose](https://developer.android.com/develop/ui/compose/navigation)
+- **DataStore** — [DataStore](https://developer.android.com/topic/libraries/architecture/datastore)
+- **Material 3 en Compose** — [Material Design 3 in Compose](https://developer.android.com/develop/ui/compose/designsystems/material3)
+- **Formularios / texto** — [Text fields](https://developer.android.com/develop/ui/compose/text/user-input)
 
 ---
 
