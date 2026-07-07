@@ -1,8 +1,12 @@
 package com.neverlate.data.auth
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.io.IOException
+import java.security.GeneralSecurityException
 
 /**
  * Reads and writes the current session: a short-lived **access** token (JWT, attached to every
@@ -60,17 +64,31 @@ interface TokenStorage {
  * act as this user against the backend, so it needs Keystore-backed encryption at rest (US-2 of
  * the feature spec), not a plain XML file another app with root/a backup exploit could read.
  */
-class EncryptedTokenStorage(context: Context) : TokenStorage {
+class EncryptedTokenStorage(private val context: Context) : TokenStorage {
 
     // Lazy: building the MasterKey touches the Keystore, which is unnecessary work for callers
     // that only ever call getAccessToken() and find there is none (e.g. a cold app start before
     // login).
+    //
+    // Wrapped in [createEncryptedPrefsWithRecovery] because opening the file can fail: the
+    // encrypted prefs are sealed with a hardware-bound Android Keystore key that never leaves the
+    // device, so if the file and that key ever desync — e.g. the file is restored from a cloud
+    // backup onto a fresh install/device whose Keystore has a *different* key, a known hazard on
+    // some OEM ROMs — decryption throws AEADBadTagException. Without recovery that would crash the
+    // app on every launch (a permanent boot loop) instead of just losing an un-recoverable session.
     private val prefs by lazy {
+        createEncryptedPrefsWithRecovery(
+            build = { buildEncryptedPrefs() },
+            deleteCorruptState = { context.deleteSharedPreferences(PREFS_FILE_NAME) },
+        )
+    }
+
+    private fun buildEncryptedPrefs(): SharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
 
-        EncryptedSharedPreferences.create(
+        return EncryptedSharedPreferences.create(
             context,
             PREFS_FILE_NAME,
             masterKey,
@@ -120,4 +138,40 @@ class EncryptedTokenStorage(context: Context) : TokenStorage {
         const val KEY_USER_EMAIL = "user_email"
         const val NO_USER_ID = -1L
     }
+}
+
+/**
+ * Opens the encrypted prefs, recovering **once** from an un-decryptable keyset instead of letting
+ * it crash the app.
+ *
+ * Pulled out as a pure function (no Android Keystore, no `Context`) so it can be unit-tested with
+ * plain fakes: the real dependencies are passed in as [build] (create the `EncryptedSharedPreferences`)
+ * and [deleteCorruptState] (delete the on-disk file so the next [build] starts clean).
+ *
+ * `EncryptedSharedPreferences.create` surfaces a Keystore desync as either a
+ * [GeneralSecurityException] (the common case — `AEADBadTagException` is one) or an [IOException].
+ * On either, we drop the corrupt file and rebuild **exactly once**: the second [build] regenerates a
+ * fresh, empty keyset, so the user simply lands logged-out (session lost) rather than in a boot
+ * loop. If that retry also fails the exception propagates — we never loop.
+ */
+internal fun createEncryptedPrefsWithRecovery(
+    build: () -> SharedPreferences,
+    deleteCorruptState: () -> Unit,
+): SharedPreferences =
+    try {
+        build()
+    } catch (e: GeneralSecurityException) {
+        recoverCorruptPrefs(e, build, deleteCorruptState)
+    } catch (e: IOException) {
+        recoverCorruptPrefs(e, build, deleteCorruptState)
+    }
+
+private fun recoverCorruptPrefs(
+    cause: Exception,
+    build: () -> SharedPreferences,
+    deleteCorruptState: () -> Unit,
+): SharedPreferences {
+    Log.w("EncryptedTokenStorage", "Encrypted token store unreadable; clearing and recreating", cause)
+    deleteCorruptState()
+    return build()
 }
