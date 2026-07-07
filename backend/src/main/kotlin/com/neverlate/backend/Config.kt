@@ -13,7 +13,11 @@ data class Config(
     val jwtSecret: String,
     val jwtIssuer: String,
     val jwtAudience: String,
-    val jwtExpiryHours: Long,
+    // Feature 12: the access token shrank from a 24h stateless JWT to a short-lived one whose
+    // expiry is measured in minutes, backstopped by a long-lived, server-tracked refresh token
+    // (see auth/RefreshTokenRepository.kt) — see contract.md §2 and the spec's resolved decisions.
+    val accessTokenExpiryMinutes: Long,
+    val refreshTokenExpiryDays: Long,
     val databaseUrl: String,
     val databaseUser: String,
     val databasePassword: String,
@@ -33,7 +37,8 @@ data class Config(
                 jwtSecret = required("JWT_SECRET"),
                 jwtIssuer = System.getenv("JWT_ISSUER") ?: "never-late-backend",
                 jwtAudience = System.getenv("JWT_AUDIENCE") ?: "never-late-app",
-                jwtExpiryHours = System.getenv("JWT_EXPIRY_HOURS")?.toLongOrNull() ?: 24L,
+                accessTokenExpiryMinutes = System.getenv("ACCESS_TOKEN_EXPIRY_MINUTES")?.toLongOrNull() ?: 15L,
+                refreshTokenExpiryDays = System.getenv("REFRESH_TOKEN_EXPIRY_DAYS")?.toLongOrNull() ?: 30L,
                 databaseUrl = required("DATABASE_URL"),
                 databaseUser = required("DATABASE_USER"),
                 databasePassword = required("DATABASE_PASSWORD"),

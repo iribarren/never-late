@@ -58,11 +58,13 @@ import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
  * the repository the way this app's `ViewModel`s do.
  *
  * Feature 11 also adds an account layer *above* [TaskRepository]: [AuthRepository] (backed by
- * [EncryptedTokenStorage] for the JWT) gates the whole nav graph in [AppNavHost] — see that
- * function's KDoc — and [SyncEngine] is the thing [OutboxTaskRepository] actually talks to for
- * push/pull, built here with a [com.neverlate.data.sync.TasksApi] whose
- * [com.neverlate.data.sync.AuthInterceptor] attaches the session token and routes a `401` back to
- * [AuthRepository.notifyUnauthorized].
+ * [EncryptedTokenStorage] for the JWT + refresh token) gates the whole nav graph in [AppNavHost] —
+ * see that function's KDoc — and [SyncEngine] is the thing [OutboxTaskRepository] actually talks
+ * to for push/pull, built here with a [com.neverlate.data.sync.TasksApi] whose
+ * [com.neverlate.data.sync.AuthInterceptor] attaches the session token. Feature 12 adds
+ * [com.neverlate.data.sync.TokenAuthenticator] to that same client: it renews an expired token
+ * silently on a `401` and only routes back to [AuthRepository.notifyUnauthorized] once renewal
+ * itself is impossible.
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -67,12 +67,12 @@ class AuthRepositoryTest {
 
     @Test
     fun `register with valid new credentials stores the session and flips authState to LoggedIn`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(201).setBody("""{"token":"jwt-1","user":{"id":1,"email":"new@example.com"}}"""))
+        mockWebServer.enqueue(MockResponse().setResponseCode(201).setBody("""{"accessToken":"jwt-1","refreshToken":"refresh-1","user":{"id":1,"email":"new@example.com"}}"""))
 
         val result = repository.register("new@example.com", "supersecret1")
 
         assertEquals(AuthResult.Success, result)
-        assertEquals("jwt-1", tokenStorage.getToken())
+        assertEquals("jwt-1", tokenStorage.getAccessToken())
         assertEquals(1L, tokenStorage.getUserId())
         assertEquals("new@example.com", tokenStorage.getUserEmail())
         assertEquals(AuthState.LoggedIn(1L, "new@example.com"), repository.authState.value)
@@ -80,12 +80,12 @@ class AuthRepositoryTest {
 
     @Test
     fun `login with valid existing credentials stores the session and flips authState to LoggedIn`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"jwt-2","user":{"id":7,"email":"existing@example.com"}}"""))
+        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"accessToken":"jwt-2","refreshToken":"refresh-2","user":{"id":7,"email":"existing@example.com"}}"""))
 
         val result = repository.login("existing@example.com", "supersecret1")
 
         assertEquals(AuthResult.Success, result)
-        assertEquals("jwt-2", tokenStorage.getToken())
+        assertEquals("jwt-2", tokenStorage.getAccessToken())
         assertEquals(AuthState.LoggedIn(7L, "existing@example.com"), repository.authState.value)
     }
 
@@ -98,7 +98,7 @@ class AuthRepositoryTest {
         val result = repository.register("taken@example.com", "supersecret1")
 
         assertEquals(AuthResult.Error(AuthErrorType.EMAIL_TAKEN), result)
-        assertNull(tokenStorage.getToken())
+        assertNull(tokenStorage.getAccessToken())
         assertEquals(AuthState.LoggedOut, repository.authState.value)
     }
 
@@ -109,7 +109,7 @@ class AuthRepositoryTest {
         val result = repository.login("someone@example.com", "wrongpassword")
 
         assertEquals(AuthResult.Error(AuthErrorType.INVALID_CREDENTIALS), result)
-        assertNull(tokenStorage.getToken())
+        assertNull(tokenStorage.getAccessToken())
     }
 
     @Test
@@ -119,7 +119,7 @@ class AuthRepositoryTest {
         val result = repository.register("bad", "short")
 
         assertEquals(AuthResult.Error(AuthErrorType.VALIDATION), result)
-        assertNull(tokenStorage.getToken())
+        assertNull(tokenStorage.getAccessToken())
     }
 
     @Test
@@ -151,20 +151,47 @@ class AuthRepositoryTest {
 
     @Test
     fun `logout clears the token, wipes cached tasks and outbox, resets the sync cursor, and flips authState to LoggedOut`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"jwt-3","user":{"id":9,"email":"leaving@example.com"}}"""))
+        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"accessToken":"jwt-3","refreshToken":"refresh-3","user":{"id":9,"email":"leaving@example.com"}}"""))
         repository.login("leaving@example.com", "supersecret1")
         assertTrue(repository.authState.value is AuthState.LoggedIn)
+        mockWebServer.takeRequest() // drain the /auth/login request so the next takeRequest() below is /auth/logout
 
         val taskId = database.taskDao().insert(Task(title = "Cached task", serverId = 1L, updatedAt = 1L, syncState = SyncState.SYNCED))
         database.outboxDao().enqueue(OutboxEntity(taskLocalId = taskId, operation = OutboxOperation.UPDATE, clientRef = "ref", enqueuedAt = 1L))
         preferences.saveSyncCursor(555L)
 
+        // logout() best-effort revokes the refresh token server-side (contract §2.3) before
+        // clearing local state — see the "revoke fails" test below for the offline case.
+        mockWebServer.enqueue(MockResponse().setResponseCode(204))
+
         repository.logout()
 
-        assertNull(tokenStorage.getToken())
+        assertNull(tokenStorage.getAccessToken())
+        assertNull(tokenStorage.getRefreshToken())
         assertNull(database.taskDao().getByIdIncludingDeleted(taskId))
         assertTrue(database.outboxDao().getAll().isEmpty())
         assertEquals(0L, preferences.userPreferences.value.syncCursor)
+        assertEquals(AuthState.LoggedOut, repository.authState.value)
+
+        val logoutRequest = mockWebServer.takeRequest()
+        assertEquals("POST", logoutRequest.method)
+        assertTrue(logoutRequest.path!!.endsWith("/auth/logout"))
+        assertTrue(logoutRequest.body.readUtf8().contains("\"refresh-3\""))
+    }
+
+    @Test
+    fun `logout clears local state even when the revoke call fails`() = runTest {
+        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"accessToken":"jwt-4","refreshToken":"refresh-4","user":{"id":11,"email":"offline@example.com"}}"""))
+        repository.login("offline@example.com", "supersecret1")
+
+        // The revoke call itself fails (server unreachable) — logout must still fully clear the
+        // local session (US-4: best-effort revoke, unconditional local logout).
+        mockWebServer.shutdown()
+
+        repository.logout()
+
+        assertNull(tokenStorage.getAccessToken())
+        assertNull(tokenStorage.getRefreshToken())
         assertEquals(AuthState.LoggedOut, repository.authState.value)
     }
 

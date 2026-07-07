@@ -8,14 +8,16 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import kotlinx.serialization.json.Json
 
 /** A [Config] with placeholder DB credentials — safe because every test wires
- *  [InMemoryUserRepository] / `InMemoryTaskRepository` instead of a real Postgres connection, so
- *  those fields are never actually used to open a connection. Only the JWT fields matter here. */
+ *  [InMemoryUserRepository] / `InMemoryTaskRepository` / `InMemoryRefreshTokenRepository` instead
+ *  of a real Postgres connection, so those fields are never actually used to open a connection.
+ *  Only the JWT/token-lifetime fields matter here. */
 fun testConfig() = Config(
     port = 0,
     jwtSecret = "test-only-secret-do-not-use-in-prod",
     jwtIssuer = "never-late-backend-test",
     jwtAudience = "never-late-app-test",
-    jwtExpiryHours = 1,
+    accessTokenExpiryMinutes = 15,
+    refreshTokenExpiryDays = 30,
     databaseUrl = "unused-in-tests",
     databaseUser = "unused-in-tests",
     databasePassword = "unused-in-tests",

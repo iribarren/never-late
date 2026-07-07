@@ -10,5 +10,7 @@ import com.neverlate.data.network.DEFAULT_BACKEND_BASE_URL
  */
 object AuthNetwork {
     fun create(baseUrl: String = DEFAULT_BACKEND_BASE_URL): AuthApi =
-        BackendNetwork.create(AuthApi::class.java, baseUrl)
+        // logBodies = false (security fix, feature 12): register/login/refresh bodies carry the
+        // password and both tokens in clear JSON — see BackendNetwork.create's KDoc on `logBodies`.
+        BackendNetwork.create(AuthApi::class.java, baseUrl, logBodies = false)
 }

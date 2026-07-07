@@ -23,6 +23,18 @@ fun User.toPublic() = UserPublic(id = id, email = email)
 @Serializable
 data class AuthRequest(val email: String, val password: String)
 
-/** Response body shared by both endpoints' success cases. */
+/** Request body for `POST /auth/refresh` (contract.md §2.2). Deliberately not `Authorization`-header
+ *  based — the whole point of this endpoint is to work when the access token has already expired. */
 @Serializable
-data class AuthResponse(val token: String, val user: UserPublic)
+data class RefreshRequest(val refreshToken: String)
+
+/** Request body for `POST /auth/logout` (contract.md §2.3). */
+@Serializable
+data class LogoutRequest(val refreshToken: String)
+
+/** The token-pair response shared by register/login/refresh (contract.md §2): a short-lived
+ *  stateless [accessToken] (JWT) plus a long-lived, server-tracked [refreshToken] used only to
+ *  mint a new pair later. Kept the pre-feature-12 name `AuthResponse` even though it now carries
+ *  two tokens instead of one, since every caller already imports it under this name. */
+@Serializable
+data class AuthResponse(val accessToken: String, val refreshToken: String, val user: UserPublic)

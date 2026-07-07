@@ -1,7 +1,9 @@
 package com.neverlate.backend
 
 import com.neverlate.backend.auth.AuthService
+import com.neverlate.backend.auth.PostgresRefreshTokenRepository
 import com.neverlate.backend.auth.PostgresUserRepository
+import com.neverlate.backend.auth.RefreshTokenRepository
 import com.neverlate.backend.auth.UserRepository
 import com.neverlate.backend.auth.authRoutes
 import com.neverlate.backend.db.createDataSource
@@ -33,20 +35,31 @@ fun main() {
     initSchema(dataSource)
 
     embeddedServer(Netty, port = config.port) {
-        configureApp(config, PostgresUserRepository(dataSource), PostgresTaskRepository(dataSource))
+        configureApp(
+            config,
+            PostgresUserRepository(dataSource),
+            PostgresTaskRepository(dataSource),
+            PostgresRefreshTokenRepository(dataSource),
+        )
     }.start(wait = true)
 }
 
 /** Wires plugins + routes given a [Config] and repositories. Split out from [main] so tests can
  *  call it with [com.neverlate.backend.auth.InMemoryUserRepository] /
- *  [com.neverlate.backend.tasks.InMemoryTaskRepository] instead of a real database. */
-fun Application.configureApp(config: Config, userRepository: UserRepository, taskRepository: TaskRepository) {
+ *  [com.neverlate.backend.tasks.InMemoryTaskRepository] /
+ *  [com.neverlate.backend.auth.InMemoryRefreshTokenRepository] instead of a real database. */
+fun Application.configureApp(
+    config: Config,
+    userRepository: UserRepository,
+    taskRepository: TaskRepository,
+    refreshTokenRepository: RefreshTokenRepository,
+) {
     install(CallLogging)
     configureSerialization()
     configureErrorHandling()
     configureSecurity(config)
 
-    val authService = AuthService(userRepository, config)
+    val authService = AuthService(userRepository, refreshTokenRepository, config)
     val taskService = TaskService(taskRepository)
 
     routing {

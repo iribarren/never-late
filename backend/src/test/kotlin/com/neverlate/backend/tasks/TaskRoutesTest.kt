@@ -2,6 +2,7 @@ package com.neverlate.backend.tasks
 
 import com.neverlate.backend.auth.AuthRequest
 import com.neverlate.backend.auth.AuthResponse
+import com.neverlate.backend.auth.InMemoryRefreshTokenRepository
 import com.neverlate.backend.auth.InMemoryUserRepository
 import com.neverlate.backend.configureApp
 import com.neverlate.backend.jsonClient
@@ -64,15 +65,15 @@ class TaskRoutesTest {
 
     @Test
     fun `create then list via since=0 returns the task`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("alice@example.com")
 
-        val createResponse = client.createTask(auth.token, clientRef = "ref-1")
+        val createResponse = client.createTask(auth.accessToken, clientRef = "ref-1")
         assertEquals(HttpStatusCode.Created, createResponse.status)
         val created = Json.decodeFromString(TaskDto.serializer(), createResponse.bodyAsText())
 
-        val listResponse = client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.token}") }
+        val listResponse = client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.accessToken}") }
         val list = Json.decodeFromString(TasksResponse.serializer(), listResponse.bodyAsText())
         assertEquals(1, list.tasks.size)
         assertEquals(created.id, list.tasks.first().id)
@@ -80,12 +81,12 @@ class TaskRoutesTest {
 
     @Test
     fun `posting the same clientRef twice does not create a duplicate`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("bob@example.com")
 
-        val first = client.createTask(auth.token, clientRef = "same-ref")
-        val second = client.createTask(auth.token, clientRef = "same-ref")
+        val first = client.createTask(auth.accessToken, clientRef = "same-ref")
+        val second = client.createTask(auth.accessToken, clientRef = "same-ref")
 
         assertEquals(HttpStatusCode.Created, first.status)
         assertEquals(HttpStatusCode.OK, second.status) // idempotent replay, not a second create
@@ -95,43 +96,43 @@ class TaskRoutesTest {
 
         val list = Json.decodeFromString(
             TasksResponse.serializer(),
-            client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.token}") }.bodyAsText(),
+            client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.accessToken}") }.bodyAsText(),
         )
         assertEquals(1, list.tasks.size)
     }
 
     @Test
     fun `user A cannot read or modify user B's task`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
         val userA = client.registerAndLogin("userA@example.com")
         val userB = client.registerAndLogin("userB@example.com")
 
         val bTask = Json.decodeFromString(
             TaskDto.serializer(),
-            client.createTask(userB.token, clientRef = "b-ref").bodyAsText(),
+            client.createTask(userB.accessToken, clientRef = "b-ref").bodyAsText(),
         )
 
-        val readAttempt = client.get("/tasks?since=0") { header("Authorization", "Bearer ${userA.token}") }
+        val readAttempt = client.get("/tasks?since=0") { header("Authorization", "Bearer ${userA.accessToken}") }
         val aTasks = Json.decodeFromString(TasksResponse.serializer(), readAttempt.bodyAsText())
         assertTrue(aTasks.tasks.none { it.id == bTask.id }) // A's pull never surfaces B's task
 
         val patchAttempt = client.patch("/tasks/${bTask.id}") {
-            header("Authorization", "Bearer ${userA.token}")
+            header("Authorization", "Bearer ${userA.accessToken}")
             contentType(ContentType.Application.Json)
             setBody("""{"title": "hijacked", "updatedAt": ${System.currentTimeMillis()}}""")
         }
         assertEquals(HttpStatusCode.NotFound, patchAttempt.status) // cross-user -> 404, not 403
 
         val deleteAttempt = client.delete("/tasks/${bTask.id}") {
-            header("Authorization", "Bearer ${userA.token}")
+            header("Authorization", "Bearer ${userA.accessToken}")
         }
         assertEquals(HttpStatusCode.NotFound, deleteAttempt.status)
     }
 
     @Test
     fun `request without a token is rejected with 401 unauthorized`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
 
         val response = client.get("/tasks?since=0")
@@ -142,15 +143,15 @@ class TaskRoutesTest {
 
     @Test
     fun `delete tombstones the task and it is returned by a subsequent since pull`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("erin@example.com")
         val task = Json.decodeFromString(
             TaskDto.serializer(),
-            client.createTask(auth.token, clientRef = "to-delete").bodyAsText(),
+            client.createTask(auth.accessToken, clientRef = "to-delete").bodyAsText(),
         )
 
-        val deleteResponse = client.delete("/tasks/${task.id}") { header("Authorization", "Bearer ${auth.token}") }
+        val deleteResponse = client.delete("/tasks/${task.id}") { header("Authorization", "Bearer ${auth.accessToken}") }
         assertEquals(HttpStatusCode.OK, deleteResponse.status)
         val tombstoned = Json.decodeFromString(TaskDto.serializer(), deleteResponse.bodyAsText())
         assertTrue(tombstoned.deleted)
@@ -158,7 +159,7 @@ class TaskRoutesTest {
         // since=0 must still include the tombstone so other devices learn about the deletion.
         val list = Json.decodeFromString(
             TasksResponse.serializer(),
-            client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.token}") }.bodyAsText(),
+            client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.accessToken}") }.bodyAsText(),
         )
         val pulledTombstone = list.tasks.first { it.id == task.id }
         assertTrue(pulledTombstone.deleted)
@@ -166,17 +167,17 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH with an older updatedAt than stored is ignored (last-write-wins)`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("frank@example.com")
         val created = Json.decodeFromString(
             TaskDto.serializer(),
-            client.createTask(auth.token, clientRef = "lww-ref", title = "Original title").bodyAsText(),
+            client.createTask(auth.accessToken, clientRef = "lww-ref", title = "Original title").bodyAsText(),
         )
 
         // A "newer" edit lands first, advancing the stored updatedAt...
         val newerEditResponse = client.patch("/tasks/${created.id}") {
-            header("Authorization", "Bearer ${auth.token}")
+            header("Authorization", "Bearer ${auth.accessToken}")
             contentType(ContentType.Application.Json)
             setBody("""{"title": "Newer title", "updatedAt": ${created.updatedAt + 10_000}}""")
         }
@@ -186,7 +187,7 @@ class TaskRoutesTest {
         // ...then a stale, older-timestamped edit arrives (e.g. a retried/delayed request) and
         // must be discarded, keeping the newer title.
         val staleEditResponse = client.patch("/tasks/${created.id}") {
-            header("Authorization", "Bearer ${auth.token}")
+            header("Authorization", "Bearer ${auth.accessToken}")
             contentType(ContentType.Application.Json)
             setBody("""{"title": "Stale title", "updatedAt": ${created.updatedAt}}""")
         }
@@ -197,13 +198,13 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH can explicitly clear the deadline while leaving duration untouched`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("grace@example.com")
         val created = Json.decodeFromString(
             TaskDto.serializer(),
             client.createTask(
-                auth.token,
+                auth.accessToken,
                 clientRef = "patch-ref",
                 estimatedDurationMillis = 1_800_000L,
                 deadline = 9_999_999_999L,
@@ -214,7 +215,7 @@ class TaskRoutesTest {
         // Omit "deadline" entirely: since it's the only field carrying the "keep at least one of
         // duration/deadline" invariant, clearing it while duration is still present is valid.
         val response = client.patch("/tasks/${created.id}") {
-            header("Authorization", "Bearer ${auth.token}")
+            header("Authorization", "Bearer ${auth.accessToken}")
             contentType(ContentType.Application.Json)
             setBody("""{"deadline": null, "updatedAt": ${created.updatedAt + 1000}}""")
         }

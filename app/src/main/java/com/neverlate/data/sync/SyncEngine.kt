@@ -72,7 +72,7 @@ class SyncEngine(
      * second caller simply wait for the first cycle to finish rather than interleave with it.
      */
     suspend fun syncNow(): SyncStatus = mutex.withLock {
-        if (tokenStorage.getToken() == null) {
+        if (tokenStorage.getAccessToken() == null) {
             // Logged out: nothing to sync, and calling the API would only earn a 401. Reachable
             // from a periodic SyncWorker run that fires after a logout but before WorkManager
             // gets around to cancelling it.

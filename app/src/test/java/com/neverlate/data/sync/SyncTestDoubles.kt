@@ -29,31 +29,45 @@ fun buildInMemoryTestDatabase(): NeverLateDatabase {
 /** In-memory [TokenStorage] fake — no Keystore/EncryptedSharedPreferences involved. */
 class FakeTokenStorage(
     private var token: String? = null,
+    private var refreshToken: String? = null,
     private var userId: Long? = null,
     private var email: String? = null,
 ) : TokenStorage {
     /** Every session [saveSession] recorded, in call order. */
     val savedSessions = mutableListOf<Triple<String, Long, String>>()
 
+    /** Every pair [saveTokens] recorded (access token to refresh token), in call order. */
+    val savedTokenPairs = mutableListOf<Pair<String, String>>()
+
     /** How many times [clearSession] was called. */
     var clearCount = 0
         private set
 
-    override fun getToken(): String? = token
+    override fun getAccessToken(): String? = token
+
+    override fun getRefreshToken(): String? = refreshToken
 
     override fun getUserId(): Long? = userId
 
     override fun getUserEmail(): String? = email
 
-    override fun saveSession(token: String, userId: Long, email: String) {
-        this.token = token
+    override fun saveSession(accessToken: String, refreshToken: String, userId: Long, email: String) {
+        this.token = accessToken
+        this.refreshToken = refreshToken
         this.userId = userId
         this.email = email
-        savedSessions += Triple(token, userId, email)
+        savedSessions += Triple(accessToken, userId, email)
+    }
+
+    override fun saveTokens(accessToken: String, refreshToken: String) {
+        this.token = accessToken
+        this.refreshToken = refreshToken
+        savedTokenPairs += accessToken to refreshToken
     }
 
     override fun clearSession() {
         token = null
+        refreshToken = null
         userId = null
         email = null
         clearCount++

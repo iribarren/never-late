@@ -3,6 +3,7 @@ package com.neverlate.data.network
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.neverlate.BuildConfig
 import kotlinx.serialization.json.Json
+import okhttp3.Authenticator
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -32,16 +33,33 @@ const val DEFAULT_BACKEND_BASE_URL = BuildConfig.BACKEND_BASE_URL
  * you have one) and [TasksNetwork] (every call needs one, via [extraInterceptors]). Factored out
  * once here — rather than duplicated per API the way [com.neverlate.data.articles.ArticlesNetwork]
  * stands alone for the articles endpoint — since both auth and tasks talk to the *same* backend
- * and the only real difference between them is which interceptors apply.
+ * and the only real difference between them is which interceptors/authenticator apply.
  */
 object BackendNetwork {
     fun <T> create(
         service: Class<T>,
         baseUrl: String = DEFAULT_BACKEND_BASE_URL,
         extraInterceptors: List<Interceptor> = emptyList(),
+        authenticator: Authenticator? = null,
+        // Feature 12 security fix: unlike task bodies (not secret), the `/auth/*` request/response
+        // bodies carry the password (register/login) and both tokens (register/login/refresh) in
+        // clear JSON. `redactHeader("Authorization")` below only strips the *header* — it does
+        // nothing for the body — so logging those bodies at BODY level would print a live refresh
+        // token straight to Logcat in every debug build, which can leak into bug reports/crash
+        // captures shared outside the device (the exact risk redactHeader exists to avoid, just for
+        // the header instead of the body). [com.neverlate.data.auth.AuthNetwork] passes `false` here;
+        // [TasksNetwork] keeps the default so task bodies remain fully visible for debugging.
+        logBodies: Boolean = true,
     ): T {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+            level = when {
+                !BuildConfig.DEBUG -> HttpLoggingInterceptor.Level.NONE
+                logBodies -> HttpLoggingInterceptor.Level.BODY
+                // BASIC logs only method/URL/status/timing — no headers, no body — so auth calls
+                // still show up in the debug log for troubleshooting without ever printing a
+                // password or token.
+                else -> HttpLoggingInterceptor.Level.BASIC
+            }
             // Redact the bearer JWT even in debug logs: BODY-level logging is invaluable for
             // development, but a raw token in logcat can end up in bug reports/crash captures
             // shared outside the device. redactHeader prints "Authorization: ██" instead of the
@@ -54,6 +72,10 @@ object BackendNetwork {
         // request's final Authorization header (if any) shows up in the debug log too.
         extraInterceptors.forEach { clientBuilder.addInterceptor(it) }
         clientBuilder.addInterceptor(loggingInterceptor)
+        // The authenticator (e.g. TokenAuthenticator) is a separate OkHttp extension point from
+        // interceptors — see that class's KDoc — attached only when the caller passes one in
+        // (AuthNetwork never does, precisely so the refresh call itself can't recurse into it).
+        authenticator?.let { clientBuilder.authenticator(it) }
 
         val json = Json { ignoreUnknownKeys = true }
 
