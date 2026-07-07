@@ -122,6 +122,9 @@
     <string name="login_title">Iniciar sesión</string>
     <string name="login_button">Entrar</string>
     <string name="login_register_prompt">¿No tienes cuenta? Regístrate</string>
+    <!-- Feature 13 (modo invitado): solo se muestra cuando esta pantalla se abre desde Ajustes
+         (invitado que decide iniciar sesión), nunca en la puerta de acceso obligatoria. -->
+    <string name="login_back_content_description">Volver</string>
 
     <!-- Register screen -->
     <string name="register_title">Crear cuenta</string>
@@ -131,6 +134,9 @@
     <!-- Settings screen: account (feature 11) -->
     <string name="settings_account_section">Cuenta</string>
     <string name="settings_logout_button">Cerrar sesión</string>
+    <!-- Feature 13 (modo invitado): se muestra en vez de "Cerrar sesión" mientras el usuario es
+         invitado (sin cuenta). -->
+    <string name="settings_sign_in_button">Iniciar sesión / Crear cuenta</string>
 
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Sin conexión. Los cambios se sincronizarán más tarde.</string>

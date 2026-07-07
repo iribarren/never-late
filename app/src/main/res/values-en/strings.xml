@@ -124,6 +124,9 @@
     <string name="login_title">Log in</string>
     <string name="login_button">Log in</string>
     <string name="login_register_prompt">Don\'t have an account? Register</string>
+    <!-- Feature 13 (guest mode): only shown when this screen is opened from Settings (a guest
+         choosing to sign in), never on the mandatory auth gate. -->
+    <string name="login_back_content_description">Back</string>
 
     <!-- Register screen -->
     <string name="register_title">Create account</string>
@@ -133,6 +136,8 @@
     <!-- Settings screen: account (feature 11) -->
     <string name="settings_account_section">Account</string>
     <string name="settings_logout_button">Log out</string>
+    <!-- Feature 13 (guest mode): shown instead of "Log out" while the user is a guest (no account). -->
+    <string name="settings_sign_in_button">Sign in / Create account</string>
 
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Offline. Changes will sync later.</string>

@@ -51,11 +51,27 @@ private const val ARG_ARTICLE_ID = "articleId"
 private const val ARG_TASK_ID = "taskId"
 
 /**
- * App-wide navigation graph (Navigation Compose). Feature 11 adds an **auth gate** on top of
- * everything this composable already did: it observes [authRepository]'s `authState` and shows
- * either [AuthGateNavHost] (login/register) or [MainAppNavHost] (the pre-existing
- * onboarding/home/tasks/etc. graph) — reactively, so a successful login/logout on either side
- * simply swaps which graph is composed, with no explicit navigation call needed from
+ * App-wide navigation graph (Navigation Compose). Feature 11 added an **auth gate** on top of
+ * everything this composable already did, observing [authRepository]'s `authState`; feature 13
+ * (guest mode) turns that gate into a three-way switch: [AuthState.LoggedOut] shows
+ * [AuthGateNavHost] (login/register, the only *mandatory* case now — an involuntarily-ended
+ * session), while both [AuthState.Guest] and [AuthState.LoggedIn] show [MainAppNavHost] — a
+ * signed-out device is fully usable, not gated.
+ *
+ * **Why `Guest` and `LoggedIn` are separate `when` branches rather than one combined arm:** this
+ * is deliberate, not an oversight (feature 13 spec, *Risks* — "adoption not firing"). Compose
+ * identifies composition state by *call site*, not by which function is called, so a `Guest ->
+ * LoggedIn` transition switches which branch of this `when` is active, which disposes the old
+ * [MainAppNavHost] instance and composes a brand-new one at the other branch's call site — fresh
+ * `rememberNavController()`, fresh `LaunchedEffect(Unit)`. That freshly-fired `LaunchedEffect` is
+ * exactly what drains a guest's queued outbox on sign-in (see [MainAppNavHost]'s KDoc) — merging
+ * the two arms into one (e.g. `is AuthState.Guest, is AuthState.LoggedIn ->`) would keep the
+ * *same* composition alive across the transition and silently break that trigger. (Belt-and-braces:
+ * [com.neverlate.data.auth.AuthRepositoryImpl.onAuthenticated] triggers the same drain explicitly
+ * too, so adoption does not depend solely on this recomposition detail — see its KDoc.)
+ *
+ * Every branch/transition (successful login/register/logout on either side) simply swaps which
+ * graph is composed, with no explicit navigation call needed from
  * [com.neverlate.ui.auth.LoginViewModel]/[com.neverlate.ui.auth.RegisterViewModel]/
  * [com.neverlate.ui.settings.SettingsViewModel] (see each one's KDoc). Each branch keeps its own
  * `rememberNavController()`, so switching branches naturally starts with a fresh back stack
@@ -74,6 +90,16 @@ fun AppNavHost(
 
     when (authState) {
         is AuthState.LoggedOut -> AuthGateNavHost(authRepository = authRepository)
+
+        is AuthState.Guest -> MainAppNavHost(
+            repository = repository,
+            articleRepository = articleRepository,
+            taskRepository = taskRepository,
+            reminderScheduler = reminderScheduler,
+            authRepository = authRepository,
+            openTasksOnStart = openTasksOnStart,
+        )
+
         is AuthState.LoggedIn -> MainAppNavHost(
             repository = repository,
             articleRepository = articleRepository,
@@ -85,7 +111,12 @@ fun AppNavHost(
     }
 }
 
-/** Login/register graph, shown while [AuthState.LoggedOut] (US-1: account is mandatory in this feature). */
+/**
+ * Login/register graph, shown only while [AuthState.LoggedOut] — an *involuntary* session end
+ * (feature 12's failed silent refresh). A [AuthState.Guest] user reaches the very same
+ * [LoginRoute]/[RegisterRoute] composables from within [MainAppNavHost] instead (Settings ->
+ * "Sign in / Create account"), since for them signing in is optional, not a gate to pass.
+ */
 @Composable
 private fun AuthGateNavHost(authRepository: AuthRepository, navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
@@ -105,9 +136,10 @@ private fun AuthGateNavHost(authRepository: AuthRepository, navController: NavHo
 }
 
 /**
- * The graph that existed before feature 11, unchanged apart from being reached only once
- * [AuthState.LoggedIn] — it also owns *startup routing*: reading the persisted `onboarded` flag
- * once to decide whether the user should land on Onboarding or Home.
+ * The graph that existed before feature 11 — now reached from **both** [AuthState.Guest] and
+ * [AuthState.LoggedIn] (feature 13 lifted the mandatory gate) — plus it also owns *startup
+ * routing*: reading the persisted `onboarded` flag once to decide whether the user should land on
+ * Onboarding or Home.
  *
  * Reading that flag is asynchronous (it comes from disk via DataStore), so
  * [repository.userPreferences][UserPreferencesRepository.userPreferences] is collected with an
@@ -120,6 +152,12 @@ private fun AuthGateNavHost(authRepository: AuthRepository, navController: NavHo
  * already-onboarded user straight to [Routes.TASKS] instead of [Routes.HOME]. It is ignored for a
  * user who has not onboarded yet — Onboarding always wins, so tapping the widget can never skip
  * it.
+ *
+ * Feature 13 adds [Routes.LOGIN]/[Routes.REGISTER] as ordinary destinations *inside* this graph
+ * (reachable from Settings' "Sign in / Create account" entry), distinct from [AuthGateNavHost]'s
+ * copies of the same [LoginRoute]/[RegisterRoute] composables. A guest who cancels out of either
+ * screen (back arrow) simply pops back to Settings within this same back stack — they are never
+ * routed to the mandatory gate, since [AuthState.Guest] never renders [AuthGateNavHost] at all.
  */
 @Composable
 private fun MainAppNavHost(
@@ -131,12 +169,16 @@ private fun MainAppNavHost(
     navController: NavHostController = rememberNavController(),
     openTasksOnStart: Boolean = false,
 ) {
-    // Sync trigger (US-4): app open/foreground. This composable is only ever reached while
-    // AuthState.LoggedIn (see AppNavHost above), and is freshly composed each time that becomes
-    // true — right after a login/register, and on every cold start that finds an existing
-    // session — so a single LaunchedEffect(Unit) here covers both triggers. taskRepository is the
+    // Sync trigger (US-4) and, since feature 13, the primary adoption drain (US-2/US-3): app
+    // open/foreground. This composable is reached for both AuthState.Guest and AuthState.LoggedIn
+    // (see AppNavHost above), and — critically for adoption — is freshly composed at a *new* call
+    // site every time a Guest signs in, since that transition switches which `when` branch is
+    // active there. A single LaunchedEffect(Unit) here therefore covers cold start (existing
+    // session or none), post-login/register, and app foregrounding alike. taskRepository is the
     // only sync-shaped thing this screen touches, via the additive TaskRepository.refreshFromServer
-    // (US-7) — never SyncEngine/Retrofit directly.
+    // (US-7) — never SyncEngine/Retrofit directly. While AuthState.Guest, refreshFromServer's
+    // underlying SyncEngine.syncNow() early-returns Idle (no token) — this call is simply a no-op
+    // then, not a special case to guard against here.
     LaunchedEffect(Unit) { taskRepository.refreshFromServer() }
 
     val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
@@ -176,6 +218,25 @@ private fun MainAppNavHost(
                         repository = repository,
                         taskRepository = taskRepository,
                         reminderScheduler = reminderScheduler,
+                        authRepository = authRepository,
+                        onBack = { navController.popBackStack() },
+                        onSignInClick = { navController.navigate(Routes.LOGIN) },
+                    )
+                }
+                // Feature 13: login/register reachable from Settings while AuthState.Guest — see
+                // this function's KDoc for how this differs from AuthGateNavHost's copies of the
+                // same routes. A successful sign-in flips authState to LoggedIn, which AppNavHost
+                // reacts to by composing a brand-new MainAppNavHost at a different call site (its
+                // own KDoc), so neither destination below needs to navigate anywhere on success.
+                composable(Routes.LOGIN) {
+                    LoginRoute(
+                        authRepository = authRepository,
+                        onRegisterClick = { navController.navigate(Routes.REGISTER) },
+                        onBack = { navController.popBackStack() },
+                    )
+                }
+                composable(Routes.REGISTER) {
+                    RegisterRoute(
                         authRepository = authRepository,
                         onBack = { navController.popBackStack() },
                     )

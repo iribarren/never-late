@@ -15,7 +15,10 @@ The app is **client + backend** as of feature 11: the Android app is an **offlin
 small **Kotlin/Ktor + Postgres backend** that owns user accounts and tasks. Data is still cached and
 fully usable on-device (Room), but the backend is the source of truth for synced data. The backend
 runs locally via `docker compose` for the tutorial (cloud hosting is out of scope). Earlier features
-(01–10) were local-only; that history is preserved in the tutorial lessons.
+(01–10) were local-only; that history is preserved in the tutorial lessons. **As of feature 13 an
+account is optional** (guest mode): the app is fully usable with no login, and guest tasks are merged
+into the account on sign-in — so the backend owns *synced* accounts/tasks, but a guest's tasks live
+only on-device until they choose to sign in.
 
 ## Structure
 
@@ -151,6 +154,27 @@ on every use, **revocation** on logout, and **reuse detection** scoped to a toke
 (`revokeFamily`), closing a TOCTOU race via an atomic `markConsumedIfUnconsumed`. Access/refresh
 lifetimes are env-configurable (`ACCESS_TOKEN_EXPIRY_MINUTES`, `REFRESH_TOKEN_EXPIRY_DAYS` in `Config`).
 No new permissions, modules, or dependencies. See **API Contract** below.
+
+**Guest mode + merge on sign-in** (feature 13): removes feature 11's **mandatory** auth gate — the app
+is fully usable with **no account** (local-only CRUD against Room, sync inactive). `AuthState` gains a
+third face, **`Guest`** (alongside `LoggedOut`/`LoggedIn`): `Guest` is the cold-start default when no
+token is stored (`readInitialAuthState`), while `LoggedOut` is now **reserved for the involuntary case**
+(a failed feature-12 refresh → the login gate). A guest task is already the sync engine's "orphan" shape
+(`serverId == null`, a `CREATE` outbox row keyed by a stable `clientRef`), and `SyncEngine.syncNow()`
+already early-returns while tokenless — so **adoption on sign-in is simply the deferred `push` finally
+running**: it reuses the outbox + `clientRef` idempotency + last-write-wins from feature 11 to merge
+guest tasks into the account with no loss and no duplicates, then a full pull brings the account's other
+tasks down. The adoption trigger is **doubly wired**: `AppNavHost` keeps `Guest`/`LoggedIn` as
+**separate `when` arms** (both render `MainAppNavHost`) so a `Guest → LoggedIn` transition recomposes a
+fresh `LaunchedEffect { refreshFromServer() }` — *do not merge those arms* — **plus** an explicit
+`AuthRepositoryImpl.onAuthenticated` hook (wired in `MainActivity` to `refreshFromServer`). `logout()`
+(user-initiated, from Settings) now **wipes** tasks/outbox/cursor and lands in `Guest`; it shares its
+`clearLocalSession()` internals with `notifyUnauthorized()`, which lands in `LoggedOut` — the wipe is
+mandatory either way to avoid re-adopting/duplicating tasks or leaking them across accounts on the next
+sign-in. Login/register are reachable from **Settings** while `Guest` (an optional entry, not a gate).
+Product decisions (in the spec): **silent** merge, **wipe-on-logout**, single write path, **no** content
+de-duplication. **No backend, contract, DB-version, permission, or dependency change** — adoption uses
+the existing idempotent `POST /tasks`.
 
 ## API Contract
 

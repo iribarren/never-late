@@ -96,6 +96,13 @@ class MainActivity : ComponentActivity() {
             applicationContext,
         )
 
+        // Feature 13 (guest mode): belt-and-braces adoption trigger. taskRepository must exist
+        // before this can be wired, which is why it is assigned here rather than passed into
+        // AuthRepositoryImpl's constructor — see AuthRepositoryImpl.onAuthenticated's KDoc for why
+        // this is redundant insurance alongside MainAppNavHost's own LaunchedEffect, not the only
+        // mechanism.
+        authRepositoryImpl.onAuthenticated = { taskRepository.refreshFromServer() }
+
         // The reminders channel must exist before ReminderReceiver can ever post to it; creating
         // it here (in addition to defensively inside that receiver) means it is ready the moment
         // the very first task with a deadline is saved.

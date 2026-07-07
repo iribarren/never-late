@@ -99,7 +99,10 @@ class AuthRepositoryTest {
 
         assertEquals(AuthResult.Error(AuthErrorType.EMAIL_TAKEN), result)
         assertNull(tokenStorage.getAccessToken())
-        assertEquals(AuthState.LoggedOut, repository.authState.value)
+        // Feature 13: a failed register/login leaves whatever state the repository started in.
+        // repository (see setUp) was built with a token-less FakeTokenStorage, so that's Guest now
+        // (the cold-start default), not LoggedOut.
+        assertEquals(AuthState.Guest, repository.authState.value)
     }
 
     @Test
@@ -147,10 +150,24 @@ class AuthRepositoryTest {
         assertEquals(AuthState.LoggedIn(3L, "restored@example.com"), restored.authState.value)
     }
 
+    // Cold-start mapping (feature 13, spec Risks: "Guest vs LoggedOut confusion in navigation") ---
+
+    @Test
+    fun `a repository constructed with no stored session at all starts in Guest, not LoggedOut`() {
+        val fresh = AuthRepositoryImpl(
+            AuthNetwork.create(baseUrl = mockWebServer.url("/").toString()),
+            FakeTokenStorage(), // no token, no userId, no email
+            database,
+            preferences,
+        )
+
+        assertEquals(AuthState.Guest, fresh.authState.value)
+    }
+
     // logout --------------------------------------------------------------------------------------
 
     @Test
-    fun `logout clears the token, wipes cached tasks and outbox, resets the sync cursor, and flips authState to LoggedOut`() = runTest {
+    fun `logout clears the token, wipes cached tasks and outbox, resets the sync cursor, and flips authState to Guest`() = runTest {
         mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"accessToken":"jwt-3","refreshToken":"refresh-3","user":{"id":9,"email":"leaving@example.com"}}"""))
         repository.login("leaving@example.com", "supersecret1")
         assertTrue(repository.authState.value is AuthState.LoggedIn)
@@ -171,7 +188,9 @@ class AuthRepositoryTest {
         assertNull(database.taskDao().getByIdIncludingDeleted(taskId))
         assertTrue(database.outboxDao().getAll().isEmpty())
         assertEquals(0L, preferences.userPreferences.value.syncCursor)
-        assertEquals(AuthState.LoggedOut, repository.authState.value)
+        // Feature 13 (PD-2): logout now lands in Guest (a usable, empty local mode), not LoggedOut
+        // — the wipe itself is unchanged from feature 12.
+        assertEquals(AuthState.Guest, repository.authState.value)
 
         val logoutRequest = mockWebServer.takeRequest()
         assertEquals("POST", logoutRequest.method)
@@ -192,17 +211,55 @@ class AuthRepositoryTest {
 
         assertNull(tokenStorage.getAccessToken())
         assertNull(tokenStorage.getRefreshToken())
-        assertEquals(AuthState.LoggedOut, repository.authState.value)
+        assertEquals(AuthState.Guest, repository.authState.value)
     }
 
-    // Note on the 401 -> logout path (US-2, acceptance criterion 10): `notifyUnauthorized()` (called
-    // by com.neverlate.data.sync.AuthInterceptor on any 401) is intentionally not exercised here —
-    // it launches `logout()` on AuthRepositoryImpl's own fire-and-forget CoroutineScope(Dispatchers.IO)
-    // (it has no coroutine of its own to suspend from, being invoked from a synchronous OkHttp
-    // interceptor callback), with no way to await its completion from a test. Polling for it proved
-    // flaky under Robolectric (observed real delays past 2s, then the deferred logout() crashing a
-    // *later* test against its by-then-closed in-memory database) — a brittle, nondeterministic test
-    // this project's conventions rule out. `logout()`'s own behaviour is fully covered above; the
-    // interceptor side (a 401 response invokes `onUnauthorized`) is covered by
-    // `com.neverlate.data.sync.SyncEngineTest`'s "a 401 on pull notifies onUnauthorized" test.
+    // notifyUnauthorized (feature 12 US-2 401 path; feature 13 lands it in LoggedOut, not Guest) ---
+
+    @Test
+    fun `notifyUnauthorized wipes the local session same as logout but lands in LoggedOut instead of Guest`() = runTest {
+        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("""{"accessToken":"jwt-5","refreshToken":"refresh-5","user":{"id":13,"email":"expired@example.com"}}"""))
+        repository.login("expired@example.com", "supersecret1")
+        assertTrue(repository.authState.value is AuthState.LoggedIn)
+        mockWebServer.takeRequest() // drain /auth/login
+
+        val taskId = database.taskDao().insert(Task(title = "Cached task", serverId = 2L, updatedAt = 1L, syncState = SyncState.SYNCED))
+        database.outboxDao().enqueue(OutboxEntity(taskLocalId = taskId, operation = OutboxOperation.UPDATE, clientRef = "ref", enqueuedAt = 1L))
+
+        // Best-effort revoke (same wipe internals as logout, see clearLocalSession's KDoc).
+        mockWebServer.enqueue(MockResponse().setResponseCode(204))
+
+        // notifyUnauthorized() is fire-and-forget on AuthRepositoryImpl's own CoroutineScope
+        // (Dispatchers.IO) — it is invoked synchronously from com.neverlate.data.sync.AuthInterceptor,
+        // which has no coroutine of its own to suspend from. Unlike a naive fixed-timeout poll (which
+        // a prior version of this file explicitly avoided, see its removed comment: a timeout that
+        // fires too early can leave the background wipe still running after this test's tearDown
+        // closes the database, crashing whichever test runs next), this waits for the *positive*
+        // signal (authState flipping to LoggedOut) with a generous bound, and fails loudly with
+        // assertTrue below if that never happens — so nothing is left in flight either way.
+        repository.notifyUnauthorized()
+        val flippedToLoggedOut = awaitCondition(timeoutMillis = 5_000) { repository.authState.value is AuthState.LoggedOut }
+
+        assertTrue("expected notifyUnauthorized to flip authState to LoggedOut within the timeout", flippedToLoggedOut)
+        assertNull(tokenStorage.getAccessToken())
+        assertNull(tokenStorage.getRefreshToken())
+        assertNull(database.taskDao().getByIdIncludingDeleted(taskId))
+        assertTrue(database.outboxDao().getAll().isEmpty())
+        assertEquals(0L, preferences.userPreferences.value.syncCursor)
+    }
+
+    /** Polls [predicate] on the calling (real) thread until it is true or [timeoutMillis] elapses. */
+    private fun awaitCondition(timeoutMillis: Long, predicate: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (System.currentTimeMillis() < deadline) {
+            if (predicate()) return true
+            Thread.sleep(20)
+        }
+        return predicate()
+    }
+
+    // Note on the 401 -> logout path (US-2, acceptance criterion 10): the interceptor side (a 401
+    // response invokes `onUnauthorized`) is covered by `com.neverlate.data.sync.SyncEngineTest`'s
+    // "a 401 on pull notifies onUnauthorized" test; this file covers `notifyUnauthorized()`'s own
+    // behaviour once invoked, directly, above.
 }

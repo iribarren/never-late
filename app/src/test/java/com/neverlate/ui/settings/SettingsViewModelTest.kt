@@ -73,9 +73,16 @@ private class FakeUserPreferencesRepository(
 // ReminderSchedulingRepositoryTest needs the exact same in-memory behaviour — see that file's
 // doc comments for why each fake behaves the way it does.
 
-/** Minimal in-memory [AuthRepository] fake: only [logout] is exercised from this ViewModel. */
-private class FakeAuthRepository : AuthRepository {
-    private val _authState = MutableStateFlow<AuthState>(AuthState.LoggedIn(1, "ada@example.com"))
+/**
+ * Minimal in-memory [AuthRepository] fake: only [logout] is exercised from this ViewModel, plus
+ * [authState] itself (feature 13: [SettingsUiState.authState] now mirrors it, see its KDoc). The
+ * [initialState] param lets tests start as [AuthState.Guest] instead of the default [AuthState.LoggedIn],
+ * without needing a second fake class.
+ */
+private class FakeAuthRepository(
+    initialState: AuthState = AuthState.LoggedIn(1, "ada@example.com"),
+) : AuthRepository {
+    private val _authState = MutableStateFlow(initialState)
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     var logoutCallCount = 0
@@ -87,7 +94,9 @@ private class FakeAuthRepository : AuthRepository {
 
     override suspend fun logout() {
         logoutCallCount++
-        _authState.value = AuthState.LoggedOut
+        // Feature 13 (PD-2): the real AuthRepositoryImpl.logout() lands in Guest, not LoggedOut —
+        // mirror that here so this fake stays representative of production behaviour.
+        _authState.value = AuthState.Guest
     }
 }
 
@@ -224,6 +233,43 @@ class SettingsViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, authRepository.logoutCallCount)
-        assertEquals(AuthState.LoggedOut, authRepository.authState.value)
+        // Feature 13 (PD-2): logout lands in Guest (a usable, empty local mode), not LoggedOut.
+        assertEquals(AuthState.Guest, authRepository.authState.value)
+    }
+
+    // authState mirroring (feature 13) --------------------------------------------------------------
+
+    @Test
+    fun `uiState authState reflects LoggedIn when the auth repository starts LoggedIn`() = runTest {
+        repository = FakeUserPreferencesRepository()
+        authRepository = FakeAuthRepository(initialState = AuthState.LoggedIn(1, "ada@example.com"))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(AuthState.LoggedIn(1, "ada@example.com"), viewModel.uiState.value.authState)
+    }
+
+    @Test
+    fun `uiState authState reflects Guest when the auth repository starts as a guest`() = runTest {
+        repository = FakeUserPreferencesRepository()
+        authRepository = FakeAuthRepository(initialState = AuthState.Guest)
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(AuthState.Guest, viewModel.uiState.value.authState)
+    }
+
+    @Test
+    fun `uiState authState flips to Guest after logout, reflecting the account section switching entries`() = runTest {
+        repository = FakeUserPreferencesRepository()
+        authRepository = FakeAuthRepository(initialState = AuthState.LoggedIn(1, "ada@example.com"))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(AuthState.LoggedIn(1, "ada@example.com"), viewModel.uiState.value.authState)
+
+        viewModel.logout()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(AuthState.Guest, viewModel.uiState.value.authState)
     }
 }

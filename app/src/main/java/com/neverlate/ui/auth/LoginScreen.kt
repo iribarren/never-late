@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -37,12 +41,20 @@ import com.neverlate.ui.theme.NeverLateTheme
  * There is no `onLoggedIn` callback: [com.neverlate.ui.navigation.AppNavHost] reacts to
  * [AuthRepository]'s own `authState` directly (see [LoginViewModel]'s KDoc), so a successful login
  * here needs no explicit navigation call at all.
+ *
+ * [onBack] (feature 13) is `null` when this screen is the mandatory
+ * [com.neverlate.data.auth.AuthState.LoggedOut] gate's root destination (`AuthGateNavHost`) —
+ * there is nothing to go back *to* there, so no back arrow is shown. It is non-null when reached
+ * from Settings while [com.neverlate.data.auth.AuthState.Guest] (`MainAppNavHost`), so a guest who
+ * opens the login screen and changes their mind can return to the app instead of being stuck
+ * on it.
  */
 @Composable
 fun LoginRoute(
     authRepository: AuthRepository,
     onRegisterClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
     viewModel: LoginViewModel = viewModel(factory = AppViewModelFactory(authRepository = authRepository)),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -52,13 +64,15 @@ fun LoginRoute(
         onPasswordChange = viewModel::onPasswordChange,
         onLoginClick = viewModel::login,
         onRegisterClick = onRegisterClick,
+        onBack = onBack,
         modifier = modifier,
     )
 }
 
 /**
  * Stateless composable: renders a [LoginUiState] and reports user intent through callbacks only
- * (state hoisting), same as every other screen in this app.
+ * (state hoisting), same as every other screen in this app. [onBack] is optional — see
+ * [LoginRoute]'s KDoc for when it is/isn't passed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,11 +82,26 @@ fun LoginScreen(
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
     onRegisterClick: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.login_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.login_title)) },
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.login_back_content_description),
+                            )
+                        }
+                    }
+                },
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
