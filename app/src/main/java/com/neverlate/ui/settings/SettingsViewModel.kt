@@ -6,19 +6,27 @@ import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferences
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.AuthRepository
+import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.notification.ReminderScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Everything the Settings screen needs to render itself. */
+/**
+ * Everything the Settings screen needs to render itself. [authState] (feature 13) drives the
+ * account section: [AuthState.LoggedIn] shows "Log out"; [AuthState.Guest] shows "Sign in /
+ * Create account" instead (this screen is only ever reached while one of those two holds — see
+ * [com.neverlate.ui.navigation.AppNavHost] — so [AuthState.LoggedOut] is not rendered here).
+ */
 data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val remindersEnabled: Boolean = true,
     val reminderLeadMinutes: Int = UserPreferences.DEFAULT_REMINDER_LEAD_MINUTES,
+    val authState: AuthState = AuthState.Guest,
 )
 
 /**
@@ -36,10 +44,13 @@ data class SettingsUiState(
  * only reacts to a *task* being saved or deleted, never to a *preference* changing — so it lives
  * here instead, the one place that already knows the preference just flipped.
  *
- * [authRepository] (feature 11) backs the one new action this screen gains, [logout]. Like
- * [com.neverlate.ui.auth.LoginViewModel], this ViewModel does not navigate anywhere itself
- * afterwards: [com.neverlate.ui.navigation.AppNavHost] reacts to [AuthRepository]'s own
- * `authState` flipping to `LoggedOut` and swaps back to the login graph on its own (US-2).
+ * [authRepository] (feature 11) backs the account section: [logout] (shown while `LoggedIn`) and,
+ * since feature 13, exposing `authState` itself so the screen can also show a "Sign in / Create
+ * account" entry while `Guest`. Like [com.neverlate.ui.auth.LoginViewModel], this ViewModel does
+ * not navigate anywhere itself on logout: [com.neverlate.ui.navigation.AppNavHost] reacts to
+ * [AuthRepository]'s own `authState` flipping and swaps graphs on its own (US-2). Signing *in* from
+ * here, on the other hand, is plain navigation to the Login/Register destinations added inside
+ * `MainAppNavHost` — see [com.neverlate.ui.settings.SettingsScreen]'s `onSignInClick`.
  */
 class SettingsViewModel(
     private val repository: UserPreferencesRepository,
@@ -52,13 +63,23 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
+        // Two independent sources feed this one uiState, so each collector must merge into the
+        // existing value (copy) rather than replace it wholesale — otherwise whichever flow last
+        // emitted would silently wipe out the other's contribution.
         viewModelScope.launch {
             repository.userPreferences.collect { preferences ->
-                _uiState.value = SettingsUiState(
-                    themeMode = preferences.themeMode,
-                    remindersEnabled = preferences.remindersEnabled,
-                    reminderLeadMinutes = preferences.reminderLeadMinutes,
-                )
+                _uiState.update {
+                    it.copy(
+                        themeMode = preferences.themeMode,
+                        remindersEnabled = preferences.remindersEnabled,
+                        reminderLeadMinutes = preferences.reminderLeadMinutes,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            authRepository.authState.collect { authState ->
+                _uiState.update { it.copy(authState = authState) }
             }
         }
     }
@@ -97,8 +118,9 @@ class SettingsViewModel(
     }
 
     /**
-     * Clears the session and the locally-cached, backend-owned data (US-2) — see
-     * [AuthRepository.logout]'s KDoc for exactly what that wipes.
+     * Clears the session and the locally-cached, backend-owned data (US-2), landing back in
+     * [AuthState.Guest] (feature 13) rather than the login gate — see [AuthRepository.logout]'s
+     * KDoc for exactly what that wipes and why.
      */
     fun logout() {
         viewModelScope.launch {

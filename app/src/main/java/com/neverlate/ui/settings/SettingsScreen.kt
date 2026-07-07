@@ -40,6 +40,7 @@ import com.neverlate.R
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.AuthRepository
+import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.notification.ReminderScheduler
@@ -50,7 +51,10 @@ import com.neverlate.ui.theme.NeverLateTheme
  * state to the stateless [SettingsScreen], following the same route/screen split used across the
  * app (see [com.neverlate.ui.home.HomeRoute]). [taskRepository]/[reminderScheduler] are only
  * needed by [SettingsViewModel]'s reminders on/off switch — see its KDoc. [authRepository]
- * (feature 11) backs the logout action.
+ * (feature 11) backs the logout action. [onSignInClick] (feature 13) is plain navigation — not a
+ * [SettingsViewModel] action, since it has no auth side effect of its own, exactly like
+ * [onBack] — wired by [com.neverlate.ui.navigation.AppNavHost] to the Login destination it added
+ * inside `MainAppNavHost`.
  */
 @Composable
 fun SettingsRoute(
@@ -59,6 +63,7 @@ fun SettingsRoute(
     reminderScheduler: ReminderScheduler,
     authRepository: AuthRepository,
     onBack: () -> Unit,
+    onSignInClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(
         factory = AppViewModelFactory(
@@ -76,6 +81,7 @@ fun SettingsRoute(
         onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
         onReminderLeadMinutesSelected = viewModel::onReminderLeadMinutesSelected,
         onLogoutClick = viewModel::logout,
+        onSignInClick = onSignInClick,
         onBack = onBack,
         modifier = modifier,
     )
@@ -109,6 +115,7 @@ fun SettingsScreen(
     onRemindersEnabledChanged: (Boolean) -> Unit,
     onReminderLeadMinutesSelected: (Int) -> Unit,
     onLogoutClick: () -> Unit,
+    onSignInClick: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -199,16 +206,24 @@ fun SettingsScreen(
                 ExactAlarmPermissionNotice(modifier = Modifier.padding(top = 16.dp))
             }
 
-            // Feature 11: account section, own logout action. A plain TextButton (rather than a
-            // dialog-guarded destructive action) matches this screen's existing minimal-UI style —
-            // see OQ-1's "minimal sync UI" call in the feature spec for the same restraint.
+            // Feature 11: account section. A plain TextButton (rather than a dialog-guarded
+            // destructive action) matches this screen's existing minimal-UI style — see OQ-1's
+            // "minimal sync UI" call in the feature spec for the same restraint. Feature 13: the
+            // action itself now depends on authState — LoggedIn shows "Log out"; Guest shows
+            // "Sign in / Create account" instead (this screen is never reached while LoggedOut).
             Text(
                 text = stringResource(R.string.settings_account_section),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(top = 24.dp),
             )
-            TextButton(onClick = onLogoutClick, modifier = Modifier.padding(top = 8.dp)) {
-                Text(stringResource(R.string.settings_logout_button))
+            if (uiState.authState is AuthState.LoggedIn) {
+                TextButton(onClick = onLogoutClick, modifier = Modifier.padding(top = 8.dp)) {
+                    Text(stringResource(R.string.settings_logout_button))
+                }
+            } else {
+                TextButton(onClick = onSignInClick, modifier = Modifier.padding(top = 8.dp)) {
+                    Text(stringResource(R.string.settings_sign_in_button))
+                }
             }
         }
     }
@@ -289,6 +304,7 @@ private fun SettingsScreenPreview() {
             onRemindersEnabledChanged = {},
             onReminderLeadMinutesSelected = {},
             onLogoutClick = {},
+            onSignInClick = {},
             onBack = {},
         )
     }
