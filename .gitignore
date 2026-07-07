@@ -25,6 +25,8 @@ Thumbs.db
 # Logs
 *.log
 
+.codegraph/
+
 # Claude Code agent scratch-memory (per-developer/per-tool state, not shared knowledge —
 # durable facts belong in CLAUDE.md / docs / tutorial instead)
 .claude/agent-memory/
