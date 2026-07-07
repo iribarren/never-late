@@ -6,22 +6,18 @@ import okhttp3.Response
 
 /**
  * OkHttp interceptor for [TasksApi] calls (configured in [TasksNetwork]): attaches
- * `Authorization: Bearer <token>` when a session exists, and reports a `401` response back to
- * [onUnauthorized] so the caller can log the user out (US-2 of the feature spec — an
- * expired/invalid token always routes back to login).
- *
- * [onUnauthorized] is a plain callback, not a suspend function: OkHttp interceptors run
- * synchronously on one of OkHttp's own dispatcher threads, never inside a coroutine, so whatever
- * this calls (see [com.neverlate.data.auth.AuthRepositoryImpl.notifyUnauthorized]) must launch its
- * own coroutine if it needs to suspend.
+ * `Authorization: Bearer <accessToken>` when a session exists. Deliberately does nothing else —
+ * since feature 12, reacting to a `401` (silently renewing via [TokenAuthenticator], falling back
+ * to logout only if that fails, US-1/US-2) is that class's job, not this one's. OkHttp invokes an
+ * `Authenticator` *after* an interceptor sees a `401`, so this stays the simple "attach whatever
+ * token is current" step every request goes through, on the way in.
  */
 class AuthInterceptor(
     private val tokenStorage: TokenStorage,
-    private val onUnauthorized: () -> Unit,
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = tokenStorage.getToken()
+        val token = tokenStorage.getAccessToken()
         val request = if (token != null) {
             chain.request().newBuilder()
                 .addHeader("Authorization", "Bearer $token")
@@ -30,10 +26,6 @@ class AuthInterceptor(
             chain.request()
         }
 
-        val response = chain.proceed(request)
-        if (response.code == 401) {
-            onUnauthorized()
-        }
-        return response
+        return chain.proceed(request)
     }
 }

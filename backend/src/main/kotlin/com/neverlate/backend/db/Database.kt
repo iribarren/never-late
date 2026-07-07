@@ -70,6 +70,31 @@ fun initSchema(dataSource: DataSource) {
             statement.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tasks_user_updated_at ON tasks(user_id, updated_at)",
             )
+            // Feature 12: refresh tokens are the first piece of auth state the backend keeps (the
+            // access token stays a stateless JWT). Added additively — this backend owns real user
+            // data, so unlike the client's Room `fallbackToDestructiveMigration`, schema changes
+            // here are never destructive. `token_hash` is UNIQUE both for a fast indexed lookup on
+            // every `/auth/refresh` call and to make a hash collision immediately visible as a
+            // constraint violation rather than a silent mix-up.
+            statement.execute(
+                """
+                CREATE TABLE IF NOT EXISTS refresh_tokens (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id),
+                    family_id TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    created_at BIGINT NOT NULL,
+                    expires_at BIGINT NOT NULL,
+                    consumed_at BIGINT,
+                    revoked BOOLEAN NOT NULL DEFAULT FALSE
+                )
+                """.trimIndent(),
+            )
+            // Reuse detection revokes a whole family in one statement (AuthService.refresh); this
+            // index keeps that cheap.
+            statement.execute(
+                "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family_id ON refresh_tokens(family_id)",
+            )
         }
     }
 }

@@ -41,10 +41,12 @@ interface AuthRepository {
     suspend fun login(email: String, password: String): AuthResult
 
     /**
-     * Clears the session and every locally-cached, backend-owned row (tasks + outbox, and the
-     * sync cursor) — since account is mandatory in this feature (see the spec's *Out of Scope*),
-     * there is no "local-only" data left behind to preserve; the cache simply repopulates from
-     * the server the next time someone logs in.
+     * Best-effort revokes the refresh token server-side (`POST /auth/logout`, contract §2.3), then
+     * **unconditionally** clears the session and every locally-cached, backend-owned row (tasks +
+     * outbox, and the sync cursor) — since account is mandatory in this feature (see the spec's
+     * *Out of Scope*), there is no "local-only" data left behind to preserve; the cache simply
+     * repopulates from the server the next time someone logs in. A failed revoke call (offline,
+     * server error) must never prevent the *local* logout from completing (feature 12, US-4).
      */
     suspend fun logout()
 }
@@ -69,7 +71,7 @@ class AuthRepositoryImpl(
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     private fun readInitialAuthState(): AuthState {
-        val token = tokenStorage.getToken()
+        val token = tokenStorage.getAccessToken()
         val userId = tokenStorage.getUserId()
         val email = tokenStorage.getUserEmail()
         return if (token != null && userId != null && email != null) {
@@ -88,7 +90,7 @@ class AuthRepositoryImpl(
     private suspend fun authenticate(call: suspend () -> AuthResponse): AuthResult = withContext(Dispatchers.IO) {
         try {
             val response = call()
-            tokenStorage.saveSession(response.token, response.user.id, response.user.email)
+            tokenStorage.saveSession(response.accessToken, response.refreshToken, response.user.id, response.user.email)
             _authState.value = AuthState.LoggedIn(response.user.id, response.user.email)
             AuthResult.Success
         } catch (error: HttpException) {
@@ -98,7 +100,19 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun logout() {
+    override suspend fun logout() = withContext(Dispatchers.IO) {
+        // Best-effort revoke (contract §2.3): tell the server this refresh token is dead so a
+        // stolen copy can't mint new sessions either. A missing token (e.g. a pre-feature-12
+        // session that never had one) or a failed call must never block the local logout below.
+        val refreshToken = tokenStorage.getRefreshToken()
+        if (refreshToken != null) {
+            try {
+                api.logout(LogoutRequest(refreshToken))
+            } catch (error: IOException) {
+                // No connectivity — the local session still clears; nothing else to do.
+            }
+        }
+
         tokenStorage.clearSession()
         database.withTransaction {
             database.taskDao().clearAll()

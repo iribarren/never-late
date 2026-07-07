@@ -116,9 +116,9 @@ changes were.
 
 **Remote DB + offline-first sync** (feature 11): the app gains a real backend (`backend/`, Kotlin +
 Ktor + Postgres) that owns accounts and tasks; the Android app becomes an **offline-first client**.
-Basic email/password **auth** issues a stateless **JWT** (no refresh in v1), attached to every task
-call via an OkHttp interceptor and stored in **Keystore-backed encrypted storage** (not the plaintext
-`user_prefs` DataStore). Room stays the **local single source of truth**; each mutation writes the
+Basic email/password **auth** issues a stateless **JWT** (no refresh in v1 — **superseded by feature
+12** below), attached to every task call via an OkHttp interceptor and stored in **Keystore-backed
+encrypted storage** (not the plaintext `user_prefs` DataStore). Room stays the **local single source of truth**; each mutation writes the
 task row **and** a `task_outbox` change row in the same transaction. A sync engine does **push** (replay
 the outbox — idempotent creates keyed by `clientRef`, tombstones for deletes) and **pull**
 (`GET /tasks?since=`), reconciling with **last-write-wins by `updatedAt`** (delete wins over edit); the
@@ -132,6 +132,25 @@ default; a **debug-build-only** network security config (`app/src/debug/res/xml/
 wired via `app/src/debug/AndroidManifest.xml`) scopes the cleartext exception to `10.0.2.2`/`localhost`
 only — release builds get no exception at all. **Before any real deployment, the backend must be served
 over HTTPS** and this debug-only exception must not be widened or copied into the release manifest.
+This warning applies **doubly** after feature 12, since a refresh token is a longer-lived, higher-value
+credential crossing the wire.
+
+**Refresh token + silent session renewal** (feature 12): the single long-lived JWT of feature 11 is
+split into a **short-lived access token** (stateless JWT, ~15 min) + a **long-lived refresh token**
+(~30 days, opaque, server-stateful). On a `401` the client now **renews first** and only falls back to
+login if renewal fails. Client shells live in `data/sync`/`data/auth`: a new OkHttp **`Authenticator`**
+(`TokenAuthenticator`, distinct from feature 11's Bearer `AuthInterceptor`) intercepts the `401`,
+performs a **single-flight** refresh (a `synchronized` guard so a burst of concurrent `401`s triggers
+exactly one `POST /auth/refresh`), atomically swaps both tokens in `EncryptedTokenStorage`
+(`saveTokens`), and retries the original request; the refresh call goes through a **bare** OkHttp client
+(no authenticator/interceptor) to avoid recursion. Both tokens live in the same Keystore-backed store;
+logout best-effort-revokes the refresh server-side then clears local state unconditionally. The backend
+gains **auth state** (its first): a hashed-at-rest `refresh_tokens` table (`RefreshTokenRepository` +
+Postgres/InMemory impls, `RefreshTokenCrypto` for `SecureRandom` token + SHA-256 hash) with **rotation**
+on every use, **revocation** on logout, and **reuse detection** scoped to a token **family/lineage**
+(`revokeFamily`), closing a TOCTOU race via an atomic `markConsumedIfUnconsumed`. Access/refresh
+lifetimes are env-configurable (`ACCESS_TOKEN_EXPIRY_MINUTES`, `REFRESH_TOKEN_EXPIRY_DAYS` in `Config`).
+No new permissions, modules, or dependencies. See **API Contract** below.
 
 ## API Contract
 
@@ -142,8 +161,9 @@ it, and do not re-document endpoints elsewhere (the backend `README.md` points t
 than re-listing routes).
 
 - **Contract:** [`docs/api/contract.md`](docs/api/contract.md) — endpoints (`/auth/register`,
-  `/auth/login`, `/tasks` CRUD + `GET ?since=` for pull), the `TaskDto` wire shape (deliberately
-  distinct from the Room `Task` entity), the JSON error envelope, auth (Bearer JWT), and sync
+  `/auth/login`, `/auth/refresh` + `/auth/logout` (feature 12), `/tasks` CRUD + `GET ?since=` for pull),
+  the `TaskDto` wire shape (deliberately distinct from the Room `Task` entity), the JSON error envelope,
+  auth (Bearer access token + refresh-token rotation/revocation/reuse, §2.1), and sync
   semantics.
 - **Rule:** any change to request/response shapes, status codes, or auth updates `docs/api/contract.md`
   in the same change, and both sides are reconciled to it. Sensitive logic (ownership checks,

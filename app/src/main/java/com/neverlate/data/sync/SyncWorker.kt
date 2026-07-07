@@ -30,14 +30,15 @@ private const val SYNC_INTERVAL_MINUTES = 15L
  * instances — so it reconstructs equivalent ones from the same process-wide singletons
  * ([NeverLateDatabase.getInstance]) and lightweight wrappers
  * ([EncryptedTokenStorage]/[DataStoreUserPreferencesRepository]). One known limitation from doing
- * so: if this worker's own `AuthInterceptor` sees a 401, it can only clear [EncryptedTokenStorage]
- * directly (there is no live `AuthRepository` instance here to flip its `authState`) — see
- * [TasksNetwork]'s `onUnauthorized` argument below. If the app process is still alive with its own
- * `AuthRepository` already in memory, that in-memory state only catches up once the *live*
- * `TasksApi` (the one `MainActivity` built, shared with [SyncEngine.schedulePush]) also sees a
- * 401, which happens the next time any task mutation or foreground sync runs. Acceptable for an
- * MVP: the persisted token is correctly cleared either way, so a killed-and-relaunched process
- * always starts logged out correctly.
+ * so: if this worker's own `TasksApi` sees a 401, `TokenAuthenticator` tries a silent renewal
+ * first (feature 12) same as everywhere else, but if that *also* fails it can only clear
+ * [EncryptedTokenStorage] directly (there is no live `AuthRepository` instance here to flip its
+ * `authState`) — see [TasksNetwork]'s `onUnauthorized` argument below. If the app process is still
+ * alive with its own `AuthRepository` already in memory, that in-memory state only catches up
+ * once the *live* `TasksApi` (the one `MainActivity` built, shared with [SyncEngine.schedulePush])
+ * also fails to renew, which happens the next time any task mutation or foreground sync runs.
+ * Acceptable for an MVP: the persisted token is correctly cleared either way, so a
+ * killed-and-relaunched process always starts logged out correctly.
  */
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 

@@ -31,6 +31,12 @@ class ValidationException(message: String) : ApiException(400, "validation_error
 class InvalidCredentialsException :
     ApiException(401, "invalid_credentials", "Invalid email or password")
 
+/** contract.md §2.1: covers an unknown, expired, revoked, **or reused** (already-rotated) refresh
+ *  token — deliberately one code/message for all four cases so a caller can never distinguish
+ *  "expired" from "stolen and detected" by the response alone. */
+class InvalidRefreshTokenException :
+    ApiException(401, "invalid_refresh_token", "Invalid or expired refresh token")
+
 class EmailTakenException :
     ApiException(409, "email_taken", "An account with this email already exists")
 
