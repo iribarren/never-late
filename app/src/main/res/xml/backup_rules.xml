@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup rules for Android 11 (API 30) and below (android:fullBackupContent).
+
+  The encrypted session lives in the EncryptedSharedPreferences file "auth_secure_prefs", sealed
+  with a hardware-bound Android Keystore key that never leaves the device. That file must NEVER be
+  backed up: restored onto another device/install its key would be absent, so decryption fails with
+  AEADBadTagException and the app crashes on launch. Bearer credentials shouldn't travel off-device
+  anyway — excluding it here is both a crash fix and the safer security posture.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="auth_secure_prefs.xml" />
+</full-backup-content>

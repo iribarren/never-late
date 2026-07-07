@@ -99,7 +99,12 @@ with graceful fallback to inexact; `USE_EXACT_ALARM` is deliberately **not** dec
 (`exported="false"`) and `BootReceiver` (`exported="true"`, `BOOT_COMPLETED` filter). Feature 10 adds
 `INTERNET` (a normal permission, no runtime request) for the articles API. Feature 11 adds
 `ACCESS_NETWORK_STATE` (also a normal permission, no runtime request) for the sync engine's
-connectivity-aware WorkManager job.
+connectivity-aware WorkManager job. A later bugfix adds Auto Backup rules
+(`android:dataExtractionRules="@xml/data_extraction_rules"` + `android:fullBackupContent="@xml/backup_rules"`)
+that **exclude the Keystore-sealed `auth_secure_prefs` file** from cloud backup/device transfer: its
+hardware-bound key can't follow it, so a restored copy only throws `AEADBadTagException` on launch —
+`EncryptedTokenStorage` now also recovers from that by clearing and recreating the store (see
+`tutorial/12b-keystore-recuperacion.md`).
 
 **Articles from a remote API** (feature 10): replaces feature 03's bundled `assets/articles.json`
 with a real network fetch. `data/articles/` gains `ArticlesApi` + `ArticlesNetwork` (Retrofit +
