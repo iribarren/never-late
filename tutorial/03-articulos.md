@@ -11,17 +11,21 @@
 
 Partiendo de la Lección 02 (`ViewModel` + `StateFlow`, Navigation Compose, route/screen, DI manual):
 
-- **`data class` como modelo de dominio:** una clase de datos `Article` que representa un artículo,
-  independiente de la UI y de dónde vengan los datos.
-- **`LazyColumn`:** el widget para listas potencialmente largas, que solo compone las filas
-  visibles (a diferencia de una `Column` con scroll).
-- **Navegación con argumentos:** una ruta con un parámetro (`articleDetail/{articleId}`) para pasar
-  el id de una pantalla a otra.
+- **[`data class`](https://kotlinlang.org/docs/data-classes.html) como modelo de dominio:** una
+  clase de datos `Article` que representa un artículo, independiente de la UI y de dónde vengan los
+  datos.
+- **[`LazyColumn`](https://developer.android.com/develop/ui/compose/lists):** el widget para listas
+  potencialmente largas, que solo compone las filas visibles (a diferencia de una `Column` con
+  scroll).
+- **[Navegación con argumentos](https://developer.android.com/develop/ui/compose/navigation#nav-with-args):**
+  una ruta con un parámetro (`articleDetail/{articleId}`) para pasar el id de una pantalla a otra.
 - **Patrón repositorio con fuente de datos local:** una **interfaz** `ArticleRepository` y una
   implementación que **lee un fichero de `assets/`** y lo parsea.
-- **`kotlinx.serialization`:** convertir JSON en objetos Kotlin (`@Serializable`).
-- **Estados de UI con `sealed interface`:** modelar "cargando / con contenido / vacío" (o
-  "no encontrado") de forma que sean casos mutuamente excluyentes.
+- **[`kotlinx.serialization`](https://kotlinlang.org/docs/serialization.html):** convertir JSON en
+  objetos Kotlin (`@Serializable`).
+- **Estados de UI con [`sealed interface`](https://kotlinlang.org/docs/sealed-classes.html):**
+  modelar "cargando / con contenido / vacío" (o "no encontrado") de forma que sean casos mutuamente
+  excluyentes.
 
 ---
 
@@ -378,6 +382,17 @@ adb shell am start -n com.neverlate/.MainActivity
 - Pulsa un artículo: vas al **detalle** con el texto completo y scroll si no cabe.
 - Pulsa la **flecha atrás** de la barra superior (o el gesto de retroceso): vuelves a la lista.
 - Activa el **modo avión**: todo sigue funcionando, porque el contenido está empaquetado.
+
+---
+
+## Documentación oficial
+
+- **`data class`** — [Data classes (Kotlin)](https://kotlinlang.org/docs/data-classes.html)
+- **Listas con `LazyColumn`** — [Lists and grids](https://developer.android.com/develop/ui/compose/lists)
+- **Navegación con argumentos** — [Navigation with Compose · argumentos](https://developer.android.com/develop/ui/compose/navigation#nav-with-args)
+- **`sealed interface` / `sealed class`** — [Sealed classes and interfaces (Kotlin)](https://kotlinlang.org/docs/sealed-classes.html)
+- **`kotlinx.serialization`** — [Serialization (Kotlin)](https://kotlinlang.org/docs/serialization.html)
+- **Interfaces (patrón repositorio)** — [Interfaces (Kotlin)](https://kotlinlang.org/docs/interfaces.html)
 
 ---
 

@@ -19,13 +19,16 @@ deep-link), 06 (notificaciones, **canales**, `POST_NOTIFICATIONS`, degradar con 
 (**DataStore** de preferencias + pantalla de Ajustes):
 
 - **Trabajo diferido vs. trabajo puntual — el contraste central de la lección.** Cuándo usar
-  **WorkManager** ("hazlo en algún momento, ahorrando batería") y cuándo **`AlarmManager`** ("hazlo
-  en este instante exacto, aunque el teléfono duerma").
+  **[WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)** ("hazlo
+  en algún momento, ahorrando batería") y cuándo
+  **[`AlarmManager`](https://developer.android.com/develop/background-work/services/alarms/schedule)**
+  ("hazlo en este instante exacto, aunque el teléfono duerma").
 - **Alarmas exactas vs. inexactas** (`setExactAndAllowWhileIdle` vs. `setAndAllowWhileIdle`) y su
   coste en batería y permisos.
-- **`AlarmManager` + `PendingIntent` + `BroadcastReceiver`:** programar un aviso que el sistema
-  entrega a un receiver cuando llega la hora, con un **request code determinista** para poder
-  reemplazarlo/cancelarlo.
+- **`AlarmManager` + `PendingIntent` +
+  [`BroadcastReceiver`](https://developer.android.com/develop/background-work/background-tasks/broadcasts):**
+  programar un aviso que el sistema entrega a un receiver cuando llega la hora, con un **request
+  code determinista** para poder reemplazarlo/cancelarlo.
 - **Permisos de alarmas exactas por versión** (`SCHEDULE_EXACT_ALARM`, `canScheduleExactAlarms()`)
   y la **degradación con gracia** cuando no están.
 - **Un segundo canal que alerta** (`IMPORTANCE_HIGH`, con sonido y *heads-up*), frente al canal
@@ -585,6 +588,17 @@ que alerta) y la notificación continua de la 06 (canal silencioso) **coexisten*
 6. Prueba a **apagar** los recordatorios en Ajustes: los avisos pendientes se cancelan.
 7. Prueba a **denegar** el permiso de notificaciones o el de alarmas exactas: la app sigue
    funcionando; el aviso simplemente no aparece, o llega con algo de holgura.
+
+---
+
+## Documentación oficial
+
+- **AlarmManager (alarmas exactas)** — [Schedule alarms](https://developer.android.com/develop/background-work/services/alarms/schedule)
+- **`SCHEDULE_EXACT_ALARM`** — [Exact alarm permission](https://developer.android.com/develop/background-work/services/alarms/schedule#exact-permission-declare)
+- **BroadcastReceiver** — [Broadcasts overview](https://developer.android.com/develop/background-work/background-tasks/broadcasts)
+- **WorkManager** — [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)
+- **Canales de notificación (importancia)** — [Create and manage channels](https://developer.android.com/develop/ui/views/notifications/channels#importance)
+- **Ejecutar al reiniciar** — [`ACTION_BOOT_COMPLETED`](https://developer.android.com/reference/android/content/Intent#ACTION_BOOT_COMPLETED)
 
 ---
 

@@ -19,12 +19,13 @@ dominio, Room como única fuente de verdad):
 
 - **Qué es un backend y un contrato de API.** Por qué el contrato (`docs/api/contract.md`) es la
   **fuente única de verdad** que desacopla cliente y servidor, y cómo cada lado se construye contra él.
-- **Autenticación con tokens (JWT).** Registro/login, qué es un token, cómo se adjunta a cada petición
-  (`Authorization: Bearer …`) con un **interceptor de OkHttp**, y por qué es el **servidor** —nunca el
-  cliente— quien verifica la identidad.
+- **Autenticación con tokens ([JWT](https://jwt.io/introduction)).** Registro/login, qué es un token,
+  cómo se adjunta a cada petición (`Authorization: Bearer …`) con un **[interceptor de
+  OkHttp](https://square.github.io/okhttp/features/interceptors/)**, y por qué es el **servidor**
+  —nunca el cliente— quien verifica la identidad.
 - **Almacenamiento seguro de credenciales.** Por qué un token **no** puede vivir en un DataStore /
-  `SharedPreferences` en claro, y cómo guardarlo con **`EncryptedSharedPreferences`** respaldado por el
-  **Android Keystore**.
+  `SharedPreferences` en claro, y cómo guardarlo cifrado, respaldado por el **[Android
+  Keystore](https://developer.android.com/privacy-and-security/keystore)**.
 - **Sync offline-first.** Room como fuente de verdad extendida a las **escrituras**; la **outbox**;
   **push/pull**; **ids locales vs. ids de servidor** + `clientRef`; **tombstones** para borrados;
   **last-write-wins** y su función de merge **pura**.
@@ -531,3 +532,15 @@ physical device".
 En la próxima lección (diferida a una feature futura) tocará el **modo invitado** (usar la app sin cuenta
 y fusionar las tareas locales al registrarse) y el **refresh token** (renovar la sesión sin volver a
 teclear la contraseña), los dos trozos que dejamos deliberadamente fuera de v1.
+
+---
+
+## Documentación oficial
+
+- **JWT (JSON Web Tokens)** — [Introduction to JWT](https://jwt.io/introduction)
+- **Interceptors de OkHttp** — [OkHttp interceptors](https://square.github.io/okhttp/features/interceptors/)
+- **Android Keystore** — [Android Keystore system](https://developer.android.com/privacy-and-security/keystore)
+- **Trabajar con datos de forma segura** — [Work with data more securely](https://developer.android.com/privacy-and-security/security-tips#UserData)
+- **Config de seguridad de red (cleartext en debug)** — [Network security configuration](https://developer.android.com/privacy-and-security/security-config)
+- **Sincronización con WorkManager** — [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)
+- **Ktor (backend)** — [Ktor server](https://ktor.io/docs/server-create-a-new-project.html)

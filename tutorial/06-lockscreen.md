@@ -14,18 +14,20 @@
 Partiendo de las lecciones 04 (Room + `Flow`, repositorio tras interfaz, funciones puras de tiempo,
 reloj de pared) y 05 (función pura de mapeo, patrón decorador, WorkManager, `PendingIntent`/deep-link):
 
-- **Notificaciones en Android:** `NotificationManagerCompat`, `NotificationCompat.Builder` y por qué
-  usamos siempre las variantes `*Compat`.
-- **Canales de notificación** (`NotificationChannel`, API 26+) y la **guarda `SDK_INT`** para convivir
-  con `minSdk = 24`.
+- **[Notificaciones en Android](https://developer.android.com/develop/ui/views/notifications):**
+  `NotificationManagerCompat`, `NotificationCompat.Builder` y por qué usamos siempre las variantes
+  `*Compat`.
+- **[Canales de notificación](https://developer.android.com/develop/ui/views/notifications/channels)**
+  (`NotificationChannel`, API 26+) y la **guarda `SDK_INT`** para convivir con `minSdk = 24`.
 - **Notificación continua y actualizable** (`setOngoing`, `setOnlyAlertOnce`) y el truco de **reemitir
   con el mismo `notificationId`** para actualizar en sitio — el mismo problema "empujar en vez de
   observar" del widget.
 - **Visibilidad y privacidad en el lockscreen**: `setVisibility(...)` y `setPublicVersion(...)`.
-- **Permiso `POST_NOTIFICATIONS`** (Android 13+) solicitado desde Compose, y cómo **degradar con
-  gracia** si se deniega.
-- **Foreground service**: qué es, cómo se promociona con `startForeground`, su **ciclo de vida** y el
-  requisito de `foregroundServiceType` en API 34+.
+- **Permiso [`POST_NOTIFICATIONS`](https://developer.android.com/develop/ui/views/notifications/notification-permission)**
+  (Android 13+) solicitado desde Compose, y cómo **degradar con gracia** si se deniega.
+- **[Foreground service](https://developer.android.com/develop/background-work/services/foreground-services)**:
+  qué es, cómo se promociona con `startForeground`, su **ciclo de vida** y el requisito de
+  `foregroundServiceType` en API 34+.
 - **Compartir una regla entre dos features** extrayendo un helper puro común, para que widget y
   notificación **no puedan divergir**.
 
@@ -394,6 +396,18 @@ que se retira al quedarse sin tareas.
 5. Tócala: te pedirá desbloquear y abrirá la app directamente en la lista de tareas.
 6. Borra/completa todas las tareas: la notificación **desaparece** (el servicio se detiene).
 7. Prueba a **denegar** el permiso: la app funciona igual, simplemente no aparece la notificación.
+
+---
+
+## Documentación oficial
+
+- **Notificaciones** — [Notifications overview](https://developer.android.com/develop/ui/views/notifications)
+  · [Crear una notificación](https://developer.android.com/develop/ui/views/notifications/build-notification)
+- **Canales de notificación** — [Create and manage channels](https://developer.android.com/develop/ui/views/notifications/channels)
+- **Permiso `POST_NOTIFICATIONS`** — [Notification runtime permission](https://developer.android.com/develop/ui/views/notifications/notification-permission)
+- **Permisos en runtime** — [Permissions on Android](https://developer.android.com/guide/topics/permissions/overview)
+- **Foreground services** — [Foreground services overview](https://developer.android.com/develop/background-work/services/foreground-services)
+- **Comprobar la versión de Android** — [`Build.VERSION.SDK_INT`](https://developer.android.com/reference/android/os/Build.VERSION#SDK_INT)
 
 ---
 

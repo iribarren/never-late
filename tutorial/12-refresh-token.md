@@ -17,12 +17,15 @@ Partiendo de la lección 11 (auth con JWT, interceptor Bearer, almacenamiento ci
 *seam* de repositorio, el backend Ktor + Postgres):
 
 - **Ciclo de vida de tokens.** Por qué un **access token de vida corta** + un **refresh token de vida
-  larga** es más seguro que un único JWT eterno; qué se guarda dónde; por qué el access sigue siendo
-  *stateless* y el refresh se vuelve *stateful*.
-- **Renovación silenciosa en el cliente.** El **`Authenticator`** de OkHttp: cómo se diferencia del
-  interceptor de la 11, cómo intercepta el `401`, pide **una sola vez** un token nuevo y **reintenta**
-  la petición original de forma transparente; y cómo manejar **renovaciones concurrentes** (varias
-  llamadas fallando a la vez sin disparar N refrescos).
+  larga** ([patrón OAuth 2.0](https://oauth.net/2/refresh-tokens/)) es más seguro que un único JWT
+  eterno; qué se guarda dónde; por qué el access sigue siendo *stateless* y el refresh se vuelve
+  *stateful*.
+- **Renovación silenciosa en el cliente.** El
+  **[`Authenticator`](https://square.github.io/okhttp/recipes/#handling-authentication-kt-java)** de
+  OkHttp: cómo se diferencia del interceptor de la 11, cómo intercepta el `401`, pide **una sola vez**
+  un token nuevo y **reintenta** la petición original de forma transparente; y cómo manejar
+  **renovaciones concurrentes** (varias llamadas fallando a la vez sin disparar N refrescos) con
+  [`synchronized`](https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html).
 - **Estado en el servidor para tokens de refresco.** Una tabla de refresh tokens, **rotación** en cada
   uso, **revocación** en logout, y **detección de reuso** (posible robo) acotada por **familias** de
   tokens. Es el primer sitio donde el backend guarda *estado de auth*.
@@ -490,3 +493,14 @@ cd backend && ./gradlew test        # backend: 24 tests
   cuerpos): recordatorio de que la auth vive en los detalles.
 - Todo entra **por detrás de los *seams* de la 11** (`AuthRepository`, `TokenStorage`, el interceptor):
   `SyncEngine`, los ViewModels y la UI no se enteran.
+
+---
+
+## Documentación oficial
+
+- **Refresh tokens (OAuth 2.0)** — [OAuth 2.0 refresh tokens](https://oauth.net/2/refresh-tokens/)
+- **JWT** — [Introduction to JWT](https://jwt.io/introduction)
+- **`Authenticator` de OkHttp** — [Handling authentication](https://square.github.io/okhttp/recipes/#handling-authentication-kt-java)
+  · [`Authenticator` (referencia)](https://square.github.io/okhttp/4.x/okhttp/okhttp3/-authenticator/)
+- **Concurrencia y estado compartido (Kotlin)** — [Shared mutable state and concurrency](https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html)
+- **Android Keystore** — [Android Keystore system](https://developer.android.com/privacy-and-security/keystore)

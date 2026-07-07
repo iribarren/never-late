@@ -16,20 +16,25 @@ Partiendo de las lecciones 03 (repositorio tras interfaz, `sealed interface` de 
 `suspend` de carga, `kotlinx.serialization`), 04 (**Room**: `@Entity`/`@Dao`/`@Database`, `suspend`
 en el DAO) y 07 (pantalla que reacciona a `StateFlow`):
 
-- **Networking con Retrofit + OkHttp:** describir un endpoint como una **interfaz** con funciones
-  `suspend`, y dejar que Retrofit escriba la implementación (URL, conexión, parseo) por ti.
-- **El converter de `kotlinx.serialization`:** reutilizar la misma librería JSON del proyecto para
-  deserializar las respuestas de red, en vez de añadir Moshi/Gson.
+- **Networking con [Retrofit](https://square.github.io/retrofit/) +
+  [OkHttp](https://square.github.io/okhttp/):** describir un endpoint como una **interfaz** con
+  funciones `suspend`, y dejar que Retrofit escriba la implementación (URL, conexión, parseo) por ti.
+- **El converter de [`kotlinx.serialization`](https://kotlinlang.org/docs/serialization.html):**
+  reutilizar la misma librería JSON del proyecto para deserializar las respuestas de red, en vez de
+  añadir Moshi/Gson.
 - **DTO de red ≠ modelo de dominio + mapeo:** una `data class` que refleja **la forma del JSON** de
   la API (deliberadamente distinta de `Article`) y una función **pura** que la traduce a dominio.
-- **Caché offline con Room como única fuente de verdad** y una estrategia **stale-while-revalidate**:
-  la UI lee siempre de la caché; un **refresco** trae datos frescos de la red y actualiza la caché.
+- **Caché offline con [Room](https://developer.android.com/training/data-storage/room) como única
+  fuente de verdad** y una estrategia **stale-while-revalidate**: la UI lee siempre de la caché; un
+  **refresco** trae datos frescos de la red y actualiza la caché.
 - **Estados de UI loading / success / empty / error** con `ViewModel` + `StateFlow`, **ampliando** el
   `sealed interface` de la 03 con un caso de **error** y una acción de **reintento**.
-- **Pull-to-refresh** con el `PullToRefreshBox` de Material 3, gobernado por un `StateFlow<Boolean>`.
+- **[Pull-to-refresh](https://developer.android.com/develop/ui/compose/components/pull-to-refresh)**
+  con el `PullToRefreshBox` de Material 3, gobernado por un `StateFlow<Boolean>`.
 - **Ampliar un contrato de forma aditiva:** añadir `refresh()` a `ArticleRepository` sin tocar las
   firmas de lectura, para poder distinguir "vacío de verdad" de "falló la red y no hay caché".
-- **El permiso `INTERNET`:** un permiso *normal* (no se pide en runtime).
+- **El permiso [`INTERNET`](https://developer.android.com/develop/connectivity/network-ops/connecting):**
+  un permiso *normal* (no se pide en runtime).
 
 ---
 
@@ -556,6 +561,18 @@ la red se prueban con un **`MockWebServer`**, y los `ViewModel` con un *fake* de
    **error** con **Reintentar**. Desactiva el avión y pulsa **Reintentar**: aparece el contenido.
 5. Fíjate en **Logcat** (build debug) para ver el `HttpLoggingInterceptor` volcando cada petición y
    respuesta.
+
+---
+
+## Documentación oficial
+
+- **Retrofit** — [Retrofit](https://square.github.io/retrofit/)
+- **OkHttp** — [OkHttp](https://square.github.io/okhttp/)
+  · [Interceptors](https://square.github.io/okhttp/features/interceptors/)
+- **`kotlinx.serialization`** — [Serialization (Kotlin)](https://kotlinlang.org/docs/serialization.html)
+- **Conectar a la red** — [Connect to the network](https://developer.android.com/develop/connectivity/network-ops/connecting)
+- **Room como caché** — [Save data with Room](https://developer.android.com/training/data-storage/room)
+- **Pull-to-refresh** — [Pull to refresh (Compose)](https://developer.android.com/develop/ui/compose/components/pull-to-refresh)
 
 ---
 
