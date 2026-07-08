@@ -69,7 +69,12 @@
     <string name="task_edit_title_edit">Editar tarea</string>
     <string name="task_edit_title_label">Título</string>
     <string name="task_edit_duration_label">Duración estimada (minutos)</string>
-    <string name="task_edit_deadline_label">Fecha límite (dd/MM/aaaa HH:mm)</string>
+    <string name="task_edit_deadline_label">Fecha límite</string>
+    <!-- Feature 14: native date/time picker for the deadline field. -->
+    <string name="task_edit_deadline_pick_content_description">Elegir fecha y hora límite</string>
+    <string name="task_edit_deadline_clear_content_description">Borrar fecha límite</string>
+    <string name="task_edit_date_confirm">Aceptar</string>
+    <string name="task_edit_date_dismiss">Cancelar</string>
     <string name="task_edit_save_button">Guardar</string>
     <string name="task_edit_delete_button">Borrar tarea</string>
     <string name="tasks_error_blank_title">El título no puede estar vacío.</string>

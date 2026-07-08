@@ -5,6 +5,10 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.Locale
 
 class TaskTimingTest {
@@ -183,5 +187,85 @@ class TaskTimingTest {
         // locales must render the same instant differently — e.g. month/day order and 12h vs 24h.
         assertTrue("expected a non-empty display string", english.isNotBlank())
         assertNotEquals(english, spanish)
+    }
+
+    // deadlineFromPickedDateTime -----------------------------------------------------------------
+    // US-4: DatePickerState.selectedDateMillis is UTC midnight of the picked day, not a local-zone
+    // instant. These tests pin an explicit non-UTC ZoneId (never ZoneId.systemDefault()) so the
+    // off-by-one-day guard is verified deterministically regardless of the machine running the test.
+
+    /**
+     * Mimics exactly what `DatePickerState.selectedDateMillis` produces for a picked calendar day:
+     * UTC midnight of that day.
+     */
+    private fun utcMidnightMillisFor(year: Int, month: Int, day: Int): Long =
+        LocalDate.of(year, month, day).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+    @Test
+    fun `deadlineFromPickedDateTime resolves to the picked calendar day in a negative-offset zone (US-4)`() {
+        val zone = ZoneId.of("America/New_York") // UTC-5 / UTC-4
+        val pickedDateMillis = utcMidnightMillisFor(2026, 7, 10)
+
+        val result = deadlineFromPickedDateTime(pickedDateMillis, hour = 14, minute = 30, zone = zone)
+
+        val resolved = Instant.ofEpochMilli(result).atZone(zone)
+        assertEquals(LocalDate.of(2026, 7, 10), resolved.toLocalDate())
+        assertEquals(14, resolved.hour)
+        assertEquals(30, resolved.minute)
+    }
+
+    @Test
+    fun `deadlineFromPickedDateTime resolves to the picked calendar day in a positive-offset zone`() {
+        val zone = ZoneId.of("Asia/Tokyo") // UTC+9
+        val pickedDateMillis = utcMidnightMillisFor(2026, 7, 10)
+
+        val result = deadlineFromPickedDateTime(pickedDateMillis, hour = 14, minute = 30, zone = zone)
+
+        val resolved = Instant.ofEpochMilli(result).atZone(zone)
+        assertEquals(LocalDate.of(2026, 7, 10), resolved.toLocalDate())
+        assertEquals(14, resolved.hour)
+        assertEquals(30, resolved.minute)
+    }
+
+    @Test
+    fun `deadlineFromPickedDateTime at 00_00 does not roll back to the previous day`() {
+        val zone = ZoneId.of("America/New_York")
+        val pickedDateMillis = utcMidnightMillisFor(2026, 7, 10)
+
+        val result = deadlineFromPickedDateTime(pickedDateMillis, hour = 0, minute = 0, zone = zone)
+
+        val resolved = Instant.ofEpochMilli(result).atZone(zone)
+        assertEquals(LocalDate.of(2026, 7, 10), resolved.toLocalDate())
+        assertEquals(0, resolved.hour)
+        assertEquals(0, resolved.minute)
+    }
+
+    @Test
+    fun `deadlineFromPickedDateTime at 23_59 does not roll forward to the next day`() {
+        val zone = ZoneId.of("Asia/Tokyo")
+        val pickedDateMillis = utcMidnightMillisFor(2026, 7, 10)
+
+        val result = deadlineFromPickedDateTime(pickedDateMillis, hour = 23, minute = 59, zone = zone)
+
+        val resolved = Instant.ofEpochMilli(result).atZone(zone)
+        assertEquals(LocalDate.of(2026, 7, 10), resolved.toLocalDate())
+        assertEquals(23, resolved.hour)
+        assertEquals(59, resolved.minute)
+    }
+
+    @Test
+    fun `deadlineFromPickedDateTime round-trips through formatDeadlineForInput and parseDeadline (US-5)`() {
+        // formatDeadlineForInput/parseDeadline are pinned to ZoneId.systemDefault(), so this
+        // round-trip uses the default zone consistently on both ends (rather than an explicit
+        // non-UTC zone) to stay deterministic: parseDeadline(formatDeadlineForInput(x)) == x holds
+        // by construction regardless of which zone systemDefault() happens to be.
+        val pickedDateMillis = utcMidnightMillisFor(2026, 12, 24)
+
+        val picked = deadlineFromPickedDateTime(pickedDateMillis, hour = 20, minute = 30)
+        val text = formatDeadlineForInput(picked)
+        val parsedBack = parseDeadline(text)
+
+        assertTrue("expected the picked value to parse back cleanly", parsedBack != null)
+        assertEquals(picked, parsedBack)
     }
 }

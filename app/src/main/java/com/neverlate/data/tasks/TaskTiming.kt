@@ -98,6 +98,32 @@ fun formatDeadlineForDisplay(epochMillis: Long, locale: Locale): String {
 }
 
 /**
+ * Combines a calendar date picked in a Material 3 `DatePicker` with a wall-clock time picked in a
+ * `TimePicker` into an epoch-millis deadline, resolved in [zone] (the device's local zone in
+ * production).
+ *
+ * The subtlety that earns this its own pure, unit-tested function (feature 14): `DatePickerState`
+ * reports its selection as [dateUtcMidnightMillis] — **UTC midnight** of the chosen day, *not* a
+ * local-zone instant. Reading those millis directly in a negative-UTC-offset zone lands on the
+ * *previous* day (the classic "off-by-one-day" picker bug). So the calendar date is extracted via
+ * the UTC zone, then re-assembled with the picked [hour]/[minute] and resolved through [zone].
+ */
+fun deadlineFromPickedDateTime(
+    dateUtcMidnightMillis: Long,
+    hour: Int,
+    minute: Int,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Long {
+    val pickedDate = Instant.ofEpochMilli(dateUtcMidnightMillis)
+        .atZone(ZoneId.of("UTC"))
+        .toLocalDate()
+    return pickedDate.atTime(hour, minute)
+        .atZone(zone)
+        .toInstant()
+        .toEpochMilli()
+}
+
+/**
  * Formats an epoch-millis deadline into the fixed [DEADLINE_INPUT_PATTERN] used to pre-fill the
  * edit form. [parseDeadline] is this function's exact inverse: what it writes, the parser reads
  * back, on any device locale.

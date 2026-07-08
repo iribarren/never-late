@@ -74,7 +74,12 @@
     <string name="task_edit_title_edit">Edit task</string>
     <string name="task_edit_title_label">Title</string>
     <string name="task_edit_duration_label">Estimated duration (minutes)</string>
-    <string name="task_edit_deadline_label">Deadline (dd/MM/yyyy HH:mm)</string>
+    <string name="task_edit_deadline_label">Deadline</string>
+    <!-- Feature 14: native date/time picker for the deadline field. -->
+    <string name="task_edit_deadline_pick_content_description">Pick deadline date and time</string>
+    <string name="task_edit_deadline_clear_content_description">Clear deadline</string>
+    <string name="task_edit_date_confirm">OK</string>
+    <string name="task_edit_date_dismiss">Cancel</string>
     <string name="task_edit_save_button">Save</string>
     <string name="task_edit_delete_button">Delete task</string>
     <string name="tasks_error_blank_title">The title can\'t be empty.</string>
