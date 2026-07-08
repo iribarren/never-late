@@ -5,7 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +18,12 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -146,70 +154,69 @@ fun SettingsScreen(
                 // the bottom with no way to reach it — so make the whole screen scrollable.
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
+            // Spacing between the three cards themselves; the padding-only gaps that used to
+            // separate section titles are now HorizontalDivider/spacing inside each card.
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.settings_theme_section),
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            // selectableGroup() marks these rows as a single-choice set for accessibility, so a
-            // screen reader announces them as "1 of 3" radio options instead of three unrelated ones.
-            Column(
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .selectableGroup(),
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_theme_section),
+                icon = Icons.Filled.Palette,
             ) {
-                themeOptions.forEach { option ->
-                    SelectableRadioRow(
-                        label = stringResource(option.labelRes),
-                        selected = uiState.themeMode == option.mode,
-                        onClick = { onThemeModeSelected(option.mode) },
-                    )
-                }
-            }
-
-            Text(
-                text = stringResource(R.string.settings_reminders_section),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 24.dp),
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_reminders_enabled_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(checked = uiState.remindersEnabled, onCheckedChange = onRemindersEnabledChanged)
-            }
-
-            // Only meaningful while reminders are on: with them off there is nothing to lead up to.
-            if (uiState.remindersEnabled) {
-                Text(
-                    text = stringResource(R.string.settings_reminder_lead_time_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-                Column(
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .selectableGroup(),
-                ) {
-                    reminderLeadMinuteOptions.forEach { minutes ->
+                // selectableGroup() marks these rows as a single-choice set for accessibility, so
+                // a screen reader announces them as "1 of 3" radio options instead of three
+                // unrelated ones.
+                Column(modifier = Modifier.selectableGroup()) {
+                    themeOptions.forEach { option ->
                         SelectableRadioRow(
-                            label = pluralStringResource(R.plurals.settings_reminder_lead_minutes, minutes, minutes),
-                            selected = uiState.reminderLeadMinutes == minutes,
-                            onClick = { onReminderLeadMinutesSelected(minutes) },
+                            label = stringResource(option.labelRes),
+                            selected = uiState.themeMode == option.mode,
+                            onClick = { onThemeModeSelected(option.mode) },
                         )
                     }
                 }
+            }
 
-                ExactAlarmPermissionNotice(modifier = Modifier.padding(top = 16.dp))
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_reminders_section),
+                icon = Icons.Filled.Notifications,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_reminders_enabled_label),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(checked = uiState.remindersEnabled, onCheckedChange = onRemindersEnabledChanged)
+                }
+
+                // Only meaningful while reminders are on: with them off there is nothing to lead
+                // up to. A divider anchors it as a distinct sub-block within the card.
+                if (uiState.remindersEnabled) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Text(
+                        text = stringResource(R.string.settings_reminder_lead_time_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Column(
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .selectableGroup(),
+                    ) {
+                        reminderLeadMinuteOptions.forEach { minutes ->
+                            SelectableRadioRow(
+                                label = pluralStringResource(R.plurals.settings_reminder_lead_minutes, minutes, minutes),
+                                selected = uiState.reminderLeadMinutes == minutes,
+                                onClick = { onReminderLeadMinutesSelected(minutes) },
+                            )
+                        }
+                    }
+
+                    ExactAlarmPermissionNotice(modifier = Modifier.padding(top = 16.dp))
+                }
             }
 
             // Feature 11: account section. A plain TextButton (rather than a dialog-guarded
@@ -217,20 +224,50 @@ fun SettingsScreen(
             // "minimal sync UI" call in the feature spec for the same restraint. Feature 13: the
             // action itself now depends on authState — LoggedIn shows "Log out"; Guest shows
             // "Sign in / Create account" instead (this screen is never reached while LoggedOut).
-            Text(
-                text = stringResource(R.string.settings_account_section),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 24.dp),
-            )
-            if (uiState.authState is AuthState.LoggedIn) {
-                TextButton(onClick = onLogoutClick, modifier = Modifier.padding(top = 8.dp)) {
-                    Text(stringResource(R.string.settings_logout_button))
-                }
-            } else {
-                TextButton(onClick = onSignInClick, modifier = Modifier.padding(top = 8.dp)) {
-                    Text(stringResource(R.string.settings_sign_in_button))
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_account_section),
+                icon = Icons.Filled.AccountCircle,
+            ) {
+                if (uiState.authState is AuthState.LoggedIn) {
+                    TextButton(onClick = onLogoutClick) {
+                        Text(stringResource(R.string.settings_logout_button))
+                    }
+                } else {
+                    TextButton(onClick = onSignInClick) {
+                        Text(stringResource(R.string.settings_sign_in_button))
+                    }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Reusable Settings section wrapper (US-2): a Material 3 [Card] with a header row combining an
+ * [icon] and [title], followed by [content]. The header icon is decorative
+ * (`contentDescription = null`) because [title] is rendered right next to it and already conveys
+ * the section's meaning to a screen reader — labelling the icon too would just repeat the
+ * announcement.
+ *
+ * Existing blocks (theme radio group, reminders switch/lead-time/exact-alarm notice, account
+ * button) are passed in as [content] verbatim; this composable only supplies the card, the
+ * icon+title header, and the divider that separates them from the controls below.
+ */
+@Composable
+private fun SettingsSectionCard(
+    title: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.padding(end = 12.dp))
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+            }
+            HorizontalDivider(modifier = Modifier.padding(top = 12.dp, bottom = 16.dp))
+            content()
         }
     }
 }
