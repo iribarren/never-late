@@ -356,14 +356,20 @@ When the user requests a new feature or enhancement, ALWAYS follow this sequence
 
 1. **Specification first**: Delegate to the `project-manager-docs` agent to define the feature. The
    spec is saved in `docs/specs/YYYY-MM-DD-feature-name.md`. Must include: Overview, User Stories,
-   Acceptance Criteria, Out of Scope, Dependencies.
-2. **User approval**: Present the spec. Do NOT proceed until the user explicitly approves.
+   Acceptance Criteria, **Visual & UX Design**, Out of Scope, Dependencies. See **Design in the
+   Workflow** below for what the Visual & UX Design section must contain.
+2. **User approval**: Present the spec. Do NOT proceed until the user explicitly approves — approval
+   covers **both behaviour and look** (the Visual & UX Design section is part of what is signed off).
 3. **Create feature branch**: `feature/<short-name>` from `master`.
-4. **Implement**: Use the appropriate agent(s) (`mobile-engineer` for app code).
+4. **Implement**: Use the appropriate agent(s) (`mobile-engineer` for app code). Implement to the
+   spec's **visual acceptance criteria**, not just its behavioural ones.
 5. **Test**: Use `qa-engineer` to create/update tests.
-6. **Tutorial lesson**: Add the Spanish `tutorial/NN-*.md` for the feature (see Tutorial
+6. **Design review**: Verify the built UI against the feature's **visual acceptance criteria** and
+   its slice of the master mockup, and update the mockup tracking (`docs/mockups/README.md`) to mark
+   what this feature delivered vs. what stays pending. See **Design in the Workflow** below.
+7. **Tutorial lesson**: Add the Spanish `tutorial/NN-*.md` for the feature (see Tutorial
    Methodology) — required before committing.
-7. **Commit on the feature branch**: Never directly on `master`.
+8. **Commit on the feature branch**: Never directly on `master`.
 
 ### Bug Fix Workflow
 
@@ -395,7 +401,54 @@ Every PR that changes observable behaviour MUST update the relevant documentatio
 branch. Check each item that applies (run `/doc-check` to audit this against your diff):
 
 - **New feature?** → Add its Spanish tutorial lesson in `tutorial/NN-*.md` (Tutorial Methodology).
+- **Visible UI change?** → Update the mockup tracking (`docs/mockups/README.md`): mark the slice this
+  feature delivered and anything still pending (see **Design in the Workflow**).
 - **Setup/commands/SDK/versions changed?** → Update this `CLAUDE.md` (Structure / Development).
 - **New dependency?** → Add it to the version catalog `gradle/libs.versions.toml`.
 - **New permission / manifest change?** → Reflect it here and in the relevant lesson.
 - **New sub-project/module?** → Add it to the Structure section above.
+
+## Design in the Workflow
+
+Design is a **first-class part of every feature**, not an afterthought or an optional reference. The
+app has a visual direction; the workflow must keep the shipped UI converging on it instead of drifting.
+This section is binding wherever the New Feature Workflow references it.
+
+### Source of truth: the master mockup (north star)
+
+- [`docs/mockups/rediseno-ux-ui.html`](docs/mockups/rediseno-ux-ui.html) is the **single visual source
+  of truth** — the "north star" for the app's look (brand color, hierarchy, task-card treatment,
+  progress bars, bottom nav, etc.). It is *direction*, not production code: do not copy its HTML/CSS,
+  translate its **intent** into Compose using the app's real theme (`ui/theme/` — `NeverLateExtras`,
+  the type scale, Material 3 tokens).
+- The mockup shows the **aspirational end-state across many features at once**. No single feature
+  implements all of it; each feature delivers **its slice**. Because the whole thing is never built in
+  one go, we track which slices are done vs pending — otherwise the gap silently compounds (which is
+  exactly what happened before feature 18: the palette landed in feature 16, but branded app bars and
+  task-card progress bars were deferred and then forgotten).
+- [`docs/mockups/README.md`](docs/mockups/README.md) is that **tracking table**: mockup element →
+  owning feature → status (✅ done / 🟡 partial / ⬜ pending). It is updated in the **Design review**
+  step of every feature that touches UI, and is the canonical answer to "why does the app not yet look
+  like the mockup?" — the pending rows *are* the backlog.
+
+### Visual & UX Design section (in every spec)
+
+The `project-manager-docs` spec MUST include a **Visual & UX Design** section that, for this feature's
+screens:
+
+- Names the **slice of the master mockup** this feature implements (link the relevant screen/element),
+  and explicitly states what visual polish is **deferred** (and to where — a future feature or a
+  pending row in the tracking table). Deferring is fine; deferring *silently* is not.
+- Lists **visual acceptance criteria** alongside the behavioural ones — concrete, checkable statements
+  (e.g. "task cards show a time-elapsed progress bar using `NeverLateExtras` urgency colors", "the top
+  bar uses the brand container color", "touch targets ≥ 48dp", "layout reflows at the largest font
+  scale"). These are part of *done*, verified in the Design review step.
+- Reuses the app's **theme tokens and existing components** rather than inventing one-off styling —
+  the same "extend, don't duplicate" rule the tutorial applies to logic applies to UI.
+
+### Design review (gate, before the tutorial lesson)
+
+After implementation + tests, verify the built UI against the spec's **visual acceptance criteria** and
+the feature's mockup slice (`/verify` or `/run` to see it in the real app where practical), then update
+`docs/mockups/README.md`. A feature that touches UI is **not done** until its visual ACs pass and the
+tracking table reflects reality. Missing visual ACs are treated like a failing test, not a nice-to-have.
