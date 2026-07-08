@@ -8,6 +8,9 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.neverlate.data.ThemeMode
 
@@ -108,6 +111,37 @@ private val LightColorScheme = lightColorScheme(
 )
 
 /**
+ * Extra semantic colors (feature 17) that sit *alongside* [MaterialTheme.colorScheme] rather than
+ * inside it: Material 3's [androidx.compose.material3.ColorScheme] only has slots for the roles
+ * the M3 spec itself defines (`primary`, `error`, ...), and there is no built-in "calm" or "soon"
+ * role for the task countdown's urgency cue. Adding a second, small
+ * [androidx.compose.runtime.CompositionLocal] for exactly the roles Material 3 is missing — the
+ * same technique Material Theme Builder's own "extended colors" export uses — keeps every color
+ * flowing through the same "role, not hardcoded hex" indirection as [Color.kt]'s KDoc describes,
+ * instead of the countdown `Text` reaching for a raw `Color(0xFF...)` literal.
+ */
+data class NeverLateExtendedColors(val calm: Color, val soon: Color)
+
+private val LightExtendedColors = NeverLateExtendedColors(calm = urgencyCalmLight, soon = urgencySoonLight)
+private val DarkExtendedColors = NeverLateExtendedColors(calm = urgencyCalmDark, soon = urgencySoonDark)
+
+// staticCompositionLocalOf (rather than plain compositionLocalOf) is the right choice here: these
+// colors only ever change when the whole theme is swapped (light <-> dark), never independently
+// mid-composition, so there is no need to pay for compositionLocalOf's more granular
+// (per-read) invalidation tracking.
+private val LocalNeverLateExtendedColors = staticCompositionLocalOf { LightExtendedColors }
+
+/**
+ * Reads the current [NeverLateExtendedColors] — the urgency-color counterpart of
+ * `MaterialTheme.colorScheme`, for roles Material 3 itself doesn't define. Usage mirrors
+ * `MaterialTheme.colorScheme.xxx`: `NeverLateExtras.colors.calm`.
+ */
+object NeverLateExtras {
+    val colors: NeverLateExtendedColors
+        @Composable get() = LocalNeverLateExtendedColors.current
+}
+
+/**
  * App-wide theme. Wrap the UI in this so every Composable can read colours and
  * typography from [MaterialTheme].
  *
@@ -133,10 +167,16 @@ fun NeverLateTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+    // Dynamic-color mode has no brand-specific "calm/soon" equivalent to derive from the
+    // wallpaper, so the urgency cue always uses the fixed brand tones from Color.kt regardless of
+    // dynamicColor/darkTheme's other combinations — only light vs dark selects between them.
+    val extendedColors = if (darkTheme) DarkExtendedColors else LightExtendedColors
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content,
-    )
+    CompositionLocalProvider(LocalNeverLateExtendedColors provides extendedColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content,
+        )
+    }
 }

@@ -56,8 +56,14 @@
 
     <!-- Tasks list screen -->
     <string name="tasks_title">Tasks</string>
-    <string name="tasks_empty">You have no tasks yet. Tap + to add one.</string>
+    <!-- The action button on the empty state already invites the user to add a task (feature 17),
+         so this message stays purely informational rather than repeating "Tap +". -->
+    <string name="tasks_empty">You have no tasks yet.</string>
+    <string name="tasks_empty_action">Add task</string>
     <string name="tasks_add_content_description">Add task</string>
+    <!-- One-shot snackbar (feature 17), shown once after creating a task — see AppNavHost's
+         create-only Task Edit wiring and TasksRoute's SavedStateHandle collection. -->
+    <string name="tasks_task_created_snackbar">Task created.</string>
     <string name="tasks_back_content_description">Back</string>
     <string name="tasks_delete_content_description">Delete task</string>
     <string name="tasks_start_content_description">Start countdown</string>

@@ -1,8 +1,6 @@
 package com.neverlate.ui.articles
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,7 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -22,7 +21,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
@@ -114,8 +113,20 @@ fun ArticlesScreen(
             when (uiState) {
                 // Nothing to show yet: avoids a one-frame flash of the empty state while loading.
                 is ArticlesUiState.Loading -> Unit
-                is ArticlesUiState.Empty -> EmptyArticles(modifier = Modifier.fillMaxSize())
-                is ArticlesUiState.Error -> ErrorArticles(onRetry = onRefresh, modifier = Modifier.fillMaxSize())
+                is ArticlesUiState.Empty -> MessageState(
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    message = stringResource(R.string.articles_empty),
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // Retry reuses the exact same ArticlesViewModel.refresh that pull-to-refresh
+                // calls (see ArticlesRoute), so both paths retry identically.
+                is ArticlesUiState.Error -> MessageState(
+                    icon = Icons.Filled.ErrorOutline,
+                    message = stringResource(R.string.articles_error),
+                    actionLabel = stringResource(R.string.articles_retry),
+                    onAction = onRefresh,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 is ArticlesUiState.Content -> ArticleList(
                     articles = uiState.articles,
                     onArticleClick = onArticleClick,
@@ -134,7 +145,14 @@ private fun ArticleList(articles: List<Article>, onArticleClick: (String) -> Uni
     // article id across recompositions, instead of by list position.
     LazyColumn(modifier = modifier.fillMaxSize()) {
         items(articles, key = { it.id }) { article ->
-            ArticleRow(article = article, onClick = { onArticleClick(article.id) })
+            // Modifier.animateItem() (feature 17) animates this row's placement whenever the
+            // list around it changes shape — insertion, removal, or reorder — for free, as long
+            // as the item's `key` above stays stable across recompositions (it already is).
+            ArticleRow(
+                article = article,
+                onClick = { onArticleClick(article.id) },
+                modifier = Modifier.animateItem(),
+            )
         }
     }
 }
@@ -151,33 +169,6 @@ private fun ArticleRow(article: Article, onClick: () -> Unit, modifier: Modifier
             headlineContent = { Text(article.title) },
             supportingContent = { Text(article.summary) },
         )
-    }
-}
-
-@Composable
-private fun EmptyArticles(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(stringResource(R.string.articles_empty))
-    }
-}
-
-/**
- * Rendered for [ArticlesUiState.Error]: a short message plus a **Reintentar** / **Retry** button
- * that calls [onRetry] — [ArticlesRoute] wires this to the same [ArticlesViewModel.refresh] that
- * pull-to-refresh uses, so both paths retry identically.
- */
-@Composable
-private fun ErrorArticles(onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 32.dp),
-        ) {
-            Text(stringResource(R.string.articles_error))
-            Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
-                Text(stringResource(R.string.articles_retry))
-            }
-        }
     }
 }
 

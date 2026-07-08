@@ -118,3 +118,17 @@ val outlineVariantDark = Color(0xFF45464F)
 // inverseSurface, e.g. a Snackbar) ---
 val inversePrimaryLight = Color(0xFFB8C3FF)
 val inversePrimaryDark = Color(0xFF3052D2)
+
+// --- Urgency (feature 17): the task countdown's "calm / soon" color cue. Material 3's own
+// ColorScheme only defines roles the M3 spec itself knows about (primary, error, ...) — there is
+// no built-in "amber" or "green" role, so these two get their own small extension in Theme.kt
+// (see NeverLateExtendedColors) rather than being forced into an ill-fitting existing role.
+// Urgent/Overdue reuse errorLight/errorDark directly (see TaskRow's colorForUrgency): visually,
+// "urgent" and "error" both mean "look at this now", so no third pair is needed here. Both tones
+// are picked to read clearly as green/amber against surfaceLight/surfaceDark while keeping enough
+// contrast for body text (WCAG AA at this text size).
+val urgencyCalmLight = Color(0xFF2E7D32)
+val urgencySoonLight = Color(0xFF9A5B00)
+
+val urgencyCalmDark = Color(0xFF8BD68C)
+val urgencySoonDark = Color(0xFFFFB870)
