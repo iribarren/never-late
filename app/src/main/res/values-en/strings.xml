@@ -16,7 +16,10 @@
     <!-- Home screen -->
     <string name="home_greeting">Hi, %1$s</string>
     <string name="home_option_tasks">Tasks</string>
+    <!-- Feature 15: one-line description shown below the label in the rich ListItem row. -->
+    <string name="home_option_tasks_description">Manage your tasks and their deadlines.</string>
     <string name="home_option_articles">Articles</string>
+    <string name="home_option_articles_description">Tips and articles to help you manage your time.</string>
     <string name="home_settings_content_description">Settings</string>
 
     <!-- Settings screen (feature 07) -->
