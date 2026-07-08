@@ -90,6 +90,7 @@ fun SettingsRoute(
         onThemeModeSelected = viewModel::onThemeModeSelected,
         onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
         onReminderLeadMinutesSelected = viewModel::onReminderLeadMinutesSelected,
+        onDynamicColorChanged = viewModel::onDynamicColorChanged,
         onLogoutClick = viewModel::logout,
         onSignInClick = onSignInClick,
         onBack = onBack,
@@ -124,6 +125,7 @@ fun SettingsScreen(
     onThemeModeSelected: (ThemeMode) -> Unit,
     onRemindersEnabledChanged: (Boolean) -> Unit,
     onReminderLeadMinutesSelected: (Int) -> Unit,
+    onDynamicColorChanged: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onSignInClick: () -> Unit,
     onBack: () -> Unit,
@@ -172,6 +174,26 @@ fun SettingsScreen(
                             selected = uiState.themeMode == option.mode,
                             onClick = { onThemeModeSelected(option.mode) },
                         )
+                    }
+                }
+
+                // Material You / dynamic color (feature 16, US-3): only meaningful on Android 12+,
+                // since dynamicColor has no effect below that (NeverLateTheme always renders the
+                // brand scheme there) — showing an inert switch would just be a dead control, so it
+                // is hidden entirely rather than shown disabled, per the approved decision.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_dynamic_color_label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(checked = uiState.dynamicColor, onCheckedChange = onDynamicColorChanged)
                     }
                 }
             }
@@ -346,6 +368,7 @@ private fun SettingsScreenPreview() {
             onThemeModeSelected = {},
             onRemindersEnabledChanged = {},
             onReminderLeadMinutesSelected = {},
+            onDynamicColorChanged = {},
             onLogoutClick = {},
             onSignInClick = {},
             onBack = {},
