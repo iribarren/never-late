@@ -1,6 +1,8 @@
 package com.neverlate.ui.tasks
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
@@ -26,6 +28,8 @@ class TasksScreenTest {
     private val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
 
     private fun emptyMessage(): String = targetContext.getString(R.string.tasks_empty)
+
+    private fun string(resId: Int): String = targetContext.getString(resId)
 
     @Test
     fun emptyState_showsEmptyMessage() {
@@ -77,5 +81,53 @@ class TasksScreenTest {
         }
 
         assert(clickedId == task.id) { "Expected onTaskClick to be invoked with ${task.id}, got $clickedId" }
+    }
+
+    /**
+     * Feature 18: as a top-level bottom-bar tab, Tasks is reached laterally, so it shows no back
+     * arrow ([onBack] is `null`); a non-null [onBack] (secondary/pushed usage) restores it.
+     */
+    @Test
+    fun topLevelUsage_onBackNull_hidesBackArrow() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Empty,
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onBack = null,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_back_content_description))
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun secondaryUsage_onBackProvided_showsBackArrow() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Empty,
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_back_content_description))
+            .assertIsDisplayed()
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +67,15 @@ fun MessageState(
                 modifier = Modifier.padding(top = 16.dp),
             )
             if (actionLabel != null && onAction != null) {
-                Button(onClick = onAction, modifier = Modifier.padding(top = 16.dp)) {
+                // Feature 18 (US-5): Material 3's Button defaults to a 40dp minimum height, below
+                // the 48dp accessibility touch-target guideline — minimumInteractiveComponentSize
+                // reserves the extra layout space without changing how the button looks.
+                Button(
+                    onClick = onAction,
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .minimumInteractiveComponentSize(),
+                ) {
                     Text(actionLabel)
                 }
             }

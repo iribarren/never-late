@@ -36,19 +36,22 @@ import com.neverlate.ui.theme.NeverLateTheme
 
 /**
  * Stateful wrapper: obtains [ArticlesViewModel] (via [AppViewModelFactory]) and forwards its
- * state to the stateless [ArticlesScreen], following the same route/screen split used for Home
- * and Onboarding (see [com.neverlate.ui.home.HomeRoute]).
+ * state to the stateless [ArticlesScreen], following the same route/screen split used for
+ * Onboarding (see [com.neverlate.ui.onboarding.OnboardingRoute]).
  *
  * [ArticlesViewModel.isRefreshing] and [ArticlesViewModel.refresh] are collected/forwarded here
  * alongside [ArticlesViewModel.uiState], feature 10's additions to this ViewModel: the former
  * drives [ArticlesScreen]'s pull-to-refresh spinner, the latter is what both that gesture and the
  * Error state's retry button call.
+ *
+ * [onBack] is `null` when Articles is reached as a top-level bottom-bar tab (feature 18) — there
+ * is no back arrow to show in that case, since the bar itself is the way to leave this screen.
  */
 @Composable
 fun ArticlesRoute(
     articleRepository: ArticleRepository,
     onArticleClick: (String) -> Unit,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: ArticlesViewModel = viewModel(
         factory = AppViewModelFactory(articleRepository = articleRepository),
@@ -84,7 +87,7 @@ fun ArticlesScreen(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     onArticleClick: (String) -> Unit,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -93,11 +96,15 @@ fun ArticlesScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.articles_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.articles_back_content_description),
-                        )
+                    // Only rendered as a secondary screen (Resolved Decision #2): as a top-level
+                    // bottom-bar tab (feature 18), onBack is null and this slot stays empty.
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.articles_back_content_description),
+                            )
+                        }
                     }
                 },
             )
@@ -196,7 +203,7 @@ private fun ArticlesScreenContentPreview() {
             isRefreshing = false,
             onRefresh = {},
             onArticleClick = {},
-            onBack = {},
+            onBack = null,
         )
     }
 }
@@ -210,7 +217,7 @@ private fun ArticlesScreenEmptyPreview() {
             isRefreshing = false,
             onRefresh = {},
             onArticleClick = {},
-            onBack = {},
+            onBack = null,
         )
     }
 }
@@ -224,7 +231,7 @@ private fun ArticlesScreenErrorPreview() {
             isRefreshing = false,
             onRefresh = {},
             onArticleClick = {},
-            onBack = {},
+            onBack = null,
         )
     }
 }

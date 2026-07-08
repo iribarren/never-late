@@ -35,9 +35,9 @@ data class SettingsUiState(
  * Backs the Settings screen: exposes the currently selected [ThemeMode] plus the reminder
  * preferences (feature 09, US-4) and writes the user's choices back to [repository].
  *
- * Like [com.neverlate.ui.home.HomeViewModel], it continuously *observes* the repository's
- * preferences [Flow][kotlinx.coroutines.flow.Flow] so the UI stays in sync with what is actually
- * persisted — including the write this same screen just made.
+ * Like [com.neverlate.ui.tasks.TasksViewModel], it continuously *observes* its repository's
+ * [Flow][kotlinx.coroutines.flow.Flow] so the UI stays in sync with what is actually persisted —
+ * including the write this same screen just made.
  *
  * [taskRepository] and [reminderScheduler] are only needed for one thing: turning reminders
  * **off** must also cancel every already-scheduled alarm right away (US-4's "los pendientes se

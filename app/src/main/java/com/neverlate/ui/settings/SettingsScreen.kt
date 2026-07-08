@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,6 +36,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -59,12 +63,15 @@ import com.neverlate.ui.theme.NeverLateTheme
 /**
  * Stateful wrapper: obtains [SettingsViewModel] (via [AppViewModelFactory]) and forwards its
  * state to the stateless [SettingsScreen], following the same route/screen split used across the
- * app (see [com.neverlate.ui.home.HomeRoute]). [taskRepository]/[reminderScheduler] are only
- * needed by [SettingsViewModel]'s reminders on/off switch — see its KDoc. [authRepository]
- * (feature 11) backs the logout action. [onSignInClick] (feature 13) is plain navigation — not a
- * [SettingsViewModel] action, since it has no auth side effect of its own, exactly like
- * [onBack] — wired by [com.neverlate.ui.navigation.AppNavHost] to the Login destination it added
- * inside `MainAppNavHost`.
+ * app (see [com.neverlate.ui.onboarding.OnboardingRoute]). [taskRepository]/[reminderScheduler]
+ * are only needed by [SettingsViewModel]'s reminders on/off switch — see its KDoc.
+ * [authRepository] (feature 11) backs the logout action. [onSignInClick] (feature 13) is plain
+ * navigation — not a [SettingsViewModel] action, since it has no auth side effect of its own —
+ * wired by [com.neverlate.ui.navigation.AppNavHost] to the Login destination it added inside
+ * `MainAppNavHost`.
+ *
+ * [onBack] is `null` when Settings is reached as a top-level bottom-bar tab (feature 18) — there
+ * is no back arrow to show in that case, since the bar itself is the way to leave this screen.
  */
 @Composable
 fun SettingsRoute(
@@ -72,7 +79,7 @@ fun SettingsRoute(
     taskRepository: TaskRepository,
     reminderScheduler: ReminderScheduler,
     authRepository: AuthRepository,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     onSignInClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(
@@ -128,7 +135,7 @@ fun SettingsScreen(
     onDynamicColorChanged: (Boolean) -> Unit,
     onLogoutClick: () -> Unit,
     onSignInClick: () -> Unit,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -137,11 +144,15 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.settings_back_content_description),
-                        )
+                    // Only rendered as a secondary screen: as a top-level bottom-bar tab
+                    // (feature 18, the normal case), onBack is null and this slot stays empty.
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.settings_back_content_description),
+                            )
+                        }
                     }
                 },
             )
@@ -241,18 +252,35 @@ fun SettingsScreen(
                 }
             }
 
-            // Feature 11: account section. A plain TextButton (rather than a dialog-guarded
-            // destructive action) matches this screen's existing minimal-UI style — see OQ-1's
-            // "minimal sync UI" call in the feature spec for the same restraint. Feature 13: the
-            // action itself now depends on authState — LoggedIn shows "Log out"; Guest shows
-            // "Sign in / Create account" instead (this screen is never reached while LoggedOut).
+            // Feature 11: account section. Feature 13: the action itself now depends on
+            // authState — LoggedIn shows "Log out"; Guest shows "Sign in / Create account"
+            // instead (this screen is never reached while LoggedOut). Feature 18 (US-4) guards
+            // the destructive logout action behind a confirmation AlertDialog — the guest
+            // "Sign in / Create account" entry has no destructive effect, so it stays a direct
+            // TextButton.
             SettingsSectionCard(
                 title = stringResource(R.string.settings_account_section),
                 icon = Icons.Filled.AccountCircle,
             ) {
                 if (uiState.authState is AuthState.LoggedIn) {
-                    TextButton(onClick = onLogoutClick) {
+                    // Whether the confirmation dialog is showing is purely local UI state — it
+                    // never needs to survive beyond this composition, so it lives here via
+                    // `remember` instead of in SettingsViewModel, same as showDeleteConfirm in
+                    // TasksScreen.
+                    var showLogoutConfirm by remember { mutableStateOf(false) }
+
+                    TextButton(onClick = { showLogoutConfirm = true }) {
                         Text(stringResource(R.string.settings_logout_button))
+                    }
+
+                    if (showLogoutConfirm) {
+                        LogoutConfirmDialog(
+                            onConfirm = {
+                                showLogoutConfirm = false
+                                onLogoutClick()
+                            },
+                            onDismiss = { showLogoutConfirm = false },
+                        )
                     }
                 } else {
                     TextButton(onClick = onSignInClick) {
@@ -326,6 +354,27 @@ private fun SelectableRadioRow(
 }
 
 /**
+ * Feature 18 (US-4): guards the destructive logout action (which, per feature 13, wipes local
+ * tasks/outbox on sign-out) behind an explicit confirmation, mirroring [DeleteTaskDialog] in
+ * `TasksScreen.kt` — the same "AlertDialog with a title/message/confirm/dismiss TextButton" shape
+ * reused for a different destructive action.
+ */
+@Composable
+private fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_logout_confirm_title)) },
+        text = { Text(stringResource(R.string.settings_logout_confirm_message)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.settings_logout_confirm_button)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_logout_cancel_button)) }
+        },
+    )
+}
+
+/**
  * US-5 (approved, minimal scope): on API 31+, if the exact-alarm permission is not currently
  * granted, explains the trade-off and offers a shortcut to the system screen that grants it
  * (`ACTION_REQUEST_SCHEDULE_EXACT_ALARM`). On API < 31, or once the permission is already granted,
@@ -371,7 +420,7 @@ private fun SettingsScreenPreview() {
             onDynamicColorChanged = {},
             onLogoutClick = {},
             onSignInClick = {},
-            onBack = {},
+            onBack = null,
         )
     }
 }

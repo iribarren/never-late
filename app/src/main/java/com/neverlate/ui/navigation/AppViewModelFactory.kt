@@ -10,7 +10,6 @@ import com.neverlate.ui.articles.ArticleDetailViewModel
 import com.neverlate.ui.articles.ArticlesViewModel
 import com.neverlate.ui.auth.LoginViewModel
 import com.neverlate.ui.auth.RegisterViewModel
-import com.neverlate.ui.home.HomeViewModel
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingViewModel
 import com.neverlate.ui.settings.SettingsViewModel
@@ -22,9 +21,9 @@ import com.neverlate.ui.tasks.TasksViewModel
  * builds each screen's ViewModel with the repository (or repositories) it needs.
  *
  * [articleRepository]/[articleId] and [taskRepository]/[taskId] are only used by their own
- * feature's ViewModels, so they all default to null: Onboarding and Home keep constructing this
- * factory with just a [userPreferencesRepository], exactly as before this feature. `articleId`
- * and `taskId` are how a navigation argument reaches a detail/edit ViewModel — see
+ * feature's ViewModels, so they all default to null: Onboarding keeps constructing this factory
+ * with just a [userPreferencesRepository], exactly as before this feature. `articleId` and
+ * `taskId` are how a navigation argument reaches a detail/edit ViewModel — see
  * [ArticleDetailViewModel] and [TaskEditViewModel].
  *
  * Note the difference between the two: a missing [articleId] is a programmer error (every
@@ -56,9 +55,6 @@ class AppViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T = when {
         modelClass.isAssignableFrom(OnboardingViewModel::class.java) ->
             OnboardingViewModel(requireUserPreferencesRepository()) as T
-
-        modelClass.isAssignableFrom(HomeViewModel::class.java) ->
-            HomeViewModel(requireUserPreferencesRepository()) as T
 
         modelClass.isAssignableFrom(SettingsViewModel::class.java) ->
             SettingsViewModel(

@@ -1,8 +1,13 @@
 package com.neverlate.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -176,18 +181,62 @@ class SettingsScreenTest {
         assert(signInClicked) { "Expected onSignInClick to be invoked for a Guest" }
     }
 
+    /**
+     * Feature 18 (US-4): logout is destructive (feature 13 wipes local tasks on sign-out), so it is
+     * now guarded by a confirmation [androidx.compose.material3.AlertDialog] — a single tap on "Log
+     * out" must NOT log out immediately; it only opens the dialog.
+     *
+     * Note: `settings_logout_button`, `settings_logout_confirm_title` and
+     * `settings_logout_confirm_button` all render the same text ("Log out" / "Cerrar sesión"), so the
+     * confirm button is selected by scoping to the dialog window ([isDialog]) plus [hasClickAction]
+     * (the title has no click action, the trigger button is outside the dialog) — text alone is
+     * ambiguous here.
+     */
+    private fun loggedInUiState() = SettingsUiState(
+        themeMode = ThemeMode.SYSTEM,
+        remindersEnabled = false,
+        authState = AuthState.LoggedIn(userId = 1L, email = "user@example.com"),
+    )
+
     @Test
-    fun accountSection_loggedIn_tappingLogout_invokesOnLogoutClick() {
+    fun accountSection_loggedIn_tappingLogout_opensConfirmDialog_withoutLoggingOut() {
         var logoutClicked = false
 
         composeTestRule.setContent {
             NeverLateTheme {
                 SettingsScreen(
-                    uiState = SettingsUiState(
-                        themeMode = ThemeMode.SYSTEM,
-                        remindersEnabled = false,
-                        authState = AuthState.LoggedIn(userId = 1L, email = "user@example.com"),
-                    ),
+                    uiState = loggedInUiState(),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onLogoutClick = { logoutClicked = true },
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        // No dialog until the button is tapped.
+        composeTestRule.onNodeWithText(string(R.string.settings_logout_confirm_message)).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(string(R.string.settings_logout_button))
+            .performScrollTo()
+            .performClick()
+
+        // The dialog (its unique message) is now shown, and logout has NOT fired yet.
+        composeTestRule.onNodeWithText(string(R.string.settings_logout_confirm_message)).assertIsDisplayed()
+        assert(!logoutClicked) { "Tapping 'Log out' must open the dialog, not log out immediately" }
+    }
+
+    @Test
+    fun logoutDialog_confirm_invokesOnLogoutClick() {
+        var logoutClicked = false
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = loggedInUiState(),
                     onThemeModeSelected = {},
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
@@ -203,6 +252,91 @@ class SettingsScreenTest {
             .performScrollTo()
             .performClick()
 
-        assert(logoutClicked) { "Expected onLogoutClick to be invoked when LoggedIn" }
+        // Scope to the dialog: the confirm button shares its text with the trigger and the title.
+        composeTestRule.onNode(
+            hasText(string(R.string.settings_logout_confirm_button))
+                and hasClickAction()
+                and hasAnyAncestor(isDialog()),
+        ).performClick()
+
+        assert(logoutClicked) { "Confirming the dialog must invoke onLogoutClick" }
+    }
+
+    @Test
+    fun logoutDialog_cancel_dismissesWithoutLoggingOut() {
+        var logoutClicked = false
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = loggedInUiState(),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onLogoutClick = { logoutClicked = true },
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.settings_logout_button))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.settings_logout_cancel_button)).performClick()
+
+        // Dialog gone, and logout never fired.
+        composeTestRule.onNodeWithText(string(R.string.settings_logout_confirm_message)).assertDoesNotExist()
+        assert(!logoutClicked) { "Cancelling the dialog must not invoke onLogoutClick" }
+    }
+
+    /**
+     * Feature 18: as a top-level bottom-bar tab, Settings is reached laterally (not pushed), so it
+     * shows no back arrow — [onBack] is `null`. When it is still used as a pushed secondary screen
+     * (e.g. a future flow), a non-null [onBack] restores the arrow. Tasks/Articles share this exact
+     * convention (see their screens' KDoc).
+     */
+    @Test
+    fun topLevelUsage_onBackNull_hidesBackArrow() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(themeMode = ThemeMode.SYSTEM, remindersEnabled = false),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onLogoutClick = {},
+                    onSignInClick = {},
+                    onBack = null,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.settings_back_content_description))
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun secondaryUsage_onBackProvided_showsBackArrow() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(themeMode = ThemeMode.SYSTEM, remindersEnabled = false),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onLogoutClick = {},
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.settings_back_content_description))
+            .assertIsDisplayed()
     }
 }

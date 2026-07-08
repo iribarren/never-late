@@ -8,14 +8,14 @@
     <string name="onboarding_name_label">Tu nombre</string>
     <string name="onboarding_save_button">Guardar</string>
 
-    <!-- Home screen -->
-    <string name="home_greeting">Hola, %1$s</string>
-    <string name="home_option_tasks">Tareas</string>
-    <!-- Feature 15: one-line description shown below the label in the rich ListItem row. -->
-    <string name="home_option_tasks_description">Gestiona tus tareas y sus fechas límite.</string>
-    <string name="home_option_articles">Artículos</string>
-    <string name="home_option_articles_description">Consejos y artículos para gestionar tu tiempo.</string>
-    <string name="home_settings_content_description">Ajustes</string>
+    <!-- Bottom navigation bar (feature 18): Home is retired in favor of these three always-visible
+         tabs. Labels are kept short since they double as the NavigationBarItem label text. -->
+    <string name="nav_tasks">Tareas</string>
+    <string name="nav_tasks_content_description">Tareas</string>
+    <string name="nav_articles">Artículos</string>
+    <string name="nav_articles_content_description">Artículos</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="nav_settings_content_description">Ajustes</string>
 
     <!-- Settings screen (feature 07) -->
     <string name="settings_title">Ajustes</string>
@@ -154,6 +154,13 @@
     <!-- Feature 13 (modo invitado): se muestra en vez de "Cerrar sesión" mientras el usuario es
          invitado (sin cuenta). -->
     <string name="settings_sign_in_button">Iniciar sesión / Crear cuenta</string>
+
+    <!-- Settings screen: logout confirmation dialog (feature 18, US-4) -->
+    <string name="settings_logout_confirm_title">Cerrar sesión</string>
+    <!-- Menciona que también se borran las tareas locales, ya que el logout (feature 13) las borra. -->
+    <string name="settings_logout_confirm_message">Se cerrará tu sesión y se borrarán las tareas guardadas en este dispositivo. ¿Seguro que quieres continuar?</string>
+    <string name="settings_logout_confirm_button">Cerrar sesión</string>
+    <string name="settings_logout_cancel_button">Cancelar</string>
 
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Sin conexión. Los cambios se sincronizarán más tarde.</string>

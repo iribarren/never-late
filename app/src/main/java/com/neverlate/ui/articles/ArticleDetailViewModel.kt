@@ -37,7 +37,7 @@ sealed interface ArticleDetailUiState {
  * `AppNavHost`. AndroidX's more idiomatic way to hand a navigation argument to a ViewModel is
  * `SavedStateHandle`, but every other ViewModel in this project already receives its
  * dependencies as explicit constructor parameters through manual DI (see
- * [com.neverlate.ui.onboarding.OnboardingViewModel], [com.neverlate.ui.home.HomeViewModel]);
+ * [com.neverlate.ui.onboarding.OnboardingViewModel], [com.neverlate.ui.settings.SettingsViewModel]);
  * reusing that same familiar pattern here keeps this lesson focused on one new concept
  * (navigation with arguments) instead of introducing a second DI mechanism at the same time.
  *
