@@ -164,4 +164,28 @@ class ArticlesScreenTest {
 
         assert(backCount == 1) { "Expected onBack to be invoked exactly once, was $backCount" }
     }
+
+    /**
+     * Feature 18: as a top-level bottom-bar tab, Articles is reached laterally, so [onBack] is
+     * `null` and no back arrow is shown (the pushed/secondary case is covered by
+     * [tappingBackButton_invokesOnBack] above).
+     */
+    @Test
+    fun topLevelUsage_onBackNull_hidesBackArrow() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                ArticlesScreen(
+                    uiState = ArticlesUiState.Content(listOf(pomodoro)),
+                    isRefreshing = false,
+                    onRefresh = {},
+                    onArticleClick = {},
+                    onBack = null,
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithContentDescription(targetContext.getString(R.string.articles_back_content_description))
+            .assertDoesNotExist()
+    }
 }

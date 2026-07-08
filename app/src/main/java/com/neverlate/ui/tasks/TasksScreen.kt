@@ -85,13 +85,17 @@ const val TASK_CREATED_RESULT_KEY = "taskCreated"
  * (re)collection (e.g. after a configuration change), so simply reading it would re-show the
  * snackbar on rotation — the fix is to immediately write it back to `false` the moment `true` is
  * observed, "consuming" it, so a later re-collection only ever sees `false` again.
+ *
+ * [onBack] is `null` when Tasks is reached as a top-level bottom-bar tab (feature 18) — there is
+ * no back arrow to show in that case, since the bar itself is the way to leave this screen (and
+ * Tasks is also the app's landing destination, so there is nowhere "back" would go anyway).
  */
 @Composable
 fun TasksRoute(
     taskRepository: TaskRepository,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: TasksViewModel = viewModel(factory = AppViewModelFactory(taskRepository = taskRepository)),
     taskCreatedHandle: SavedStateHandle? = null,
@@ -104,9 +108,9 @@ fun TasksRoute(
     RequestNotificationPermissionEffect()
 
     // Owned here (not inside TasksScreen) so this Route's LaunchedEffect below and the Scaffold's
-    // SnackbarHost in TasksScreen share the exact same instance — the same split HomeScreen uses,
-    // just applied on Tasks per the feature spec's approved decision (post-save navigation already
-    // lands here, so this is where the confirmation belongs).
+    // SnackbarHost in TasksScreen share the exact same instance, per the feature spec's approved
+    // decision (post-save navigation already lands here, so this is where the confirmation
+    // belongs).
     val snackbarHostState = remember { SnackbarHostState() }
     val taskCreatedMessage = stringResource(R.string.tasks_task_created_snackbar)
 
@@ -159,7 +163,7 @@ fun TasksScreen(
     onStartClick: (Long) -> Unit,
     onPauseClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
@@ -169,11 +173,15 @@ fun TasksScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.tasks_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.tasks_back_content_description),
-                        )
+                    // Only rendered as a secondary screen: as a top-level bottom-bar tab
+                    // (feature 18, the normal case), onBack is null and this slot stays empty.
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.tasks_back_content_description),
+                            )
+                        }
                     }
                 },
             )
@@ -183,9 +191,8 @@ fun TasksScreen(
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.tasks_add_content_description))
             }
         },
-        // Same SnackbarHost/SnackbarHostState pattern com.neverlate.ui.home.HomeScreen already
-        // wires up — applied here because post-save navigation lands the user on Tasks, not Home
-        // (feature 17's approved decision), so this is where the "task created" confirmation
+        // Task creation lands the user back on Tasks (feature 17's approved decision, now also
+        // the app's landing tab per feature 18), so this is where the "task created" confirmation
         // (see TasksRoute) actually needs to render.
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
@@ -286,7 +293,7 @@ private fun TaskRow(
 ) {
     // Whether the delete confirmation dialog is showing is purely local UI state — it never
     // needs to survive beyond this composition, so it lives here via `remember` instead of in
-    // TasksViewModel, same as the Snackbar state in com.neverlate.ui.home.HomeScreen.
+    // TasksViewModel, same as showLogoutConfirm in SettingsScreen.
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val task = uiModel.task
 
@@ -464,7 +471,7 @@ private fun TasksScreenContentPreview() {
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
-            onBack = {},
+            onBack = null,
         )
     }
 }
@@ -482,7 +489,7 @@ private fun TasksScreenEmptyPreview() {
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
-            onBack = {},
+            onBack = null,
         )
     }
 }

@@ -184,6 +184,27 @@ Product decisions (in the spec): **silent** merge, **wipe-on-logout**, single wr
 de-duplication. **No backend, contract, DB-version, permission, or dependency change** — adoption uses
 the existing idempotent `POST /tasks`.
 
+**Bottom navigation bar + accessibility review** (feature 18): retires the `HomeScreen` hub —
+**Tasks/Articles/Settings** are now peer top-level destinations reached via a persistent Material 3
+`NavigationBar`, not rows on a Home screen. **Tasks is the landing destination** (onboarded users and
+the widget's `openTasksOnStart` both resolve there; Home's route/strings/`HomeViewModel` are removed).
+The `Scaffold`/`NavigationBar` live **inside `MainAppNavHost`** (`ui/navigation/AppNavHost.kt`), never in
+`AuthGateNavHost`, so the bar never shows on the login gate; feature 13's separate `Guest`/`LoggedIn`
+`when` arms are untouched. The bar's **visibility is route-gated**: shown only while the current
+destination is one of the three top-level routes, hidden on Article Detail/Task Edit/Login/Register-
+from-Settings, which render full-height instead. The selected tab is derived reactively from
+`navController.currentBackStackEntryAsState()`/`destination.hierarchy` (never a separate `remember`ed
+index), and tab taps use the standard `popUpTo(graph.findStartDestination().id) { saveState = true }` +
+`launchSingleTop` + `restoreState` idiom. `TasksScreen`/`ArticlesScreen`/`SettingsScreen` (and their
+`*Route` wrappers) now take a **nullable** `onBack: (() -> Unit)? = null` — `null` (no back arrow) when
+reached as a bottom-bar tab, a real callback when reached as a secondary screen. Settings' logout
+button now opens an `AlertDialog` confirmation (mirroring `TasksScreen`'s `DeleteTaskDialog`) before
+calling `SettingsViewModel.logout()`, since feature 13 made logout wipe local tasks. The feature also
+folds in a cross-cutting **accessibility pass** (`docs/conceptos-pendientes.md` §7): coherent
+`contentDescription`s on the new bar's icons, and `Modifier.minimumInteractiveComponentSize()` on
+`ui/components/MessageState`'s action `Button` (Material 3's default 40dp button height is below the
+48dp touch-target guideline). **No backend, contract, DB-version, permission, or dependency change.**
+
 ## API Contract
 
 The app now talks to a backend, so the HTTP contract between client (`app/`) and server (`backend/`)
