@@ -69,6 +69,10 @@
     <string name="tasks_start_content_description">Start countdown</string>
     <string name="tasks_pause_content_description">Pause countdown</string>
     <string name="tasks_time_up">Time\'s up</string>
+    <!-- Feature 19: accessibility state description for the determinate progress bar, announced by
+         screen readers alongside the bar's own built-in progress semantics. %1$s is a locale-formatted
+         percentage (e.g. "45%"), not concatenated in code. -->
+    <string name="tasks_progress_state_description">%1$s elapsed</string>
     <string name="tasks_duration_label">Duration: %1$s</string>
     <!-- Duration pieces, assembled from locale-formatted numbers (%1$s/%2$s) so translators
          control the unit abbreviations and word order instead of the code concatenating them. -->

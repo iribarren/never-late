@@ -1,5 +1,6 @@
 package com.neverlate.ui.tasks
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -42,6 +44,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
@@ -55,6 +59,7 @@ import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.data.tasks.formatRemaining
 import com.neverlate.domain.tasks.UrgencyLevel
+import com.neverlate.domain.tasks.deadlineProgressFor
 import com.neverlate.domain.tasks.urgencyLevelFor
 import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.navigation.AppViewModelFactory
@@ -282,6 +287,7 @@ private fun TaskList(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TaskRow(
     uiModel: TaskUiModel,
@@ -305,6 +311,16 @@ private fun TaskRow(
     // just computed here instead of supplied by the framework.
     val urgencyLevel by remember(uiModel.remainingMillis, uiModel.isTimedOut) {
         derivedStateOf { urgencyLevelFor(uiModel.remainingMillis, uiModel.isTimedOut) }
+    }
+
+    // Feature 19: a sibling derivedStateOf, keyed on the exact same inputs as urgencyLevel above,
+    // so the bar's fraction and the countdown's color are two views of the one live value — never
+    // two competing computations that could disagree. Null means "no meaningful total window" (see
+    // deadlineProgressFor's KDoc), in which case no bar is rendered at all.
+    val progress by remember(uiModel.remainingMillis, uiModel.isTimedOut) {
+        derivedStateOf {
+            deadlineProgressFor(uiModel.remainingMillis, task.estimatedDurationMillis, uiModel.isTimedOut)
+        }
     }
 
     Card(
@@ -349,10 +365,10 @@ private fun TaskRow(
                         formatRemaining(uiModel.remainingMillis)
                     },
                     style = MaterialTheme.typography.headlineSmall,
-                    // Color-only urgency cue (feature 17, v1: no progress bar). Overdue never
-                    // relies on color alone: the "Tiempo agotado" / "Time's up" text above is
-                    // still shown regardless of this color, so the state is legible even without
-                    // color perception.
+                    // Urgency cue, now told twice (feature 19 adds the bar below to the color this
+                    // text already had since feature 17). Overdue never relies on color alone: the
+                    // "Tiempo agotado" / "Time's up" text above is still shown regardless of this
+                    // color, so the state is legible even without color perception.
                     color = colorForUrgency(urgencyLevel),
                 )
 
@@ -378,6 +394,38 @@ private fun TaskRow(
                         )
                     }
                 }
+            }
+
+            // Feature 19: the deferred progress bar from feature 17's "v1: no progress bar" note.
+            // `progress` is null exactly when there is no meaningful total window (see
+            // deadlineProgressFor) — in that case we render nothing, rather than an arbitrary fill.
+            progress?.let { targetFraction ->
+                // Animate the *rendered* value while the *target* comes from derivedStateOf above:
+                // the target only changes when the fraction meaningfully moves, and
+                // animateFloatAsState eases the visible bar toward it instead of snapping,
+                // including the transition to a full bar on becoming overdue.
+                val animatedProgress by animateFloatAsState(
+                    targetValue = targetFraction,
+                    label = "deadlineProgress",
+                )
+                val locale = LocalConfiguration.current.locales[0]
+                val percentText = remember(locale) { NumberFormat.getPercentInstance(locale) }
+                    .format(targetFraction)
+                val progressStateDescription =
+                    stringResource(R.string.tasks_progress_state_description, percentText)
+                LinearProgressIndicator(
+                    progress = { animatedProgress },
+                    color = colorForUrgency(urgencyLevel),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        // The determinate indicator already exposes progressBarRangeInfo semantics
+                        // for free (it is not decorative) — stateDescription adds a human-readable
+                        // percentage on top, so a screen reader announces e.g. "45% transcurrido"
+                        // instead of just a raw 0..1 ratio.
+                        .semantics { stateDescription = progressStateDescription },
+                )
             }
         }
     }

@@ -21,7 +21,7 @@ Update this table in the **Design review** step of every feature that touches UI
 | Reusable empty/error states + list animations | 17 · estados y animaciones | ✅ | `MessageState`, `Modifier.animateItem()`. |
 | Bottom navigation bar (Tasks / Articles / Settings) | 18 · navegación y accesibilidad | ✅ | `MainBottomBar`, route-gated visibility. |
 | Accessibility pass (content descriptions, ≥48dp, dynamic font) | 18 · navegación y accesibilidad | 🟡 | Bar + `MessageState` covered; ongoing per screen. |
-| **Task-card time-elapsed progress bar** | 19 · barra de progreso *(planned)* | ⬜ | Deferred by 17 ("v1: no progress bar"). Prompt: `docs/prompts/19-barra-progreso-tareas.md`. |
+| Task-card time-elapsed progress bar | 19 · barra de progreso | ✅ | Determinate `LinearProgressIndicator` per `TaskRow`, colored by `colorForUrgency` (reuses 17), `animateFloatAsState`; fraction from pure `deadlineProgressFor` over `estimatedDurationMillis` (no bar when absent). |
 | **Brand-colored top app bars** | 20 · cromo de marca *(planned)* | ⬜ | Mockup app bars use the brand container color; app uses default M3 `TopAppBar` surface. Prompt: `docs/prompts/20-cromo-marca.md`. |
 | **Colored leading-icon chips** on task/list rows | 20 · cromo de marca *(planned)* | ⬜ | Mockup rows have a `brand-container` rounded icon chip; not yet in the app. Prompt: `docs/prompts/20-cromo-marca.md`. |
 | Branded FAB styling | 20 · cromo de marca *(planned)* | 🟡 | FAB exists (feature 04); mockup's branded treatment not applied. Prompt: `docs/prompts/20-cromo-marca.md`. |
