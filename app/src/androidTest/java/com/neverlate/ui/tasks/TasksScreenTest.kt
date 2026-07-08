@@ -207,4 +207,145 @@ class TasksScreenTest {
 
         composeTestRule.onNode(progressBarMatcherFor(task.title), useUnmergedTree = true).assertDoesNotExist()
     }
+
+    /**
+     * Feature 20: [TaskRow] now wraps its title/countdown/buttons [Column] together with a leading
+     * [com.neverlate.ui.components.BrandIconChip] inside a [androidx.compose.foundation.layout.Row],
+     * and the `Column` gained `Modifier.weight(1f)`. Guards against that restructuring having
+     * disturbed the existing start/pause/delete `IconButton`s or their click callbacks: a not-yet-
+     * started task shows "start" (not "pause"), and tapping it still invokes [onStartClick] with the
+     * task's id.
+     */
+    @Test
+    fun content_notRunningTask_startButtonStillInvokesOnStartClickWithItsId() {
+        val task = Task(id = 7, title = "Repasar apuntes")
+        var startedId: Long? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false)),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = { startedId = it },
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_start_content_description))
+            .performClick()
+
+        assert(startedId == task.id) { "Expected onStartClick to be invoked with ${task.id}, got $startedId" }
+    }
+
+    /**
+     * Same guard as above, for a **running** task: the button shows "pause" instead of "start", and
+     * tapping it still invokes [onPauseClick] with the task's id, unaffected by the chip/Row wrapper.
+     */
+    @Test
+    fun content_runningTask_pauseButtonStillInvokesOnPauseClickWithItsId() {
+        val task = Task(id = 8, title = "Repasar apuntes", timerEndsAt = Long.MAX_VALUE)
+        var pausedId: Long? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = { pausedId = it },
+                    onDeleteClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_pause_content_description))
+            .performClick()
+
+        assert(pausedId == task.id) { "Expected onPauseClick to be invoked with ${task.id}, got $pausedId" }
+    }
+
+    /**
+     * Same guard, for delete: tapping the delete [IconButton][androidx.compose.material3.IconButton]
+     * still opens the confirmation dialog, and confirming it still invokes [onDeleteClick] with the
+     * task's id — the dialog and its wiring live outside the Row the chip was added to, but this
+     * pins the whole interaction end-to-end.
+     */
+    @Test
+    fun content_deleteButton_confirmDialog_stillInvokesOnDeleteClickWithItsId() {
+        val task = Task(id = 9, title = "Repasar apuntes")
+        var deletedId: Long? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false)),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = { deletedId = it },
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_delete_content_description))
+            .performClick()
+        composeTestRule.onNodeWithText(string(R.string.tasks_delete_confirm_button)).performClick()
+
+        assert(deletedId == task.id) { "Expected onDeleteClick to be invoked with ${task.id}, got $deletedId" }
+    }
+
+    /**
+     * Feature 20: the Tasks FAB now sets explicit branded `containerColor`/`contentColor`, kept on
+     * the *existing* [androidx.compose.material3.FloatingActionButton] (not a new composable) — this
+     * pins that the FAB is still found by its existing `contentDescription` and still fires
+     * [onAddTaskClick], i.e. the color-only change didn't disturb the button itself.
+     */
+    @Test
+    fun addTaskFab_isPresentAndStillInvokesOnAddTaskClick() {
+        var addTaskClicks = 0
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Empty,
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    onRefresh = {},
+                    onAddTaskClick = { addTaskClicks++ },
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_add_content_description))
+            .apply {
+                assertIsDisplayed()
+                performClick()
+            }
+
+        assert(addTaskClicks == 1) { "Expected onAddTaskClick to be invoked exactly once, was $addTaskClicks" }
+    }
 }

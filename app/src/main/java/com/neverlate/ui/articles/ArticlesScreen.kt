@@ -30,7 +30,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
+import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
@@ -107,6 +109,7 @@ fun ArticlesScreen(
                         }
                     }
                 },
+                colors = brandedTopAppBarColors(),
             )
         },
     ) { innerPadding ->
@@ -175,6 +178,10 @@ private fun ArticleRow(article: Article, onClick: () -> Unit, modifier: Modifier
         ListItem(
             headlineContent = { Text(article.title) },
             supportingContent = { Text(article.summary) },
+            // Feature 20: the branded leading-icon chip, echoing the mockup's `.leading` element.
+            // Decorative (default contentDescription = null): the headline above already carries
+            // the row's meaning.
+            leadingContent = { BrandIconChip(icon = Icons.AutoMirrored.Filled.MenuBook) },
         )
     }
 }
