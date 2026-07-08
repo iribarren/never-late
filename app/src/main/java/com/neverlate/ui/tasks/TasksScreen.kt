@@ -61,7 +61,9 @@ import com.neverlate.data.tasks.formatRemaining
 import com.neverlate.domain.tasks.UrgencyLevel
 import com.neverlate.domain.tasks.deadlineProgressFor
 import com.neverlate.domain.tasks.urgencyLevelFor
+import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
+import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.notification.RequestNotificationPermissionEffect
 import com.neverlate.ui.theme.NeverLateExtras
@@ -189,10 +191,17 @@ fun TasksScreen(
                         }
                     }
                 },
+                colors = brandedTopAppBarColors(),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTaskClick) {
+            FloatingActionButton(
+                onClick = onAddTaskClick,
+                // Feature 20: the same fully-saturated brand pairing as the top app bars, so the
+                // FAB reads as part of one coherent chrome instead of a stray default button.
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.tasks_add_content_description))
             }
         },
@@ -329,103 +338,118 @@ private fun TaskRow(
             .padding(horizontal = 16.dp, vertical = 4.dp)
             .clickable(onClick = onClick),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = task.title, style = MaterialTheme.typography.titleMedium)
+        // Feature 20: the branded leading-icon chip sits alongside the row's existing content
+        // (title, countdown, action buttons, progress bar) rather than inside it — a Row wraps
+        // the chip and the untouched Column, which takes the remaining width (weight(1f)) so long
+        // titles/countdowns still wrap instead of crowding the chip at large font scales.
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            BrandIconChip(icon = Icons.AutoMirrored.Filled.Assignment)
 
-            task.estimatedDurationMillis?.let { duration ->
-                Text(
-                    text = stringResource(R.string.tasks_duration_label, durationLabel(duration)),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            task.deadline?.let { deadline ->
-                // Read the current configuration's locale so the date follows the device language;
-                // locales[0] is the user's top preferred locale (available since API 24).
-                val locale = LocalConfiguration.current.locales[0]
-                Text(
-                    text = stringResource(
-                        R.string.tasks_deadline_label,
-                        formatDeadlineForDisplay(deadline, locale),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .weight(1f)
+                    .padding(start = 16.dp),
             ) {
-                Text(
-                    text = if (uiModel.isTimedOut) {
-                        stringResource(R.string.tasks_time_up)
-                    } else {
-                        formatRemaining(uiModel.remainingMillis)
-                    },
-                    style = MaterialTheme.typography.headlineSmall,
-                    // Urgency cue, now told twice (feature 19 adds the bar below to the color this
-                    // text already had since feature 17). Overdue never relies on color alone: the
-                    // "Tiempo agotado" / "Time's up" text above is still shown regardless of this
-                    // color, so the state is legible even without color perception.
-                    color = colorForUrgency(urgencyLevel),
-                )
+                Text(text = task.title, style = MaterialTheme.typography.titleMedium)
 
-                Row {
-                    if (!uiModel.isTimedOut) {
-                        IconButton(onClick = if (task.isRunning) onPauseClick else onStartClick) {
+                task.estimatedDurationMillis?.let { duration ->
+                    Text(
+                        text = stringResource(R.string.tasks_duration_label, durationLabel(duration)),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                task.deadline?.let { deadline ->
+                    // Read the current configuration's locale so the date follows the device
+                    // language; locales[0] is the user's top preferred locale (available since
+                    // API 24).
+                    val locale = LocalConfiguration.current.locales[0]
+                    Text(
+                        text = stringResource(
+                            R.string.tasks_deadline_label,
+                            formatDeadlineForDisplay(deadline, locale),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = if (uiModel.isTimedOut) {
+                            stringResource(R.string.tasks_time_up)
+                        } else {
+                            formatRemaining(uiModel.remainingMillis)
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        // Urgency cue, now told twice (feature 19 adds the bar below to the color
+                        // this text already had since feature 17). Overdue never relies on color
+                        // alone: the "Tiempo agotado" / "Time's up" text above is still shown
+                        // regardless of this color, so the state is legible even without color
+                        // perception.
+                        color = colorForUrgency(urgencyLevel),
+                    )
+
+                    Row {
+                        if (!uiModel.isTimedOut) {
+                            IconButton(onClick = if (task.isRunning) onPauseClick else onStartClick) {
+                                Icon(
+                                    imageVector = if (task.isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    contentDescription = stringResource(
+                                        if (task.isRunning) {
+                                            R.string.tasks_pause_content_description
+                                        } else {
+                                            R.string.tasks_start_content_description
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                        IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(
-                                imageVector = if (task.isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = stringResource(
-                                    if (task.isRunning) {
-                                        R.string.tasks_pause_content_description
-                                    } else {
-                                        R.string.tasks_start_content_description
-                                    },
-                                ),
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = stringResource(R.string.tasks_delete_content_description),
                             )
                         }
                     }
-                    IconButton(onClick = { showDeleteConfirm = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.tasks_delete_content_description),
-                        )
-                    }
                 }
-            }
 
-            // Feature 19: the deferred progress bar from feature 17's "v1: no progress bar" note.
-            // `progress` is null exactly when there is no meaningful total window (see
-            // deadlineProgressFor) — in that case we render nothing, rather than an arbitrary fill.
-            progress?.let { targetFraction ->
-                // Animate the *rendered* value while the *target* comes from derivedStateOf above:
-                // the target only changes when the fraction meaningfully moves, and
-                // animateFloatAsState eases the visible bar toward it instead of snapping,
-                // including the transition to a full bar on becoming overdue.
-                val animatedProgress by animateFloatAsState(
-                    targetValue = targetFraction,
-                    label = "deadlineProgress",
-                )
-                val locale = LocalConfiguration.current.locales[0]
-                val percentText = remember(locale) { NumberFormat.getPercentInstance(locale) }
-                    .format(targetFraction)
-                val progressStateDescription =
-                    stringResource(R.string.tasks_progress_state_description, percentText)
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    color = colorForUrgency(urgencyLevel),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        // The determinate indicator already exposes progressBarRangeInfo semantics
-                        // for free (it is not decorative) — stateDescription adds a human-readable
-                        // percentage on top, so a screen reader announces e.g. "45% transcurrido"
-                        // instead of just a raw 0..1 ratio.
-                        .semantics { stateDescription = progressStateDescription },
-                )
+                // Feature 19: the deferred progress bar from feature 17's "v1: no progress bar"
+                // note. `progress` is null exactly when there is no meaningful total window (see
+                // deadlineProgressFor) — in that case we render nothing, rather than an arbitrary
+                // fill.
+                progress?.let { targetFraction ->
+                    // Animate the *rendered* value while the *target* comes from derivedStateOf
+                    // above: the target only changes when the fraction meaningfully moves, and
+                    // animateFloatAsState eases the visible bar toward it instead of snapping,
+                    // including the transition to a full bar on becoming overdue.
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = targetFraction,
+                        label = "deadlineProgress",
+                    )
+                    val locale = LocalConfiguration.current.locales[0]
+                    val percentText = remember(locale) { NumberFormat.getPercentInstance(locale) }
+                        .format(targetFraction)
+                    val progressStateDescription =
+                        stringResource(R.string.tasks_progress_state_description, percentText)
+                    LinearProgressIndicator(
+                        progress = { animatedProgress },
+                        color = colorForUrgency(urgencyLevel),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            // The determinate indicator already exposes progressBarRangeInfo
+                            // semantics for free (it is not decorative) — stateDescription adds a
+                            // human-readable percentage on top, so a screen reader announces e.g.
+                            // "45% transcurrido" instead of just a raw 0..1 ratio.
+                            .semantics { stateDescription = progressStateDescription },
+                    )
+                }
             }
         }
     }

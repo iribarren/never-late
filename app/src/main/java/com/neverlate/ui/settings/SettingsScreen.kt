@@ -56,6 +56,7 @@ import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
+import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.theme.NeverLateTheme
@@ -155,6 +156,7 @@ fun SettingsScreen(
                         }
                     }
                 },
+                colors = brandedTopAppBarColors(),
             )
         },
     ) { innerPadding ->

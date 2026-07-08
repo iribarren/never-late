@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
+import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
@@ -72,6 +73,7 @@ fun ArticleDetailScreen(
                         )
                     }
                 },
+                colors = brandedTopAppBarColors(),
             )
         },
     ) { innerPadding ->

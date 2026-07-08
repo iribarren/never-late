@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
@@ -65,7 +66,14 @@ fun OnboardingScreen(
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.onboarding_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.onboarding_title)) },
+                // Feature 20: this screen already has a TopAppBar, so it gets the same shared
+                // branded treatment as every other screen rather than being left inconsistent.
+                colors = brandedTopAppBarColors(),
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier

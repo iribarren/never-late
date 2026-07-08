@@ -54,6 +54,7 @@ import com.neverlate.data.tasks.deadlineFromPickedDateTime
 import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.data.tasks.formatDeadlineForInput
 import com.neverlate.data.tasks.parseDeadline
+import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 import java.time.Instant
@@ -170,6 +171,7 @@ fun TaskEditScreen(
                         )
                     }
                 },
+                colors = brandedTopAppBarColors(),
             )
         },
     ) { innerPadding ->
