@@ -64,8 +64,11 @@ note: `ui/widget` (feature 05, home-screen widget), `ui/notification` (feature 0
 notification + foreground service; feature 09 also adds the reminder scheduler + receivers here),
 `ui/settings` (feature 07, Settings screen + light/dark/system theme preference persisted via the
 shared `user_prefs` DataStore and applied in `NeverLateTheme`; feature 09 adds the reminders on/off
-+ lead-time controls), and `domain/tasks` (rules shared across surfaces, e.g. `pendingRowsFor` and
-feature 09's pure reminder-scheduling logic in `ReminderPlanning.kt`).
++ lead-time controls), `domain/tasks` (rules shared across surfaces, e.g. `pendingRowsFor`,
+feature 09's pure reminder-scheduling logic in `ReminderPlanning.kt`, and feature 17's pure
+`urgencyLevelFor` countdown-urgency helper), and `ui/components` (feature 17, reusable UI building
+blocks — currently `MessageState`, the shared empty/error state used by the Tasks and Articles
+screens).
 
 **Reminders** (feature 09): schedules a one-shot *alerting* local notification a configurable lead
 time before a task's `deadline`, firing even with the app closed, and reschedules after reboot. Pure

@@ -28,6 +28,7 @@ import com.neverlate.ui.home.HomeRoute
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingRoute
 import com.neverlate.ui.settings.SettingsRoute
+import com.neverlate.ui.tasks.TASK_CREATED_RESULT_KEY
 import com.neverlate.ui.tasks.TaskEditRoute
 import com.neverlate.ui.tasks.TasksRoute
 
@@ -265,12 +266,18 @@ private fun MainAppNavHost(
                         onBack = { navController.popBackStack() },
                     )
                 }
-                composable(Routes.TASKS) {
+                composable(Routes.TASKS) { backStackEntry ->
                     TasksRoute(
                         taskRepository = taskRepository,
                         onAddTaskClick = { navController.navigate(Routes.TASK_EDIT) },
                         onTaskClick = { taskId -> navController.navigate("${Routes.TASK_EDIT}/$taskId") },
                         onBack = { navController.popBackStack() },
+                        // This destination's own SavedStateHandle is where the create-only Task
+                        // Edit composable below stashes "a task was just created" (feature 17,
+                        // US-3) — see TasksRoute's KDoc for why a SavedStateHandle, not a
+                        // ViewModel flag, is the right carrier for a result crossing back from
+                        // another destination.
+                        taskCreatedHandle = backStackEntry.savedStateHandle,
                     )
                 }
                 composable(Routes.TASK_EDIT) {
@@ -280,7 +287,18 @@ private fun MainAppNavHost(
                     TaskEditRoute(
                         taskRepository = taskRepository,
                         taskId = null,
-                        onSaved = { navController.popBackStack() },
+                        onSaved = {
+                            // Reaching onSaved here always means "created": this composable has
+                            // no {taskId} argument, so TaskEditViewModel.deleteTask is a no-op
+                            // (see its KDoc) and the only way isSaved ever flips true is a
+                            // successful create. Stash that on Tasks' own back stack entry — the
+                            // standard Navigation Compose way to pass a one-shot result back to
+                            // the previous screen — before popping back to it.
+                            navController.previousBackStackEntry
+                                ?.savedStateHandle
+                                ?.set(TASK_CREATED_RESULT_KEY, true)
+                            navController.popBackStack()
+                        },
                         onBack = { navController.popBackStack() },
                     )
                 }
