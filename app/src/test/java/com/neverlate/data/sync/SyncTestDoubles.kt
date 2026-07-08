@@ -102,4 +102,8 @@ class FakeUserPreferencesRepository(
     override suspend fun saveSyncCursor(cursor: Long) {
         userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
     }
+
+    override suspend fun saveDynamicColor(enabled: Boolean) {
+        userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
+    }
 }

@@ -136,8 +136,12 @@ class MainActivity : ComponentActivity() {
             val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
             val themeMode = userPreferences?.themeMode ?: ThemeMode.SYSTEM
             val darkTheme = themeModeToDark(themeMode, isSystemInDarkTheme())
+            // Same null-guard reasoning as themeMode above: while DataStore is still loading, fall
+            // back to the brand-first default (false) rather than momentarily rendering Material
+            // You (feature 16).
+            val dynamicColor = userPreferences?.dynamicColor ?: false
 
-            NeverLateTheme(darkTheme = darkTheme) {
+            NeverLateTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 AppNavHost(
                     authRepository = authRepository,
                     repository = repository,

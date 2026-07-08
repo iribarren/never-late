@@ -30,6 +30,9 @@
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_system">Follow the system</string>
 
+    <!-- Settings screen: Material You / dynamic color (feature 16). Switch on = system (wallpaper) colors; off = app's own brand colors. Hidden below Android 12. -->
+    <string name="settings_dynamic_color_label">Use system colors (Material You)</string>
+
     <!-- Settings screen: reminders (feature 09) -->
     <string name="settings_reminders_section">Reminders</string>
     <string name="settings_reminders_enabled_label">Remind me before a task is due</string>

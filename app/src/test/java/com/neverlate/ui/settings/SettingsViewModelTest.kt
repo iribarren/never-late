@@ -44,6 +44,9 @@ private class FakeUserPreferencesRepository(
     /** Every lead-time (minutes) value this fake has been asked to save, in call order. */
     val savedReminderLeadMinutes = mutableListOf<Int>()
 
+    /** Every dynamic-color on/off value this fake has been asked to save, in call order. */
+    val savedDynamicColor = mutableListOf<Boolean>()
+
     override suspend fun saveOnboarding(name: String) {
         userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
     }
@@ -65,6 +68,11 @@ private class FakeUserPreferencesRepository(
 
     override suspend fun saveSyncCursor(cursor: Long) {
         userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
+    }
+
+    override suspend fun saveDynamicColor(enabled: Boolean) {
+        savedDynamicColor.add(enabled)
+        userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
     }
 }
 
@@ -146,6 +154,79 @@ class SettingsViewModelTest {
         assertEquals(listOf(ThemeMode.LIGHT), repository.savedThemeModes)
         assertEquals(ThemeMode.LIGHT, repository.userPreferences.value.themeMode)
         assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
+    }
+
+    // dynamicColor / Material You toggle (feature 16) --------------------------------------------
+
+    @Test
+    fun `initial state reflects the persisted dynamicColor preference`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(dynamicColor = true))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.dynamicColor)
+    }
+
+    @Test
+    fun `initial state defaults dynamicColor to false when nothing was persisted`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences())
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(false, viewModel.uiState.value.dynamicColor)
+    }
+
+    @Test
+    fun `enabling dynamic color persists it and updates the state`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(dynamicColor = false))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onDynamicColorChanged(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(true), repository.savedDynamicColor)
+        assertEquals(true, repository.userPreferences.value.dynamicColor)
+        assertEquals(true, viewModel.uiState.value.dynamicColor)
+    }
+
+    @Test
+    fun `disabling dynamic color persists it and updates the state`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(dynamicColor = true))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onDynamicColorChanged(false)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf(false), repository.savedDynamicColor)
+        assertEquals(false, repository.userPreferences.value.dynamicColor)
+        assertEquals(false, viewModel.uiState.value.dynamicColor)
+    }
+
+    @Test
+    fun `dynamicColor composes alongside themeMode in the same uiState without clobbering it`() = runTest {
+        // Two independent preferences feeding one uiState (see the ViewModel's init KDoc): changing
+        // one via its own setter must not reset the other's already-observed value.
+        repository = FakeUserPreferencesRepository(UserPreferences(themeMode = ThemeMode.DARK, dynamicColor = false))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        assertEquals(false, viewModel.uiState.value.dynamicColor)
+
+        viewModel.onDynamicColorChanged(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("changing dynamicColor must not disturb the already-observed themeMode", ThemeMode.DARK, viewModel.uiState.value.themeMode)
+        assertEquals(true, viewModel.uiState.value.dynamicColor)
+
+        viewModel.onThemeModeSelected(ThemeMode.LIGHT)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(ThemeMode.LIGHT, viewModel.uiState.value.themeMode)
+        assertEquals("changing themeMode must not disturb the already-observed dynamicColor", true, viewModel.uiState.value.dynamicColor)
     }
 
     @Test

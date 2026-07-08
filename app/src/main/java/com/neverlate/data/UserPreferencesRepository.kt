@@ -66,6 +66,16 @@ data class UserPreferences(
      * auth token (see [com.neverlate.data.auth.TokenStorage]).
      */
     val syncCursor: Long = 0L,
+    /**
+     * Material You / dynamic color opt-in (feature 16). `false` (the default, both here and on a
+     * fresh install with no key yet) means the app renders its own brand color scheme;
+     * `true` hands color over to `dynamic{Light,Dark}ColorScheme`, which derives it from the
+     * device wallpaper on Android 12+ (and has no effect below that, see
+     * [com.neverlate.ui.theme.NeverLateTheme]). Defaulting to `false` is a deliberate product
+     * decision: a new user sees "Never Late Again"'s own identity, not whatever their wallpaper
+     * happens to produce, unless they opt in from Settings.
+     */
+    val dynamicColor: Boolean = false,
 ) {
     companion object {
         /** Default lead time (minutes) a reminder fires before a task's deadline. */
@@ -108,6 +118,9 @@ interface UserPreferencesRepository {
 
     /** Persists the sync pull cursor (feature 11) — see [UserPreferences.syncCursor]. */
     suspend fun saveSyncCursor(cursor: Long)
+
+    /** Persists the Material You / dynamic color opt-in (feature 16) — see [UserPreferences.dynamicColor]. */
+    suspend fun saveDynamicColor(enabled: Boolean)
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -126,6 +139,8 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         val REMINDER_LEAD_MINUTES = intPreferencesKey("reminder_lead_minutes")
         // Added in feature 11 — same "user_prefs" file yet again, no second DataStore.
         val SYNC_CURSOR = longPreferencesKey("sync_cursor")
+        // Added in feature 16 — same "user_prefs" file yet again, no second DataStore.
+        val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -142,6 +157,10 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
                 reminderLeadMinutes = preferences[Keys.REMINDER_LEAD_MINUTES]
                     ?: UserPreferences.DEFAULT_REMINDER_LEAD_MINUTES,
                 syncCursor = preferences[Keys.SYNC_CURSOR] ?: 0L,
+                // Missing key (fresh install, or an install from before feature 16) falls back to
+                // UserPreferences' own default (false) — same tolerant-read pattern as every key
+                // above.
+                dynamicColor = preferences[Keys.DYNAMIC_COLOR] ?: false,
             )
         }
 
@@ -174,6 +193,12 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
     override suspend fun saveSyncCursor(cursor: Long) {
         context.userPrefsDataStore.edit { preferences ->
             preferences[Keys.SYNC_CURSOR] = cursor
+        }
+    }
+
+    override suspend fun saveDynamicColor(enabled: Boolean) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.DYNAMIC_COLOR] = enabled
         }
     }
 }

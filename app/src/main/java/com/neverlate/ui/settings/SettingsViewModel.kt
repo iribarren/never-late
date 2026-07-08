@@ -27,6 +27,8 @@ data class SettingsUiState(
     val remindersEnabled: Boolean = true,
     val reminderLeadMinutes: Int = UserPreferences.DEFAULT_REMINDER_LEAD_MINUTES,
     val authState: AuthState = AuthState.Guest,
+    /** Material You / dynamic color opt-in (feature 16) — see [UserPreferences.dynamicColor]. */
+    val dynamicColor: Boolean = false,
 )
 
 /**
@@ -73,6 +75,7 @@ class SettingsViewModel(
                         themeMode = preferences.themeMode,
                         remindersEnabled = preferences.remindersEnabled,
                         reminderLeadMinutes = preferences.reminderLeadMinutes,
+                        dynamicColor = preferences.dynamicColor,
                     )
                 }
             }
@@ -114,6 +117,17 @@ class SettingsViewModel(
     fun onReminderLeadMinutesSelected(minutes: Int) {
         viewModelScope.launch {
             repository.saveReminderLeadMinutes(minutes)
+        }
+    }
+
+    /**
+     * Persists the Material You / dynamic color opt-in. The UI updates reactively once the write
+     * is observed, same as [onThemeModeSelected] — this is one more preference on that seam, not a
+     * new one.
+     */
+    fun onDynamicColorChanged(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.saveDynamicColor(enabled)
         }
     }
 
