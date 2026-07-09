@@ -85,6 +85,24 @@
     <string name="tasks_delete_confirm_button">Delete</string>
     <string name="tasks_delete_cancel_button">Cancel</string>
 
+    <!-- Feature 03b: in-memory filter/sort/group controls, above the list. -->
+    <string name="tasks_filter_label">Search by title</string>
+    <string name="tasks_sort_deadline">Deadline</string>
+    <string name="tasks_sort_title">Title</string>
+    <string name="tasks_sort_direction_ascending">Ascending order</string>
+    <string name="tasks_sort_direction_descending">Descending order</string>
+    <string name="tasks_group_by_urgency">Group by urgency</string>
+    <!-- Section headers, shown only while grouping is active, in this fixed order (most urgent
+         first) regardless of UrgencyLevel's own declaration order. -->
+    <string name="tasks_section_overdue">Overdue</string>
+    <string name="tasks_section_urgent">Urgent</string>
+    <string name="tasks_section_soon">Soon</string>
+    <string name="tasks_section_calm">Calm</string>
+    <!-- Distinct from tasks_empty above: there ARE tasks, just none matching the current filter
+         (US-4) — the action clears the filter instead of offering to create a task. -->
+    <string name="tasks_no_results">No tasks match your filter.</string>
+    <string name="tasks_no_results_clear_filter">Clear filter</string>
+
     <!-- Task create/edit screen -->
     <string name="task_edit_title_create">New task</string>
     <string name="task_edit_title_edit">Edit task</string>

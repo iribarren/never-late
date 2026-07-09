@@ -4,6 +4,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,23 +16,30 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +67,10 @@ import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.data.tasks.formatRemaining
+import com.neverlate.domain.tasks.ShapedTaskList
+import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskListCriteria
+import com.neverlate.domain.tasks.TaskSortField
 import com.neverlate.domain.tasks.UrgencyLevel
 import com.neverlate.domain.tasks.deadlineProgressFor
 import com.neverlate.domain.tasks.urgencyLevelFor
@@ -109,6 +122,7 @@ fun TasksRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val criteria by viewModel.criteria.collectAsStateWithLifecycle()
     // Ask for the POST_NOTIFICATIONS permission (Android 13+) in context, the first time the user
     // reaches their tasks — that is when "also show these on the lock screen" is meaningful. No-op
     // below Android 13, and denial degrades gracefully (see the effect's KDoc / feature 06).
@@ -137,6 +151,7 @@ fun TasksRoute(
     TasksScreen(
         uiState = uiState,
         syncStatus = syncStatus,
+        criteria = criteria,
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
         onAddTaskClick = onAddTaskClick,
@@ -144,6 +159,10 @@ fun TasksRoute(
         onStartClick = viewModel::startTimer,
         onPauseClick = viewModel::pauseTimer,
         onDeleteClick = viewModel::deleteTask,
+        onQueryChange = viewModel::onQueryChange,
+        onSortFieldChange = viewModel::onSortFieldChange,
+        onToggleSortDirection = viewModel::onToggleSortDirection,
+        onToggleGrouping = viewModel::onToggleGrouping,
         onBack = onBack,
         modifier = modifier,
     )
@@ -164,12 +183,17 @@ fun TasksRoute(
 fun TasksScreen(
     uiState: TasksUiState,
     syncStatus: SyncStatus,
+    criteria: TaskListCriteria,
     onRefresh: () -> Unit,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
     onStartClick: (Long) -> Unit,
     onPauseClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onSortFieldChange: (TaskSortField) -> Unit,
+    onToggleSortDirection: () -> Unit,
+    onToggleGrouping: () -> Unit,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -220,6 +244,20 @@ fun TasksScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 SyncStatusHint(syncStatus)
 
+                // Feature 03b: the search/sort/group controls only make sense once there is a
+                // list to shape — hidden during Loading and Empty (no tasks exist yet at all),
+                // shown for both NoResults (so the filter that caused it can be adjusted/cleared)
+                // and Content.
+                if (uiState is TasksUiState.NoResults || uiState is TasksUiState.Content) {
+                    TaskListControls(
+                        criteria = criteria,
+                        onQueryChange = onQueryChange,
+                        onSortFieldChange = onSortFieldChange,
+                        onToggleSortDirection = onToggleSortDirection,
+                        onToggleGrouping = onToggleGrouping,
+                    )
+                }
+
                 when (uiState) {
                     // Nothing to show yet: avoids a one-frame flash of the empty state while loading.
                     is TasksUiState.Loading -> Unit
@@ -233,8 +271,18 @@ fun TasksScreen(
                         onAction = onAddTaskClick,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    is TasksUiState.Content -> TaskList(
-                        tasks = uiState.tasks,
+                    // Distinct from Empty above (US-4): there ARE tasks, just none matching the
+                    // current filter. The action clears the filter rather than creating a task —
+                    // "no coincidencias" is not "no data", so it gets a different fix.
+                    is TasksUiState.NoResults -> MessageState(
+                        icon = Icons.Filled.SearchOff,
+                        message = stringResource(R.string.tasks_no_results),
+                        actionLabel = stringResource(R.string.tasks_no_results_clear_filter),
+                        onAction = { onQueryChange("") },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    is TasksUiState.Content -> ShapedTaskListView(
+                        shaped = uiState.shaped,
                         onTaskClick = onTaskClick,
                         onStartClick = onStartClick,
                         onPauseClick = onPauseClick,
@@ -294,6 +342,155 @@ private fun TaskList(
             )
         }
     }
+}
+
+/**
+ * Feature 03b's control row: a search field (US-1) plus sort/group [FilterChip]s and a direction
+ * [IconButton] (US-2/US-3), all state-hoisted — this composable only reports intent through its
+ * callbacks, the same stateless pattern the rest of this screen already follows.
+ *
+ * [FlowRow] (rather than a plain [Row]) is what lets the chips wrap onto a second line instead of
+ * being clipped or pushing the list off-screen at the system's largest font scale (a visual AC).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TaskListControls(
+    criteria: TaskListCriteria,
+    onQueryChange: (String) -> Unit,
+    onSortFieldChange: (TaskSortField) -> Unit,
+    onToggleSortDirection: () -> Unit,
+    onToggleGrouping: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        OutlinedTextField(
+            value = criteria.query,
+            onValueChange = onQueryChange,
+            label = { Text(stringResource(R.string.tasks_filter_label)) },
+            leadingIcon = {
+                // Decorative: the label above already tells a screen reader what this field is for.
+                Icon(Icons.Filled.Search, contentDescription = null)
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        ) {
+            FilterChip(
+                selected = criteria.sortField == TaskSortField.Deadline,
+                onClick = { onSortFieldChange(TaskSortField.Deadline) },
+                label = { Text(stringResource(R.string.tasks_sort_deadline)) },
+                modifier = Modifier.minimumInteractiveComponentSize(),
+            )
+            FilterChip(
+                selected = criteria.sortField == TaskSortField.Title,
+                onClick = { onSortFieldChange(TaskSortField.Title) },
+                label = { Text(stringResource(R.string.tasks_sort_title)) },
+                modifier = Modifier.minimumInteractiveComponentSize(),
+            )
+
+            // when as an exhaustive expression over SortDirection (TaskListShaping.kt), same
+            // pattern as colorForUrgency below over UrgencyLevel: both the icon and the announced
+            // state come from the one enum value, so they can never disagree with each other.
+            val directionDescription = stringResource(
+                when (criteria.direction) {
+                    SortDirection.Ascending -> R.string.tasks_sort_direction_ascending
+                    SortDirection.Descending -> R.string.tasks_sort_direction_descending
+                },
+            )
+            IconButton(
+                onClick = onToggleSortDirection,
+                modifier = Modifier.semantics { stateDescription = directionDescription },
+            ) {
+                Icon(
+                    imageVector = when (criteria.direction) {
+                        SortDirection.Ascending -> Icons.Filled.ArrowUpward
+                        SortDirection.Descending -> Icons.Filled.ArrowDownward
+                    },
+                    contentDescription = directionDescription,
+                )
+            }
+
+            FilterChip(
+                selected = criteria.grouped,
+                onClick = onToggleGrouping,
+                label = { Text(stringResource(R.string.tasks_group_by_urgency)) },
+                modifier = Modifier.minimumInteractiveComponentSize(),
+            )
+        }
+    }
+}
+
+/**
+ * Renders a [ShapedTaskList] (feature 03b): [ShapedTaskList.Flat] as the plain [TaskList] already
+ * used before this feature, [ShapedTaskList.Grouped] as one header + one sub-list per non-empty
+ * urgency section, in the [Map]'s own iteration order (already fixed to
+ * "Overdue → Urgent → Soon → Calm" by `shapedBy` in `TaskListShaping.kt`). Both branches reuse the
+ * same [TaskRow] and `Modifier.animateItem()` (feature 17) — grouping only changes how rows are
+ * split into sections, never how a single row itself renders or animates.
+ */
+@Composable
+private fun ShapedTaskListView(
+    shaped: ShapedTaskList,
+    onTaskClick: (Long) -> Unit,
+    onStartClick: (Long) -> Unit,
+    onPauseClick: (Long) -> Unit,
+    onDeleteClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when (shaped) {
+        is ShapedTaskList.Flat -> TaskList(
+            tasks = shaped.tasks,
+            onTaskClick = onTaskClick,
+            onStartClick = onStartClick,
+            onPauseClick = onPauseClick,
+            onDeleteClick = onDeleteClick,
+            modifier = modifier,
+        )
+        is ShapedTaskList.Grouped -> LazyColumn(modifier = modifier.fillMaxSize()) {
+            // Destructuring a Map.Entry — the same component1()/component2() mechanism as
+            // destructuring a Pair, here read as "level" and "tasksInSection".
+            for ((level, tasksInSection) in shaped.sections) {
+                item(key = level) { SectionHeader(level) }
+                items(tasksInSection, key = { it.task.id }) { uiModel ->
+                    TaskRow(
+                        uiModel = uiModel,
+                        onClick = { onTaskClick(uiModel.task.id) },
+                        onStartClick = { onStartClick(uiModel.task.id) },
+                        onPauseClick = { onPauseClick(uiModel.task.id) },
+                        onDeleteClick = { onDeleteClick(uiModel.task.id) },
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A section header's label for [ShapedTaskList.Grouped], one exhaustive `when` per [UrgencyLevel]
+ *  — the same defensive pattern [colorForUrgency] below already uses for the same enum. */
+@Composable
+private fun SectionHeader(level: UrgencyLevel, modifier: Modifier = Modifier) {
+    val textRes = when (level) {
+        UrgencyLevel.Overdue -> R.string.tasks_section_overdue
+        UrgencyLevel.Urgent -> R.string.tasks_section_urgent
+        UrgencyLevel.Soon -> R.string.tasks_section_soon
+        UrgencyLevel.Calm -> R.string.tasks_section_calm
+    }
+    Text(
+        text = stringResource(textRes),
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -523,26 +720,33 @@ private fun TasksScreenContentPreview() {
     NeverLateTheme {
         TasksScreen(
             uiState = TasksUiState.Content(
-                listOf(
-                    TaskUiModel(
-                        task = Task(id = 1, title = "Preparar la presentación", estimatedDurationMillis = 25 * 60_000L),
-                        remainingMillis = 25 * 60_000L,
-                        isTimedOut = false,
-                    ),
-                    TaskUiModel(
-                        task = Task(id = 2, title = "Enviar el informe", timerEndsAt = Long.MAX_VALUE),
-                        remainingMillis = 0L,
-                        isTimedOut = true,
+                ShapedTaskList.Flat(
+                    listOf(
+                        TaskUiModel(
+                            task = Task(id = 1, title = "Preparar la presentación", estimatedDurationMillis = 25 * 60_000L),
+                            remainingMillis = 25 * 60_000L,
+                            isTimedOut = false,
+                        ),
+                        TaskUiModel(
+                            task = Task(id = 2, title = "Enviar el informe", timerEndsAt = Long.MAX_VALUE),
+                            remainingMillis = 0L,
+                            isTimedOut = true,
+                        ),
                     ),
                 ),
             ),
             syncStatus = SyncStatus.UpToDate,
+            criteria = TaskListCriteria(),
             onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
+            onQueryChange = {},
+            onSortFieldChange = {},
+            onToggleSortDirection = {},
+            onToggleGrouping = {},
             onBack = null,
         )
     }
@@ -555,12 +759,40 @@ private fun TasksScreenEmptyPreview() {
         TasksScreen(
             uiState = TasksUiState.Empty,
             syncStatus = SyncStatus.Idle,
+            criteria = TaskListCriteria(),
             onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
+            onQueryChange = {},
+            onSortFieldChange = {},
+            onToggleSortDirection = {},
+            onToggleGrouping = {},
+            onBack = null,
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TasksScreenNoResultsPreview() {
+    NeverLateTheme {
+        TasksScreen(
+            uiState = TasksUiState.NoResults,
+            syncStatus = SyncStatus.Idle,
+            criteria = TaskListCriteria(query = "xyz"),
+            onRefresh = {},
+            onAddTaskClick = {},
+            onTaskClick = {},
+            onStartClick = {},
+            onPauseClick = {},
+            onDeleteClick = {},
+            onQueryChange = {},
+            onSortFieldChange = {},
+            onToggleSortDirection = {},
+            onToggleGrouping = {},
             onBack = null,
         )
     }

@@ -10,9 +10,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import com.neverlate.R
 import com.neverlate.data.tasks.Task
+import com.neverlate.domain.tasks.ShapedTaskList
+import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.ui.theme.NeverLateTheme
 import org.junit.Rule
 import org.junit.Test
@@ -36,6 +39,11 @@ class TasksScreenTest {
 
     private fun string(resId: Int): String = targetContext.getString(resId)
 
+    /** feature 03b: every non-Loading state now renders through hoisted [TaskListCriteria] +
+     *  its four intent callbacks — this is the "touch nothing" default used by tests that don't
+     *  exercise search/sort/group themselves. */
+    private fun noOpCriteriaCallbacks() = TaskListCriteria()
+
     @Test
     fun emptyState_showsEmptyMessage() {
         composeTestRule.setContent {
@@ -43,12 +51,17 @@ class TasksScreenTest {
                 TasksScreen(
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -66,15 +79,22 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Content(
-                        listOf(TaskUiModel(task = task, remainingMillis = 25 * 60_000L, isTimedOut = false)),
+                        ShapedTaskList.Flat(
+                            listOf(TaskUiModel(task = task, remainingMillis = 25 * 60_000L, isTimedOut = false)),
+                        ),
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = { clickedId = it },
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -99,12 +119,17 @@ class TasksScreenTest {
                 TasksScreen(
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = null,
                 )
             }
@@ -121,12 +146,17 @@ class TasksScreenTest {
                 TasksScreen(
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -164,15 +194,22 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Content(
-                        listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ShapedTaskList.Flat(
+                            listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ),
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -191,15 +228,22 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Content(
-                        listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ShapedTaskList.Flat(
+                            listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ),
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -225,15 +269,20 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Content(
-                        listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false)),
+                        ShapedTaskList.Flat(listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false))),
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = { startedId = it },
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -258,15 +307,22 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Content(
-                        listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ShapedTaskList.Flat(
+                            listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ),
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = { pausedId = it },
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -293,15 +349,20 @@ class TasksScreenTest {
             NeverLateTheme {
                 TasksScreen(
                     uiState = TasksUiState.Content(
-                        listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false)),
+                        ShapedTaskList.Flat(listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false))),
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = { deletedId = it },
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -329,12 +390,17 @@ class TasksScreenTest {
                 TasksScreen(
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
                     onRefresh = {},
                     onAddTaskClick = { addTaskClicks++ },
                     onTaskClick = {},
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
                     onBack = {},
                 )
             }
@@ -347,5 +413,80 @@ class TasksScreenTest {
             }
 
         assert(addTaskClicks == 1) { "Expected onAddTaskClick to be invoked exactly once, was $addTaskClicks" }
+    }
+
+    // Feature 03b: search field + NoResults state ----------------------------------------------------
+
+    /**
+     * US-1: the search field is visible whenever there is a list to shape (Content or NoResults),
+     * and typing into it reports the new text through [onQueryChange] — the screen itself holds no
+     * text state of its own (hoisted, like everything else here).
+     */
+    @Test
+    fun content_typingInSearchField_invokesOnQueryChangeWithTypedText() {
+        val task = Task(id = 10, title = "Preparar la presentación")
+        var lastQuery: String? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        ShapedTaskList.Flat(listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false))),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onQueryChange = { lastQuery = it },
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.tasks_filter_label)).performTextInput("pres")
+
+        assert(lastQuery == "pres") { "Expected onQueryChange to be invoked with \"pres\", got $lastQuery" }
+    }
+
+    /**
+     * US-4: [TasksUiState.NoResults] shows a distinct "no matches" message via [MessageState][com.neverlate.ui.components.MessageState],
+     * and its action clears the filter (rather than offering to create a task, [TasksUiState.Empty]'s action).
+     */
+    @Test
+    fun noResults_showsNoResultsMessage_andActionInvokesOnQueryChangeWithEmptyString() {
+        var lastQuery: String? = "unchanged"
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.NoResults,
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = TaskListCriteria(query = "xyz no existe"),
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onQueryChange = { lastQuery = it },
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.tasks_no_results)).assertExists()
+        composeTestRule.onNodeWithText(string(R.string.tasks_no_results_clear_filter)).performClick()
+
+        assert(lastQuery == "") { "Expected the NoResults action to clear the filter, got $lastQuery" }
     }
 }

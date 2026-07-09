@@ -80,6 +80,24 @@
     <string name="tasks_delete_confirm_button">Borrar</string>
     <string name="tasks_delete_cancel_button">Cancelar</string>
 
+    <!-- Feature 03b: in-memory filter/sort/group controls, above the list. -->
+    <string name="tasks_filter_label">Buscar por título</string>
+    <string name="tasks_sort_deadline">Plazo</string>
+    <string name="tasks_sort_title">Título</string>
+    <string name="tasks_sort_direction_ascending">Orden ascendente</string>
+    <string name="tasks_sort_direction_descending">Orden descendente</string>
+    <string name="tasks_group_by_urgency">Agrupar por urgencia</string>
+    <!-- Section headers, shown only while grouping is active, in this fixed order (most urgent
+         first) regardless of UrgencyLevel's own declaration order. -->
+    <string name="tasks_section_overdue">Vencidas</string>
+    <string name="tasks_section_urgent">Urgentes</string>
+    <string name="tasks_section_soon">Pronto</string>
+    <string name="tasks_section_calm">Con calma</string>
+    <!-- Distinct from tasks_empty above: there ARE tasks, just none matching the current filter
+         (US-4) — the action clears the filter instead of offering to create a task. -->
+    <string name="tasks_no_results">Ninguna tarea coincide con el filtro.</string>
+    <string name="tasks_no_results_clear_filter">Limpiar filtro</string>
+
     <!-- Task create/edit screen -->
     <string name="task_edit_title_create">Nueva tarea</string>
     <string name="task_edit_title_edit">Editar tarea</string>

@@ -66,8 +66,11 @@ notification + foreground service; feature 09 also adds the reminder scheduler +
 shared `user_prefs` DataStore and applied in `NeverLateTheme`; feature 09 adds the reminders on/off
 + lead-time controls), `domain/tasks` (rules shared across surfaces, e.g. `pendingRowsFor`,
 feature 09's pure reminder-scheduling logic in `ReminderPlanning.kt`, feature 17's pure
-`urgencyLevelFor` countdown-urgency helper, and feature 19's pure `deadlineProgressFor` helper —
-the `0f..1f` elapsed-time fraction behind each task card's progress bar), and `ui/components` (feature 17, reusable UI building
+`urgencyLevelFor` countdown-urgency helper, feature 19's pure `deadlineProgressFor` helper —
+the `0f..1f` elapsed-time fraction behind each task card's progress bar — and feature 03b's pure
+in-memory list shaping in `TaskListShaping.kt` (`filteredBy`/`sortedBy`/`groupedByUrgency`/`shapedBy`
+behind the Tasks screen's filter/sort/group-by-urgency controls, `nullsLast` deadline ordering, no
+new Room/network source)), and `ui/components` (feature 17, reusable UI building
 blocks — currently `MessageState`, the shared empty/error state used by the Tasks and Articles
 screens).
 

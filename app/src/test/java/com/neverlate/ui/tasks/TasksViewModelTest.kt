@@ -3,6 +3,10 @@ package com.neverlate.ui.tasks
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.computeRemainingMillis
+import com.neverlate.domain.tasks.ShapedTaskList
+import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskListCriteria
+import com.neverlate.domain.tasks.TaskSortField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -110,6 +114,14 @@ class TasksViewModelTest {
         assertTrue(viewModel.uiState.value is TasksUiState.Loading)
     }
 
+    /** Reads the flat task list out of a [TasksUiState.Content], failing loudly if it is grouped
+     *  instead — every existing test here exercises the default (ungrouped) criteria. */
+    private fun TasksUiState.contentTasks(): List<TaskUiModel> {
+        val shaped = (this as TasksUiState.Content).shaped
+        assertTrue("expected a Flat shaped result, got $shaped", shaped is ShapedTaskList.Flat)
+        return (shaped as ShapedTaskList.Flat).tasks
+    }
+
     @Test
     fun `repository with tasks produces Content state with computed remaining time`() {
         val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
@@ -118,7 +130,7 @@ class TasksViewModelTest {
 
         val state = viewModel.uiState.value
         assertTrue(state is TasksUiState.Content)
-        val tasks = (state as TasksUiState.Content).tasks
+        val tasks = state.contentTasks()
         assertEquals(2, tasks.size)
         val tea = tasks.first { it.task.id == teaTask.id }
         assertEquals(teaTask.estimatedDurationMillis, tea.remainingMillis)
@@ -144,7 +156,7 @@ class TasksViewModelTest {
         testDispatcher.scheduler.runCurrent()
 
         val state = viewModel.uiState.value as TasksUiState.Content
-        val uiTask = state.tasks.single()
+        val uiTask = state.contentTasks().single()
         assertTrue(uiTask.task.isRunning)
         assertTrue(
             "remaining (${uiTask.remainingMillis}) should stay close to the full duration " +
@@ -165,7 +177,7 @@ class TasksViewModelTest {
         testDispatcher.scheduler.runCurrent()
 
         val state = viewModel.uiState.value as TasksUiState.Content
-        val uiTask = state.tasks.single()
+        val uiTask = state.contentTasks().single()
         assertFalse(uiTask.task.isRunning)
         assertEquals(uiTask.remainingMillis, uiTask.task.remainingMillis)
     }
@@ -180,7 +192,7 @@ class TasksViewModelTest {
         testDispatcher.scheduler.runCurrent()
 
         val state = viewModel.uiState.value as TasksUiState.Content
-        val uiTask = state.tasks.single()
+        val uiTask = state.contentTasks().single()
         assertTrue(uiTask.isTimedOut)
         assertEquals(0L, uiTask.remainingMillis)
         assertFalse("task should auto-pause once its countdown reaches zero", uiTask.task.isRunning)
@@ -196,5 +208,103 @@ class TasksViewModelTest {
         testDispatcher.scheduler.runCurrent()
 
         assertTrue(viewModel.uiState.value is TasksUiState.Empty)
+    }
+
+    // Feature 03b: search/sort/group criteria ------------------------------------------------------
+
+    @Test
+    fun `criteria starts at its defaults - no query, deadline ascending, ungrouped`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        assertEquals(TaskListCriteria(), viewModel.criteria.value)
+    }
+
+    @Test
+    fun `onQueryChange updates criteria and re-shapes the visible list`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        testDispatcher.scheduler.runCurrent()
+
+        viewModel.onQueryChange("té")
+        testDispatcher.scheduler.runCurrent()
+
+        assertEquals("té", viewModel.criteria.value.query)
+        val tasks = viewModel.uiState.value.contentTasks()
+        assertEquals(listOf(teaTask.id), tasks.map { it.task.id })
+    }
+
+    @Test
+    fun `onQueryChange that matches nothing produces NoResults, not Empty`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        testDispatcher.scheduler.runCurrent()
+
+        viewModel.onQueryChange("xyz no existe")
+        testDispatcher.scheduler.runCurrent()
+
+        // NoResults (there ARE tasks, the filter just excludes all of them) is a distinct state
+        // from Empty (there are no tasks at all) - see TasksUiState's KDoc, US-4.
+        assertTrue(viewModel.uiState.value is TasksUiState.NoResults)
+    }
+
+    @Test
+    fun `clearing the query after NoResults returns to Content`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        testDispatcher.scheduler.runCurrent()
+        viewModel.onQueryChange("xyz no existe")
+        testDispatcher.scheduler.runCurrent()
+
+        viewModel.onQueryChange("")
+        testDispatcher.scheduler.runCurrent()
+
+        assertTrue(viewModel.uiState.value is TasksUiState.Content)
+    }
+
+    @Test
+    fun `onSortFieldChange updates criteria's sortField and keeps the current direction`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        viewModel.onSortFieldChange(TaskSortField.Title)
+
+        assertEquals(TaskSortField.Title, viewModel.criteria.value.sortField)
+        assertEquals(SortDirection.Ascending, viewModel.criteria.value.direction)
+    }
+
+    @Test
+    fun `onToggleSortDirection flips ascending to descending and back`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        viewModel.onToggleSortDirection()
+        assertEquals(SortDirection.Descending, viewModel.criteria.value.direction)
+
+        viewModel.onToggleSortDirection()
+        assertEquals(SortDirection.Ascending, viewModel.criteria.value.direction)
+    }
+
+    @Test
+    fun `onToggleGrouping flips the grouped flag and produces a Grouped shaped result`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        testDispatcher.scheduler.runCurrent()
+
+        viewModel.onToggleGrouping()
+        testDispatcher.scheduler.runCurrent()
+
+        assertTrue(viewModel.criteria.value.grouped)
+        val state = viewModel.uiState.value
+        assertTrue(state is TasksUiState.Content)
+        assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Grouped)
+    }
+
+    @Test
+    fun `onToggleGrouping twice returns to an ungrouped Flat result`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        testDispatcher.scheduler.runCurrent()
+
+        viewModel.onToggleGrouping()
+        viewModel.onToggleGrouping()
+        testDispatcher.scheduler.runCurrent()
+
+        assertFalse(viewModel.criteria.value.grouped)
+        val state = viewModel.uiState.value
+        assertTrue(state is TasksUiState.Content)
+        assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Flat)
     }
 }
