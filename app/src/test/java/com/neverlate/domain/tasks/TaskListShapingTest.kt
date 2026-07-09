@@ -242,14 +242,14 @@ class TaskListShapingTest {
 
     @Test
     fun `shapedBy with grouping off returns a Flat result`() {
-        val shaped = listOf(uiModel(1, "Task")).shapedBy(TaskListCriteria(grouped = false))
+        val shaped = listOf(uiModel(1, "Task")).shapedBy("", TaskListCriteria(grouped = false))
 
         assertTrue(shaped is ShapedTaskList.Flat)
     }
 
     @Test
     fun `shapedBy with grouping on returns a Grouped result`() {
-        val shaped = listOf(uiModel(1, "Task")).shapedBy(TaskListCriteria(grouped = true))
+        val shaped = listOf(uiModel(1, "Task")).shapedBy("", TaskListCriteria(grouped = true))
 
         assertTrue(shaped is ShapedTaskList.Grouped)
     }
@@ -264,7 +264,7 @@ class TaskListShapingTest {
         // Deliberately out of display order in the input, to prove shapedBy re-orders it rather
         // than relying on groupBy's first-seen order.
         val shaped = listOf(calm, soon, urgent, overdue)
-            .shapedBy(TaskListCriteria(grouped = true)) as ShapedTaskList.Grouped
+            .shapedBy("", TaskListCriteria(grouped = true)) as ShapedTaskList.Grouped
 
         assertEquals(
             listOf(UrgencyLevel.Overdue, UrgencyLevel.Urgent, UrgencyLevel.Soon, UrgencyLevel.Calm),
@@ -276,7 +276,7 @@ class TaskListShapingTest {
     fun `shapedBy grouped omits empty urgency sections`() {
         val calm = uiModel(1, "Calm", remainingMillis = soonThresholdMillis + 1, isTimedOut = false)
 
-        val shaped = listOf(calm).shapedBy(TaskListCriteria(grouped = true)) as ShapedTaskList.Grouped
+        val shaped = listOf(calm).shapedBy("", TaskListCriteria(grouped = true)) as ShapedTaskList.Grouped
 
         assertEquals(setOf(UrgencyLevel.Calm), shaped.sections.keys)
     }
@@ -289,7 +289,7 @@ class TaskListShapingTest {
         val nonMatching = uiModel(3, "Otra tarea", remainingMillis = 0L, isTimedOut = true)
 
         val shaped = listOf(nonMatching, matchingCalm, matchingUrgent)
-            .shapedBy(TaskListCriteria(query = "informe", grouped = true)) as ShapedTaskList.Grouped
+            .shapedBy("informe", TaskListCriteria(grouped = true)) as ShapedTaskList.Grouped
 
         assertEquals(listOf(UrgencyLevel.Urgent, UrgencyLevel.Calm), shaped.sections.keys.toList())
         assertEquals(listOf(matchingUrgent), shaped.sections[UrgencyLevel.Urgent])
@@ -304,7 +304,7 @@ class TaskListShapingTest {
         val calmA = uiModel(4, "A calm", remainingMillis = soonThresholdMillis + 1, isTimedOut = false)
 
         val criteria = TaskListCriteria(sortField = TaskSortField.Title, direction = SortDirection.Ascending, grouped = true)
-        val shaped = listOf(urgentB, urgentA, calmB, calmA).shapedBy(criteria) as ShapedTaskList.Grouped
+        val shaped = listOf(urgentB, urgentA, calmB, calmA).shapedBy("", criteria) as ShapedTaskList.Grouped
 
         assertEquals(listOf(urgentA, urgentB), shaped.sections[UrgencyLevel.Urgent])
         assertEquals(listOf(calmA, calmB), shaped.sections[UrgencyLevel.Calm])
@@ -316,15 +316,15 @@ class TaskListShapingTest {
         val alfa = uiModel(2, "Alfa informe")
         val excluded = uiModel(3, "Otra cosa")
 
-        val criteria = TaskListCriteria(query = "informe", sortField = TaskSortField.Title, direction = SortDirection.Ascending)
-        val shaped = listOf(zeta, alfa, excluded).shapedBy(criteria) as ShapedTaskList.Flat
+        val criteria = TaskListCriteria(sortField = TaskSortField.Title, direction = SortDirection.Ascending)
+        val shaped = listOf(zeta, alfa, excluded).shapedBy("informe", criteria) as ShapedTaskList.Flat
 
         assertEquals(listOf(alfa, zeta), shaped.tasks)
     }
 
     @Test
     fun `shapedBy on an empty input list ungrouped returns an empty Flat result`() {
-        val shaped = emptyList<TaskUiModel>().shapedBy(TaskListCriteria(grouped = false))
+        val shaped = emptyList<TaskUiModel>().shapedBy("", TaskListCriteria(grouped = false))
 
         assertTrue(shaped is ShapedTaskList.Flat)
         assertTrue(shaped.isEmpty())
@@ -332,7 +332,7 @@ class TaskListShapingTest {
 
     @Test
     fun `shapedBy on an empty input list grouped returns an empty Grouped result`() {
-        val shaped = emptyList<TaskUiModel>().shapedBy(TaskListCriteria(grouped = true))
+        val shaped = emptyList<TaskUiModel>().shapedBy("", TaskListCriteria(grouped = true))
 
         assertTrue(shaped is ShapedTaskList.Grouped)
         assertTrue(shaped.isEmpty())

@@ -23,17 +23,21 @@ enum class TaskSortField { Deadline, Title }
 enum class SortDirection { Ascending, Descending }
 
 /**
- * Everything the Tasks screen's controls (search field, sort chips, direction toggle, group
- * toggle) let the user configure, held as one immutable value. [com.neverlate.ui.tasks.TasksViewModel]
+ * Everything the Tasks screen's sort/group controls (sort chips, direction toggle, group toggle)
+ * let the user configure, held as one immutable value. [com.neverlate.ui.tasks.TasksViewModel]
  * exposes a single [kotlinx.coroutines.flow.StateFlow] of this type and updates it with
  * `.copy(...)` on each user intent — the same "one state, `.copy()` to change a slice of it"
  * pattern the rest of this codebase already uses for UI state.
  *
- * Defaults match "as if the user had touched nothing yet": no text filter, soonest-deadline-first,
- * ungrouped — the closest in-memory equivalent to the pre-feature-03b list.
+ * The **text query** used to live here too (feature 03b), but feature 04b pulled it out into its
+ * own `StateFlow` (see [com.neverlate.ui.tasks.TasksViewModel]'s `query`): sort/group stay
+ * immediate, while the query alone goes through a `debounce`. [shapedBy] below takes the query as
+ * a separate parameter for that reason.
+ *
+ * Defaults match "as if the user had touched nothing yet": soonest-deadline-first, ungrouped — the
+ * closest in-memory equivalent to the pre-feature-03b list.
  */
 data class TaskListCriteria(
-    val query: String = "",
     val sortField: TaskSortField = TaskSortField.Deadline,
     val direction: SortDirection = SortDirection.Ascending,
     val grouped: Boolean = false,
@@ -140,9 +144,13 @@ fun ShapedTaskList.isEmpty(): Boolean = when (this) {
  * would fit just as well syntactically — because the block genuinely performs *several* reads of
  * the *same* object; a scope function chosen only "because one is expected" would be no clearer
  * than not using one at all.
+ *
+ * [query] arrives as its own parameter (feature 04b), separate from [criteria], since it is the
+ * one input [com.neverlate.ui.tasks.TasksViewModel] debounces before this function ever sees it —
+ * sort/group criteria stay immediate.
  */
-fun List<TaskUiModel>.shapedBy(criteria: TaskListCriteria): ShapedTaskList {
-    val filtered = filteredBy(criteria.query)
+fun List<TaskUiModel>.shapedBy(query: String, criteria: TaskListCriteria): ShapedTaskList {
+    val filtered = filteredBy(query)
 
     return with(criteria) {
         if (grouped) {

@@ -27,7 +27,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 03 | [articulos](03-articulos.md) | Lista + detalle, navegación, `data class`/`sealed` | ✅ |
 | 03b | [filtro-orden-memoria](03b-filtro-orden-memoria.md) | Fundamentos de Kotlin: null-safety, `when`, colecciones, alcance, extensiones | ✅ |
 | 04 | [tareas-contador](04-tareas-contador.md) | Room (CRUD), cuenta atrás, lógica pura de tiempo, `Flow` | ✅ |
-| 04b | [buscador-tareas](04b-buscador-tareas.md) | Corrutinas y `Flow` a fondo: `debounce`, `combine`, `stateIn` | 🚧 |
+| 04b | [buscador-tareas](04b-buscador-tareas.md) | Corrutinas y `Flow` a fondo: `debounce`, `combine`, `stateIn` | ✅ |
 | 04c | [testing-estadisticas](04c-testing-estadisticas.md) | Testing: JUnit JVM, Compose UI, `runTest` | 🚧 |
 
 ## Bloque 2 — Plataforma Android (background, sistema, preferencias)

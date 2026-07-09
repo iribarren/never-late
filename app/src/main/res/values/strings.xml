@@ -82,6 +82,8 @@
 
     <!-- Feature 03b: in-memory filter/sort/group controls, above the list. -->
     <string name="tasks_filter_label">Buscar por título</string>
+    <!-- Feature 04b: trailing "clear" (✕) icon on the search field, shown only while it has text. -->
+    <string name="tasks_filter_clear_content_description">Borrar búsqueda</string>
     <string name="tasks_sort_deadline">Plazo</string>
     <string name="tasks_sort_title">Título</string>
     <string name="tasks_sort_direction_ascending">Orden ascendente</string>
