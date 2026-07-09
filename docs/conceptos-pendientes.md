@@ -1,47 +1,68 @@
 # Conceptos pendientes — ideas para futuras lecciones
 
 > **Qué es esto:** un inventario de conceptos **básicos** de Kotlin y Android que las lecciones
-> 01–13 **todavía no enseñan** (o solo rozan), con una **feature de la app** propuesta para
-> introducir cada uno de forma didáctica y su **ubicación sugerida** en la secuencia de tutoriales.
+> publicadas (**01–20**) **todavía no enseñan** (o solo rozan), con una **feature de la app** propuesta
+> para introducir cada uno de forma didáctica y su **número definitivo** ya asignado en la secuencia de
+> tutoriales.
 >
-> **Qué NO es:** un compromiso ni un plan cerrado. Es un mapa de ideas para decidir qué enseñar a
-> continuación. **No implementes nada de aquí todavía** — cuando se elija una feature, se sigue el
-> flujo normal (spec → aprobación → rama → implementación → lección). Ver el
+> **Qué NO es:** un compromiso de implementar todo ya. Es un mapa de ideas para decidir qué enseñar a
+> continuación. **No implementes nada de aquí sin arrancar el flujo normal** — cuando se elija una
+> feature, se sigue: spec → aprobación → rama → implementación → lección. Ver el
 > [flujo de nueva feature](../CLAUDE.md) y los prompts en [`docs/prompts/`](prompts/).
 
 La app es un **tutorial progresivo**: cada lección introduce conceptos nuevos, de lo básico a lo
 avanzado, reutilizando lo anterior (ver la *Tutorial Methodology* en el `CLAUDE.md`). Por eso cada
-concepto de abajo lleva una **ubicación sugerida**: solo puede colocarse **después** de las
+concepto de abajo lleva un **número de lección ya fijado**: solo puede colocarse **después** de las
 lecciones que introducen sus prerrequisitos.
+
+## El orden ya está bloqueado (léeme primero)
+
+Este documento se escribió cuando solo existían las lecciones **01–13**. Desde entonces se publicaron
+las features **14–20** (todas de diseño/UI), que de paso **ya cubrieron varios conceptos** de este
+backlog (ver *Estado* abajo). Para que la curva de aprendizaje siga teniendo sentido **sin renumerar
+nada de lo ya publicado**, las lecciones pendientes se insertan en su hueco pedagógico ideal usando
+**sufijos de letra** (el mismo patrón que la ya existente `12b`): p. ej. la lección de fundamentos de
+Kotlin es la **`03b`**, entre la 03 y la 04.
+
+- El número de cada pendiente es **definitivo**: cuando se implemente, su lección se llamará
+  `tutorial/NN-*.md` con ese número y su prompt ya está preparado en `docs/prompts/NN-*.md`.
+- **No se renumera ninguna lección publicada.** El número `feature NN` está acoplado 1:1 al código
+  (cientos de comentarios, tests, backend) y al historial git; los sufijos evitan tocar todo eso.
+- El orden de lectura completo (índice reader-facing) vive en [`tutorial/README.md`](../tutorial/README.md).
 
 ---
 
-## Índice por ubicación en la secuencia (roadmap)
+## Roadmap bloqueado (orden definitivo)
 
-La columna "Encaja" indica entre qué lecciones actuales cabría la nueva lección por dificultad.
-Ordenado de lo más temprano a lo más tardío.
+★ = lección pendiente (placeholder en `tutorial/`, prompt listo en `docs/prompts/`). Ordenado por su
+posición final en la secuencia.
 
-| Concepto | Encaja | Prerrequisitos | Feature propuesta |
-|----------|--------|----------------|-------------------|
-| Fundamentos de Kotlin (null-safety, `when`, colecciones) | entre 03 y 04 | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos en memoria |
-| Funciones de alcance y de extensión | entre 03 y 04 | 03 | Refactor de mapeo/formato con `let`/`apply` + extensiones |
-| Testing (JVM + Compose UI) | tras 04 | 04 (lógica pura de tiempo) | Tests de las funciones puras de tiempo y de una pantalla |
-| Corrutinas y `Flow` a fondo | entre 04 y 05 | 04 (corrutinas, `Flow`) | Buscador de tareas con `debounce` + `combine` |
-| Side-effects y ciclo de vida en Compose | entre 04 y 05 | 02–04 (estado, `ViewModel`) | Auto-scroll / snackbar de "tarea creada" con `LaunchedEffect` |
-| Animaciones en Compose | entre 05 y 06 | 02–04 (Compose, estado) | Animar el tachado/aparición de tareas al completarlas |
-| Carga de imágenes (Coil) | tras 10 | 10 (red, Retrofit/OkHttp) | Imagen de cabecera por artículo desde la API |
-| Inyección de dependencias (Hilt) | tras 09 (o tras 11) | 02–09 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt |
-| Arquitectura nombrada (UDF/MVVM/MVI) | transversal, tras 07 | 02–07 | Documentar + consolidar el patrón ya usado (poca UI nueva) |
-| Migraciones de Room reales + `TypeConverter` | tras 11 | 04/11 (Room, esquema) | Añadir un campo a `Task` con migración no destructiva |
-| Paginación (Paging 3) | tras 11 | 10/11 (red + Room) | Lista de artículos paginada desde el backend |
-| Build variants, R8/ProGuard y firma de release | tras 13 | 11–13 (backend, HTTPS pendiente) | Build `release` firmada con backend HTTPS + minificación |
-| Accesibilidad y tamaños de pantalla adaptativos | transversal, tras 07 | 02–07 (Compose, Material 3) | Repaso de accesibilidad + layout adaptable en tablet |
+| Nº | Concepto | Prerrequisitos | Feature propuesta | Estado |
+|----|----------|----------------|-------------------|--------|
+| **03b** ★ | Fundamentos de Kotlin (null-safety, `when`, colecciones, alcance, extensiones) | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos/tareas en memoria | ⬜ pendiente |
+| **04b** ★ | Corrutinas y `Flow` a fondo (`debounce`, `combine`, `stateIn`) | 04 (corrutinas, `Flow`, Room) | Buscador de tareas con `debounce` + `combine` | ⬜ pendiente |
+| **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ⬜ pendiente |
+| — | Side-effects en Compose (`LaunchedEffect`, `derivedStateOf`) | 02–04 | Snackbar "tarea creada" | ✅ hecho en **feature 17** |
+| — | Animaciones en Compose (`animateItem`, `animate*AsState`) | 02–04 | Animar aparición/tachado/desaparición de tareas | ✅ hecho en **features 17 y 19** |
+| **07b** ★ | Arquitectura nombrada (UDF/MVVM/capas) | 02–07 | Consolidar + documentar el patrón ya usado (poca UI nueva) | ⬜ pendiente |
+| **10b** ★ | Carga de imágenes con Coil | 10 (red, Retrofit/OkHttp) | Imagen de cabecera por artículo desde la API | ⬜ pendiente |
+| — | Theming dinámico (Material You / `dynamicColor`, roles de color) | 07 (tema, DataStore) | Preferencia de color dinámico + cromo de marca | ✅ hecho en **features 16 y 20** |
+| **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Añadir un campo a `Task` con migración no destructiva | ⬜ pendiente |
+| **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ⬜ pendiente |
+| **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ⬜ pendiente |
+| — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
+| **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |
+| **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
+
+**Pendientes: 10.** **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming dinámico y el
+repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap; cualquier
+feature futura no listada aquí se numeraría a partir de 22.
 
 ---
 
 ## Detalle por área
 
-### 1. Kotlin — fundamentos del lenguaje
+### 1. Kotlin — fundamentos del lenguaje → lección **03b**
 
 Las lecciones usan Kotlin idiomático, pero nunca se ha dedicado una lección a **explicar el propio
 lenguaje**. Un lector que venga de otro lenguaje agradecería un repaso explícito.
@@ -63,10 +84,10 @@ lenguaje**. Un lector que venga de otro lenguaje agradecería un repaso explíci
 
 **Feature propuesta:** un **filtro y ordenación** de la lista de artículos/tareas hecho en memoria
 (por texto, por fecha, agrupado por estado), que se apoya en colecciones + lambdas + funciones de
-alcance sin tocar la base de datos. **Ubicación:** entre la 03 y la 04 (ya se conocen `data class` y
-`sealed`, aún no Room).
+alcance. **Ubicación:** **03b** (ya se conocen `data class` y `sealed`; se puede plantear sobre la
+lista de artículos antes de profundizar en Room).
 
-### 2. Corrutinas y `Flow` a fondo
+### 2. Corrutinas y `Flow` a fondo → lección **04b**
 
 La 04 introduce corrutinas y `Flow` de forma pragmática, pero quedan conceptos centrales sin nombrar.
 
@@ -82,14 +103,14 @@ La 04 introduce corrutinas y `Flow` de forma pragmática, pero quedan conceptos 
   [Exceptions](https://kotlinlang.org/docs/exception-handling.html).
 
 **Feature propuesta:** un **buscador de tareas** con un `TextField` cuyo texto (un `StateFlow`) pasa
-por `debounce` + `combine` con la lista de Room para filtrar en caliente. **Ubicación:** entre la 04
-y la 05.
+por `debounce` + `combine` con la lista de Room para filtrar en caliente. **Ubicación:** **04b**
+(justo tras introducir `Flow` en la 04).
 
-### 3. Testing (hueco grande — ninguna lección lo enseña)
+### 3. Testing (hueco grande — ninguna lección lo enseña a fondo) → lección **04c**
 
-El proyecto ya tiene `src/test` (JVM) y `src/androidTest` (instrumentado) y el flujo de trabajo
-menciona un `qa-engineer`, pero **ninguna lección enseña a escribir tests**. Es probablemente el
-básico más importante que falta.
+El proyecto ya tiene `src/test` (JVM) y `src/androidTest` (instrumentado), el flujo menciona un
+`qa-engineer` y varias features escriben tests, pero **ninguna lección enseña a escribir tests** como
+tema propio. Es probablemente el básico más importante que falta.
 
 - **Tests unitarios JVM con JUnit** y aserciones (Truth/JUnit assertions), *test doubles*/fakes.
   Doc: [Test basics](https://developer.android.com/training/testing/fundamentals) ·
@@ -101,13 +122,11 @@ básico más importante que falta.
 
 **Feature propuesta:** una **pantalla de estadísticas** ("tareas completadas esta semana", "% a
 tiempo") cuyo cálculo vive en una función pura muy testeable, más un par de tests de UI de la
-pantalla. Enlaza de forma natural con las funciones puras de tiempo de la 04. **Ubicación:** tras la
-04 (o como lección transversal, ya que todas las features futuras la reutilizarían).
+pantalla. Enlaza de forma natural con las funciones puras de tiempo de la 04. **Ubicación:** **04c**.
 
 ### 4. Arquitectura y Compose avanzado
 
-El proyecto **usa** UDF/MVVM desde la 02 pero nunca lo nombra ni explica los *side-effects* de
-Compose, que hoy aparecen (`LaunchedEffect` en la 13) sin lección propia.
+El proyecto **usa** UDF/MVVM desde la 02 pero nunca lo nombra.
 
 - **UDF / MVVM / capas (UI, dominio, datos).** Doc:
   [Guide to app architecture](https://developer.android.com/topic/architecture).
@@ -120,16 +139,20 @@ Compose, que hoy aparecen (`LaunchedEffect` en la 13) sin lección propia.
 - **Animaciones.** `animate*AsState`, `AnimatedVisibility`. Doc:
   [Animations in Compose](https://developer.android.com/develop/ui/compose/animation/introduction).
 
-**Feature propuesta (side-effects):** un **snackbar/scroll automático** al crear una tarea
-(desplazar la lista al elemento nuevo con `LaunchedEffect`). **Feature propuesta (animaciones):**
-animar el **tachado y la desaparición** de una tarea al completarla. **Ubicación:** side-effects
-entre la 04 y la 05; animaciones entre la 05 y la 06. La lección de arquitectura puede ser
-transversal (poca UI nueva, mucho "poner nombre" a lo ya hecho) tras la 07.
+✅ **Side-effects y animaciones: ya hechos.** La **feature 17** (`17-estados-animaciones`) introdujo
+`LaunchedEffect` para eventos de una sola vez (Snackbar "tarea creada"), `derivedStateOf`,
+`Modifier.animateItem()` y `AnimatedVisibility`; la **feature 19** (`19-barra-progreso-tareas`) añadió
+`animateFloatAsState`. Las propuestas originales (snackbar al crear, animar el tachado/desaparición)
+quedaron cubiertas por esas features.
 
-### 5. Inyección de dependencias real (Hilt/Koin)
+**Pendiente — arquitectura nombrada → lección 07b.** Una lección **transversal** que *pone nombre* al
+patrón UDF/MVVM ya usado y documenta las capas UI/dominio/datos (poca UI nueva, mucho "consolidar").
+**Ubicación:** **07b** (tras tener UI + dominio + datos con la 07).
 
-Desde la 02 la app hace **DI manual** (`ViewModelProvider.Factory`, singletons construidos a mano).
-El coste crece con cada feature; es el momento didáctico perfecto para introducir un contenedor.
+### 5. Inyección de dependencias real (Hilt/Koin) → lección **13d**
+
+Desde la 02 la app hace **DI manual** (`AppViewModelFactory`, singletons construidos a mano). El coste
+crece con cada feature; es el momento didáctico perfecto para introducir un contenedor.
 
 - **Hilt** (recomendado en Android): `@HiltAndroidApp`, `@Inject`, `@Module`, `@Provides`,
   `hiltViewModel()`. Doc: [Dependency injection with Hilt](https://developer.android.com/training/dependency-injection/hilt-android).
@@ -137,9 +160,9 @@ El coste crece con cada feature; es el momento didáctico perfecto para introduc
 
 **Feature propuesta:** **migrar la DI manual** existente (repositorios, base de datos, ViewModels) a
 Hilt, sin cambiar comportamiento — una lección de refactor guiado que muestra el "antes/después".
-**Ubicación:** tras la 09 o la 11, cuando el cableado manual ya es visiblemente tedioso.
+**Ubicación:** **13d**, cuando el cableado manual (backend + sync + auth) ya es máximamente tedioso.
 
-### 6. Datos: migraciones y paginación
+### 6. Datos: migraciones y paginación → lecciones **13b** y **13c**
 
 La 04/10/11 usan Room con `fallbackToDestructiveMigration` (borra datos al cambiar el esquema),
 aceptado pre-release. Un básico pendiente es la **migración de verdad**.
@@ -149,10 +172,10 @@ aceptado pre-release. Un básico pendiente es la **migración de verdad**.
 - **Paginación con Paging 3** (con Room y/o red). Doc:
   [Paging library](https://developer.android.com/topic/libraries/architecture/paging/v3-overview).
 
-**Feature propuesta (migración):** añadir un campo a `Task` (p. ej. `notes` o `priority`) con una
-**migración no destructiva** que conserve los datos existentes. **Feature propuesta (paging):**
-**lista de artículos paginada** desde el backend. **Ubicación:** tras la 11 (ya hay backend + Room
-con escrituras).
+**Feature propuesta (migración → 13b):** añadir un campo a `Task` (p. ej. `notes` o `priority`) con
+una **migración no destructiva** que conserve los datos existentes. **Feature propuesta
+(paging → 13c):** **lista de artículos paginada** desde el backend. **Ubicación:** tras el backend +
+Room con escrituras (11–13).
 
 ### 7. Recursos y UI
 
@@ -161,15 +184,25 @@ con escrituras).
   [Load images](https://developer.android.com/develop/ui/compose/graphics/images/loading).
 - **Theming dinámico (Material You / `dynamicColor`).** Doc:
   [Material 3 en Compose · dynamic color](https://developer.android.com/develop/ui/compose/designsystems/material3#dynamic).
-- **Accesibilidad a fondo y tamaños de pantalla adaptativos.** Doc:
+- **Accesibilidad y tamaños de pantalla adaptativos.** Doc:
   [Accessibility in Compose](https://developer.android.com/develop/ui/compose/accessibility) ·
   [Adaptive layouts](https://developer.android.com/develop/ui/compose/layouts/adaptive).
 
-**Feature propuesta:** **imagen de cabecera por artículo** traída de la API con Coil (encaja con la
-10), y/o un repaso de accesibilidad + layout adaptable para tablet. **Ubicación:** Coil tras la 10;
-accesibilidad/adaptativo transversal tras la 07.
+✅ **Theming dinámico: ya hecho.** La **feature 16** (`16-identidad-visual`) hizo `dynamicColor`
+configurable como preferencia y explicó los roles de color; la **feature 20** (`20-cromo-marca`)
+aplicó esos roles a los componentes (top bars, chips, FAB).
 
-### 8. Build y release
+✅ **Accesibilidad (repaso): ya hecho** en la **feature 18** (`18-navegacion-accesibilidad`):
+`semantics`, `contentDescription` vs decorativo, tamaño de toque ≥ 48dp y reflow con fuente grande.
+
+**Pendiente — Coil → lección 10b.** **Imagen de cabecera por artículo** traída de la API con Coil.
+**Ubicación:** **10b** (tras la red de la 10).
+
+**Pendiente — layouts adaptables → lección 18b.** La mitad de "adaptativo/tablet" que la 18 no
+abordó: layout que reflows en pantallas grandes (list-detail, `WindowSizeClass`). **Ubicación:**
+**18b**, continuando el repaso de la 18.
+
+### 8. Build y release → lección **21**
 
 La app solo construye `debug`. Antes de un despliegue real (el `CLAUDE.md` ya marca **HTTPS
 pendiente**), hay conceptos de build sin cubrir.
@@ -183,15 +216,17 @@ pendiente**), hay conceptos de build sin cubrir.
 
 **Feature propuesta:** preparar una **build `release`** firmada, con R8 activado y apuntando al
 backend por **HTTPS** (retirando la excepción de cleartext de debug) — cierra el pendiente de
-seguridad de las lecciones 11–12. **Ubicación:** tras la 13, como lección de "llevar la app a
+seguridad de las lecciones 11–12. **Ubicación:** **21**, como lección final de "llevar la app a
 producción".
 
 ---
 
 ## Cómo usar este documento
 
-1. Elegir un concepto/feature de la tabla según lo que toque enseñar a continuación.
-2. Arrancar el **flujo de nueva feature** del `CLAUDE.md` (spec con `project-manager-docs` →
-   aprobación → rama `feature/<nombre>` → implementación → **lección Spanish** `tutorial/NN-*.md`).
-3. Numerar la lección según su ubicación real y actualizar los prompts en
-   [`docs/prompts/`](prompts/) si procede.
+1. Elegir el **siguiente slot pendiente** (⬜) según lo que toque enseñar. Su número ya está fijado —
+   no hay que decidir dónde encaja ni renumerar nada.
+2. Coger el prompt ya preparado en [`docs/prompts/`](prompts/) (`NN-*.md`, mismo número que el slot) y
+   arrancar el **flujo de nueva feature** del `CLAUDE.md` (spec con `project-manager-docs` → aprobación
+   → rama `feature/<nombre>` → implementación → **lección Spanish** `tutorial/NN-*.md`).
+3. Rellenar el **stub** `tutorial/NN-*.md` (hoy un placeholder 🚧) con la lección real, y marcar la fila
+   como ✅ en la tabla de arriba y en [`tutorial/README.md`](../tutorial/README.md).
