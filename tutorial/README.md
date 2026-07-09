@@ -39,7 +39,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 05 | [widget](05-widget.md) | Widget con Glance + WorkManager (trabajo en background) | ✅ |
 | 06 | [lockscreen](06-lockscreen.md) | Notificaciones + servicio en primer plano | ✅ |
 | 07 | [ajustes](07-ajustes.md) | Pantalla de ajustes, tema claro/oscuro con DataStore | ✅ |
-| 07b | [arquitectura](07b-arquitectura.md) | Poner nombre al patrón: UDF / MVVM / capas (transversal) | 🚧 |
+| 07b | [arquitectura](07b-arquitectura.md) | Poner nombre al patrón: UDF / MVVM / capas (transversal) | ✅ |
 | 08 | [i18n](08-i18n.md) | Internacionalización, `plurals`, fechas locale-aware, desugaring | ✅ |
 | 09 | [recordatorios](09-recordatorios.md) | Alarmas antes del plazo, permiso de alarma exacta, reboot | ✅ |
 
