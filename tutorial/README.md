@@ -25,7 +25,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 01 | [entorno-y-hola-mundo](01-entorno-y-hola-mundo.md) | Entorno, estructura de un proyecto Android/Compose, Gradle | ✅ |
 | 02 | [onboarding-home](02-onboarding-home.md) | Compose, estado, `ViewModel`, primeros tests JVM | ✅ |
 | 03 | [articulos](03-articulos.md) | Lista + detalle, navegación, `data class`/`sealed` | ✅ |
-| 03b | [filtro-orden-memoria](03b-filtro-orden-memoria.md) | Fundamentos de Kotlin: null-safety, `when`, colecciones, alcance, extensiones | 🚧 |
+| 03b | [filtro-orden-memoria](03b-filtro-orden-memoria.md) | Fundamentos de Kotlin: null-safety, `when`, colecciones, alcance, extensiones | ✅ |
 | 04 | [tareas-contador](04-tareas-contador.md) | Room (CRUD), cuenta atrás, lógica pura de tiempo, `Flow` | ✅ |
 | 04b | [buscador-tareas](04b-buscador-tareas.md) | Corrutinas y `Flow` a fondo: `debounce`, `combine`, `stateIn` | 🚧 |
 | 04c | [testing-estadisticas](04c-testing-estadisticas.md) | Testing: JUnit JVM, Compose UI, `runTest` | 🚧 |

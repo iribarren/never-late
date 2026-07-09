@@ -8,7 +8,7 @@ silently accumulating.
 
 Update this table in the **Design review** step of every feature that touches UI.
 
-**Legend:** ✅ done · 🟡 partial · ⬜ pending
+**Legend:** ✅ done · 🟡 partial · ⬜ pending · — not a mockup slice (net-new UI, tracked for context)
 
 ## Slice status
 
@@ -24,6 +24,7 @@ Update this table in the **Design review** step of every feature that touches UI
 | Task-card time-elapsed progress bar | 19 · barra de progreso | ✅ | Determinate `LinearProgressIndicator` per `TaskRow`, colored by `colorForUrgency` (reuses 17), `animateFloatAsState`; fraction from pure `deadlineProgressFor` over `estimatedDurationMillis` (no bar when absent). |
 | Brand-colored top app bars | 20 · cromo de marca | ✅ | Shared `brandedTopAppBarColors()` (`primary` container + `onPrimary` content) on every `TopAppBar` (Tasks/Articles/Settings + Article Detail/Task Edit/Login/Register/Onboarding). Role-based → light/dark/Material You for free. |
 | Colored leading-icon chips on task/list rows | 20 · cromo de marca | ✅ | `ui/components/BrandIconChip` (~40dp rounded `secondaryContainer`/`onSecondaryContainer`, decorative `contentDescription = null`) as the leading element of task and article rows. |
+| Tasks filter / sort / group controls | 03b · filtro y orden | — | **Not in the master mockup** (which has no search/filter/sort screen); net-new UI. Reuses existing primitives — `OutlinedTextField` + `FilterChip`s in a reflowing `FlowRow`, ≥48dp touch targets via `minimumInteractiveComponentSize()`, `NoResults` via `ui/components/MessageState`. No mockup slice claimed. |
 | Branded FAB styling | 20 · cromo de marca | ✅ | Tasks FAB uses `primary`/`onPrimary` (default elevation; mockup's colored shadow not pixel-matched — acceptable per spec). |
 
 ## How to use this table
