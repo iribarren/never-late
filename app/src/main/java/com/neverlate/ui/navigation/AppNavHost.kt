@@ -43,6 +43,7 @@ import com.neverlate.ui.auth.RegisterRoute
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingRoute
 import com.neverlate.ui.settings.SettingsRoute
+import com.neverlate.ui.stats.StatsRoute
 import com.neverlate.ui.tasks.TASK_CREATED_RESULT_KEY
 import com.neverlate.ui.tasks.TaskEditRoute
 import com.neverlate.ui.tasks.TasksRoute
@@ -57,6 +58,7 @@ private object Routes {
     const val TASKS = "tasks"
     const val TASK_EDIT = "taskEdit"
     const val SETTINGS = "settings"
+    const val STATS = "stats"
 }
 
 /**
@@ -324,6 +326,9 @@ private fun MainAppNavHost(
                             taskRepository = taskRepository,
                             onAddTaskClick = { navController.navigate(Routes.TASK_EDIT) },
                             onTaskClick = { taskId -> navController.navigate("${Routes.TASK_EDIT}/$taskId") },
+                            // Feature 04c: a top-bar action on Tasks, not a fourth bottom-nav tab
+                            // (Out of Scope) — see StatsScreen's KDoc and Routes.STATS below.
+                            onStatsClick = { navController.navigate(Routes.STATS) },
                             // Tasks is a top-level tab now (feature 18): no back arrow, the bottom
                             // bar replaces it — it is also the landing destination, so there is
                             // nowhere "back" would go anyway.
@@ -334,6 +339,15 @@ private fun MainAppNavHost(
                             // SavedStateHandle, not a ViewModel flag, is the right carrier for a
                             // result crossing back from another destination.
                             taskCreatedHandle = backStackEntry.savedStateHandle,
+                        )
+                    }
+                    // Feature 04c: Stats is a *secondary* screen (not in TOP_LEVEL_ROUTES above),
+                    // reached only from the Tasks top bar — back arrow shown, bottom bar hidden,
+                    // exactly like Article Detail / Task Edit.
+                    composable(Routes.STATS) {
+                        StatsRoute(
+                            taskRepository = taskRepository,
+                            onBack = { navController.popBackStack() },
                         )
                     }
                     composable(Routes.TASK_EDIT) {

@@ -190,4 +190,20 @@
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Offline. Changes will sync later.</string>
     <string name="tasks_sync_error">Couldn\'t sync. Will retry automatically.</string>
+
+    <!-- Tasks list screen: mark-done checkbox + Stats entry point (feature 04c) -->
+    <string name="tasks_mark_done_content_description">Mark done</string>
+    <string name="tasks_completed_content_description">Completed</string>
+    <string name="tasks_stats_content_description">View statistics</string>
+
+    <!-- Statistics screen (feature 04c): three single-number cards for the current week. -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_back_content_description">Back</string>
+    <string name="stats_completed_label">Completed this week</string>
+    <string name="stats_on_time_label">On time</string>
+    <!-- Placeholder shown instead of a percentage when there are no dated completions this week
+         to compute a ratio from — never "0%", which would misleadingly read as "always late". -->
+    <string name="stats_on_time_undefined">—</string>
+    <string name="stats_due_soon_label">Due soon</string>
+    <string name="stats_empty">No tasks yet.</string>
 </resources>

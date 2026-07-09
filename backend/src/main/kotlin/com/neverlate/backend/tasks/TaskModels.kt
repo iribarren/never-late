@@ -13,6 +13,7 @@ data class Task(
     val title: String,
     val estimatedDurationMillis: Long?,
     val deadline: Long?,
+    val completedAt: Long?,
     val deleted: Boolean,
     val updatedAt: Long,
     val createdAt: Long,
@@ -24,6 +25,7 @@ fun Task.toDto() = TaskDto(
     title = title,
     estimatedDurationMillis = estimatedDurationMillis,
     deadline = deadline,
+    completedAt = completedAt,
     deleted = deleted,
     updatedAt = updatedAt,
     createdAt = createdAt,
@@ -37,6 +39,7 @@ data class TaskDto(
     val title: String,
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
+    val completedAt: Long? = null,
     val deleted: Boolean = false,
     val updatedAt: Long,
     val createdAt: Long,
@@ -45,28 +48,31 @@ data class TaskDto(
 /** `POST /tasks` request body (contract.md §3). `updatedAt` is accepted for API-shape symmetry
  *  with the client's local row, but the server is authoritative: the stored `updatedAt` is
  *  always set from the server clock (contract.md: "The server is the authority on a task's
- *  updatedAt and id"), not copied from this field. */
+ *  updatedAt and id"), not copied from this field. `completedAt` (unlike `id`/`updatedAt`) IS
+ *  client-provided, like `deadline` — a task may in principle be created already-completed. */
 @Serializable
 data class CreateTaskRequest(
     val clientRef: String,
     val title: String,
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
+    val completedAt: Long? = null,
     val updatedAt: Long? = null,
 )
 
 /** `PATCH /tasks/{id}` request body shape, for documentation/OpenAPI purposes (contract.md §3).
- *  The actual route does NOT decode into this type directly: `estimatedDurationMillis` and
- *  `deadline` need to distinguish "key omitted" (leave unchanged) from "key present with value
- *  `null`" (clear the field), which a plain `@Serializable` data class can't express — see
- *  [com.neverlate.backend.common.PatchValue] and how `tasks/TaskRoutes.kt` reads the raw JSON
- *  object instead. `title` doesn't need this treatment: a task's title is never allowed to be
- *  blank/absent (domain rule), so `title: null` unambiguously means "unchanged". */
+ *  The actual route does NOT decode into this type directly: `estimatedDurationMillis`,
+ *  `deadline`, and `completedAt` need to distinguish "key omitted" (leave unchanged) from "key
+ *  present with value `null`" (clear the field), which a plain `@Serializable` data class can't
+ *  express — see [com.neverlate.backend.common.PatchValue] and how `tasks/TaskRoutes.kt` reads
+ *  the raw JSON object instead. `title` doesn't need this treatment: a task's title is never
+ *  allowed to be blank/absent (domain rule), so `title: null` unambiguously means "unchanged". */
 @Serializable
 data class UpdateTaskRequest(
     val title: String? = null,
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
+    val completedAt: Long? = null,
     val updatedAt: Long,
 )
 

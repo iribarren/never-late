@@ -70,6 +70,13 @@ fun List<TaskUiModel>.filteredBy(query: String): List<TaskUiModel> =
  * would flip the null-vs-non-null comparison too, moving null deadlines to the *front* instead.
  * `nullsLast(reverseOrder())` reverses only the ordering *among non-null* deadlines, leaving
  * `nullsLast`'s own "null sorts last" behavior untouched.
+ *
+ * Feature 04c: a completed task ([com.neverlate.data.tasks.Task.completedAt] non-null) always
+ * sorts **after** every pending one, regardless of [field]/[direction] — done work is no longer
+ * something to act on, so it drops to the bottom rather than competing for a spot by deadline or
+ * title. `compareBy { completed }` (false < true) is prepended as the *primary* key, with the
+ * field/direction comparator only breaking ties within each of the two groups — `.then` runs the
+ * second comparator only when the first left two elements equal.
  */
 fun List<TaskUiModel>.sortedBy(field: TaskSortField, direction: SortDirection): List<TaskUiModel> {
     val comparator: Comparator<TaskUiModel> = when (field) {
@@ -82,7 +89,8 @@ fun List<TaskUiModel>.sortedBy(field: TaskSortField, direction: SortDirection): 
             SortDirection.Descending -> compareByDescending { it.task.title.lowercase() }
         }
     }
-    return sortedWith(comparator)
+    val completedLast = compareBy<TaskUiModel> { it.task.completedAt != null }.then(comparator)
+    return sortedWith(completedLast)
 }
 
 /**
@@ -90,9 +98,18 @@ fun List<TaskUiModel>.sortedBy(field: TaskSortField, direction: SortDirection): 
  * second way — the "extend, don't duplicate" rule this project already applies to domain logic.
  * [groupBy] returns entries in **first-seen** order, not [UrgencyLevel]'s own declaration order,
  * which is why [shapedBy] below re-orders the result explicitly before it reaches the screen.
+ *
+ * Feature 04c: a completed task is never "urgent" (its countdown/urgency color is not even shown —
+ * see [com.neverlate.ui.tasks.TaskRow]), so it is bucketed as [UrgencyLevel.Calm] here regardless
+ * of its actual `remainingMillis`/`isTimedOut` — reusing the calmest existing section instead of
+ * inventing a dedicated "completed" one (out of scope for this feature). [sortedBy]'s
+ * completed-last ordering then sinks it below any genuinely calm *pending* tasks within that
+ * section.
  */
 fun List<TaskUiModel>.groupedByUrgency(): Map<UrgencyLevel, List<TaskUiModel>> =
-    groupBy { urgencyLevelFor(it.remainingMillis, it.isTimedOut) }
+    groupBy { uiModel ->
+        if (uiModel.task.completedAt != null) UrgencyLevel.Calm else urgencyLevelFor(uiModel.remainingMillis, uiModel.isTimedOut)
+    }
 
 /**
  * Display order for urgency sections: most urgent first. This is the **opposite** of

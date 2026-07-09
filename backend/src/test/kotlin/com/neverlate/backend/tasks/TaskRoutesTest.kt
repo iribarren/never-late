@@ -46,6 +46,7 @@ class TaskRoutesTest {
         title: String = "Buy milk",
         estimatedDurationMillis: Long? = 1_800_000L,
         deadline: Long? = null,
+        completedAt: Long? = null,
     ): HttpResponse = post("/tasks") {
         header("Authorization", "Bearer $token")
         contentType(ContentType.Application.Json)
@@ -57,6 +58,7 @@ class TaskRoutesTest {
                     title = title,
                     estimatedDurationMillis = estimatedDurationMillis,
                     deadline = deadline,
+                    completedAt = completedAt,
                     updatedAt = System.currentTimeMillis(),
                 ),
             ),
@@ -223,5 +225,79 @@ class TaskRoutesTest {
         val updated = Json.decodeFromString(TaskDto.serializer(), response.bodyAsText())
         assertEquals(null, updated.deadline)
         assertEquals(1_800_000L, updated.estimatedDurationMillis) // untouched
+    }
+
+    @Test
+    fun `completedAt round-trips through create and a since pull`() = testApplication {
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        val client = jsonClient()
+        val auth = client.registerAndLogin("hank@example.com")
+        val completedAt = System.currentTimeMillis()
+
+        val created = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.createTask(auth.accessToken, clientRef = "completed-ref", completedAt = completedAt).bodyAsText(),
+        )
+        assertEquals(completedAt, created.completedAt)
+
+        // completedAt travels with the task on a pull, like any other field (contract.md §5).
+        val list = Json.decodeFromString(
+            TasksResponse.serializer(),
+            client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.accessToken}") }.bodyAsText(),
+        )
+        assertEquals(completedAt, list.tasks.first { it.id == created.id }.completedAt)
+    }
+
+    @Test
+    fun `PATCH sets completedAt to mark a task done, and an omitted completedAt leaves it unchanged`() = testApplication {
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        val client = jsonClient()
+        val auth = client.registerAndLogin("iris@example.com")
+        val created = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.createTask(auth.accessToken, clientRef = "mark-done-ref").bodyAsText(),
+        )
+        assertEquals(null, created.completedAt)
+
+        val markDoneAt = created.updatedAt + 1000
+        val markDoneResponse = client.patch("/tasks/${created.id}") {
+            header("Authorization", "Bearer ${auth.accessToken}")
+            contentType(ContentType.Application.Json)
+            setBody("""{"completedAt": $markDoneAt, "updatedAt": $markDoneAt}""")
+        }
+        val markedDone = Json.decodeFromString(TaskDto.serializer(), markDoneResponse.bodyAsText())
+        assertEquals(markDoneAt, markedDone.completedAt)
+
+        // A PATCH that omits "completedAt" entirely must leave it unchanged (not clear it) — the
+        // same absent-vs-null distinction the route already gives deadline/estimatedDurationMillis.
+        val untouchedResponse = client.patch("/tasks/${created.id}") {
+            header("Authorization", "Bearer ${auth.accessToken}")
+            contentType(ContentType.Application.Json)
+            setBody("""{"title": "Still done", "updatedAt": ${markDoneAt + 1000}}""")
+        }
+        val untouched = Json.decodeFromString(TaskDto.serializer(), untouchedResponse.bodyAsText())
+        assertEquals(markDoneAt, untouched.completedAt) // unchanged by the omitted-field PATCH
+    }
+
+    @Test
+    fun `PATCH with present-null completedAt clears it (un-completes the task)`() = testApplication {
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        val client = jsonClient()
+        val auth = client.registerAndLogin("jules@example.com")
+        val completedAt = System.currentTimeMillis()
+        val created = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.createTask(auth.accessToken, clientRef = "uncomplete-ref", completedAt = completedAt).bodyAsText(),
+        )
+        assertEquals(completedAt, created.completedAt)
+
+        val response = client.patch("/tasks/${created.id}") {
+            header("Authorization", "Bearer ${auth.accessToken}")
+            contentType(ContentType.Application.Json)
+            setBody("""{"completedAt": null, "updatedAt": ${created.updatedAt + 1000}}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val updated = Json.decodeFromString(TaskDto.serializer(), response.bodyAsText())
+        assertEquals(null, updated.completedAt) // explicit null clears (un-completes)
     }
 }

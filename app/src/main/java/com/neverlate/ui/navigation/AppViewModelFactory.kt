@@ -13,6 +13,7 @@ import com.neverlate.ui.auth.RegisterViewModel
 import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingViewModel
 import com.neverlate.ui.settings.SettingsViewModel
+import com.neverlate.ui.stats.StatsViewModel
 import com.neverlate.ui.tasks.TaskEditViewModel
 import com.neverlate.ui.tasks.TasksViewModel
 
@@ -75,6 +76,12 @@ class AppViewModelFactory(
 
         modelClass.isAssignableFrom(TaskEditViewModel::class.java) ->
             TaskEditViewModel(requireTaskRepository(), taskId) as T
+
+        // Feature 04c: StatsViewModel's Clock parameter keeps its own default
+        // (Clock.systemDefaultZone()) — this factory only ever needs to supply taskRepository,
+        // same as TasksViewModel above.
+        modelClass.isAssignableFrom(StatsViewModel::class.java) ->
+            StatsViewModel(requireTaskRepository()) as T
 
         modelClass.isAssignableFrom(LoginViewModel::class.java) ->
             LoginViewModel(requireAuthRepository()) as T

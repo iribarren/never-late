@@ -3,6 +3,7 @@ package com.neverlate.ui.tasks
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -54,8 +57,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.SavedStateHandle
@@ -116,6 +121,7 @@ fun TasksRoute(
     taskRepository: TaskRepository,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
+    onStatsClick: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: TasksViewModel = viewModel(factory = AppViewModelFactory(taskRepository = taskRepository)),
@@ -165,10 +171,12 @@ fun TasksRoute(
         onStartClick = viewModel::startTimer,
         onPauseClick = viewModel::pauseTimer,
         onDeleteClick = viewModel::deleteTask,
+        onToggleComplete = viewModel::toggleComplete,
         onQueryChange = viewModel::onQueryChange,
         onSortFieldChange = viewModel::onSortFieldChange,
         onToggleSortDirection = viewModel::onToggleSortDirection,
         onToggleGrouping = viewModel::onToggleGrouping,
+        onStatsClick = onStatsClick,
         onBack = onBack,
         modifier = modifier,
     )
@@ -197,10 +205,12 @@ fun TasksScreen(
     onStartClick: (Long) -> Unit,
     onPauseClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
+    onToggleComplete: (Task) -> Unit,
     onQueryChange: (String) -> Unit,
     onSortFieldChange: (TaskSortField) -> Unit,
     onToggleSortDirection: () -> Unit,
     onToggleGrouping: () -> Unit,
+    onStatsClick: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -220,6 +230,16 @@ fun TasksScreen(
                                 contentDescription = stringResource(R.string.tasks_back_content_description),
                             )
                         }
+                    }
+                },
+                actions = {
+                    // Feature 04c (US-3): opens the Stats screen, a secondary destination — see
+                    // AppNavHost's Routes.STATS, deliberately not a fourth bottom-nav tab.
+                    IconButton(onClick = onStatsClick) {
+                        Icon(
+                            imageVector = Icons.Filled.BarChart,
+                            contentDescription = stringResource(R.string.tasks_stats_content_description),
+                        )
                     }
                 },
                 colors = brandedTopAppBarColors(),
@@ -295,6 +315,7 @@ fun TasksScreen(
                         onStartClick = onStartClick,
                         onPauseClick = onPauseClick,
                         onDeleteClick = onDeleteClick,
+                        onToggleComplete = onToggleComplete,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -332,6 +353,7 @@ private fun TaskList(
     onStartClick: (Long) -> Unit,
     onPauseClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
+    onToggleComplete: (Task) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(modifier = modifier.fillMaxSize()) {
@@ -339,13 +361,15 @@ private fun TaskList(
             // Modifier.animateItem() (feature 17) animates this row's placement whenever the
             // list around it changes shape — insertion, removal, or reorder — for free, as long
             // as the item's `key` above stays stable across recompositions (it already is). A
-            // deleted task's row animates out, and a newly created one animates in.
+            // deleted task's row animates out, and a newly created one animates in — and, since
+            // feature 04c, so does a row sinking to the bottom of the list once marked done.
             TaskRow(
                 uiModel = uiModel,
                 onClick = { onTaskClick(uiModel.task.id) },
                 onStartClick = { onStartClick(uiModel.task.id) },
                 onPauseClick = { onPauseClick(uiModel.task.id) },
                 onDeleteClick = { onDeleteClick(uiModel.task.id) },
+                onToggleComplete = { onToggleComplete(uiModel.task) },
                 modifier = Modifier.animateItem(),
             )
         }
@@ -467,6 +491,7 @@ private fun ShapedTaskListView(
     onStartClick: (Long) -> Unit,
     onPauseClick: (Long) -> Unit,
     onDeleteClick: (Long) -> Unit,
+    onToggleComplete: (Task) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (shaped) {
@@ -476,6 +501,7 @@ private fun ShapedTaskListView(
             onStartClick = onStartClick,
             onPauseClick = onPauseClick,
             onDeleteClick = onDeleteClick,
+            onToggleComplete = onToggleComplete,
             modifier = modifier,
         )
         is ShapedTaskList.Grouped -> LazyColumn(modifier = modifier.fillMaxSize()) {
@@ -490,6 +516,7 @@ private fun ShapedTaskListView(
                         onStartClick = { onStartClick(uiModel.task.id) },
                         onPauseClick = { onPauseClick(uiModel.task.id) },
                         onDeleteClick = { onDeleteClick(uiModel.task.id) },
+                        onToggleComplete = { onToggleComplete(uiModel.task) },
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -526,6 +553,7 @@ private fun TaskRow(
     onStartClick: () -> Unit,
     onPauseClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onToggleComplete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Whether the delete confirmation dialog is showing is purely local UI state — it never
@@ -533,13 +561,19 @@ private fun TaskRow(
     // TasksViewModel, same as showLogoutConfirm in SettingsScreen.
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val task = uiModel.task
+    // Feature 04c (US-1): a completed task never shows a countdown, progress bar, or urgency
+    // color — it is rendered checked + strikethrough instead (below). This single flag gates all
+    // of that, computed once per row rather than re-deriving "is this task done" at each spot.
+    val isCompleted = task.completedAt != null
 
     // Feature 17's urgency cue: urgencyLevelFor is a pure function of the same two values the
     // countdown Text below already reads, re-derived via derivedStateOf so that a *reader* of
     // urgencyLevel only recomposes when the derived UrgencyLevel itself actually changes (a
     // threshold crossing), not on every one-second tick that leaves the level unchanged — the
     // same "derive the cheap thing from the noisy thing" idea as MaterialTheme.colorScheme reads,
-    // just computed here instead of supplied by the framework.
+    // just computed here instead of supplied by the framework. Feature 04c: never read at all for
+    // a completed row (isCompleted short-circuits the Text/IconButton/progress bar below), so
+    // there is no wasted derivation there.
     val urgencyLevel by remember(uiModel.remainingMillis, uiModel.isTimedOut) {
         derivedStateOf { urgencyLevelFor(uiModel.remainingMillis, uiModel.isTimedOut) }
     }
@@ -565,6 +599,25 @@ private fun TaskRow(
         // the chip and the untouched Column, which takes the remaining width (weight(1f)) so long
         // titles/countdowns still wrap instead of crowding the chip at large font scales.
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            // Feature 04c (US-1): the mark-done control, leading the row ahead of the brand chip.
+            // Checkbox has no contentDescription parameter of its own (unlike Icon), so the
+            // coherent "Mark done" / "Completed" description is attached via Modifier.semantics
+            // instead — computed once as a plain String here (stringResource is @Composable and
+            // can't be called from inside the semantics lambda below). minimumInteractiveComponentSize
+            // is explicit (matching this screen's FilterChip usage above) even though Checkbox
+            // already reserves a touch target by default, to keep the ≥48dp guarantee visible at
+            // the call site rather than implicit.
+            val toggleCompleteDescription = stringResource(
+                if (isCompleted) R.string.tasks_completed_content_description else R.string.tasks_mark_done_content_description,
+            )
+            Checkbox(
+                checked = isCompleted,
+                onCheckedChange = { onToggleComplete() },
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .semantics { contentDescription = toggleCompleteDescription },
+            )
+
             BrandIconChip(icon = Icons.AutoMirrored.Filled.Assignment)
 
             Column(
@@ -572,7 +625,16 @@ private fun TaskRow(
                     .weight(1f)
                     .padding(start = 16.dp),
             ) {
-                Text(text = task.title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    // US-1: strikethrough + de-emphasized color are the only visual change a
+                    // completed row's title gets — both theme tokens (TextDecoration is a style
+                    // primitive, not a color; onSurfaceVariant is the same de-emphasized role
+                    // SectionHeader/MessageState already use), never a hardcoded gray.
+                    textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
+                    color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+                )
 
                 task.estimatedDurationMillis?.let { duration ->
                     Text(
@@ -594,6 +656,9 @@ private fun TaskRow(
                     )
                 }
 
+                // Feature 04c (US-1): a completed task shows none of the countdown row below — no
+                // live countdown, no start/pause control, no urgency color. It keeps the delete
+                // button, so a finished task can still be removed from the list entirely.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -601,23 +666,29 @@ private fun TaskRow(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(
-                        text = if (uiModel.isTimedOut) {
-                            stringResource(R.string.tasks_time_up)
-                        } else {
-                            formatRemaining(uiModel.remainingMillis)
-                        },
-                        style = MaterialTheme.typography.headlineSmall,
-                        // Urgency cue, now told twice (feature 19 adds the bar below to the color
-                        // this text already had since feature 17). Overdue never relies on color
-                        // alone: the "Tiempo agotado" / "Time's up" text above is still shown
-                        // regardless of this color, so the state is legible even without color
-                        // perception.
-                        color = colorForUrgency(urgencyLevel),
-                    )
+                    if (!isCompleted) {
+                        Text(
+                            text = if (uiModel.isTimedOut) {
+                                stringResource(R.string.tasks_time_up)
+                            } else {
+                                formatRemaining(uiModel.remainingMillis)
+                            },
+                            style = MaterialTheme.typography.headlineSmall,
+                            // Urgency cue, now told twice (feature 19 adds the bar below to the
+                            // color this text already had since feature 17). Overdue never relies
+                            // on color alone: the "Tiempo agotado" / "Time's up" text above is
+                            // still shown regardless of this color, so the state is legible even
+                            // without color perception.
+                            color = colorForUrgency(urgencyLevel),
+                        )
+                    } else {
+                        // An empty weighted spacer keeps the delete button pinned to the trailing
+                        // edge (SpaceBetween needs two children to have anything to space between).
+                        Box(modifier = Modifier.weight(1f))
+                    }
 
                     Row {
-                        if (!uiModel.isTimedOut) {
+                        if (!isCompleted && !uiModel.isTimedOut) {
                             IconButton(onClick = if (task.isRunning) onPauseClick else onStartClick) {
                                 Icon(
                                     imageVector = if (task.isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -643,34 +714,39 @@ private fun TaskRow(
                 // Feature 19: the deferred progress bar from feature 17's "v1: no progress bar"
                 // note. `progress` is null exactly when there is no meaningful total window (see
                 // deadlineProgressFor) — in that case we render nothing, rather than an arbitrary
-                // fill.
-                progress?.let { targetFraction ->
-                    // Animate the *rendered* value while the *target* comes from derivedStateOf
-                    // above: the target only changes when the fraction meaningfully moves, and
-                    // animateFloatAsState eases the visible bar toward it instead of snapping,
-                    // including the transition to a full bar on becoming overdue.
-                    val animatedProgress by animateFloatAsState(
-                        targetValue = targetFraction,
-                        label = "deadlineProgress",
-                    )
-                    val locale = LocalConfiguration.current.locales[0]
-                    val percentText = remember(locale) { NumberFormat.getPercentInstance(locale) }
-                        .format(targetFraction)
-                    val progressStateDescription =
-                        stringResource(R.string.tasks_progress_state_description, percentText)
-                    LinearProgressIndicator(
-                        progress = { animatedProgress },
-                        color = colorForUrgency(urgencyLevel),
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            // The determinate indicator already exposes progressBarRangeInfo
-                            // semantics for free (it is not decorative) — stateDescription adds a
-                            // human-readable percentage on top, so a screen reader announces e.g.
-                            // "45% transcurrido" instead of just a raw 0..1 ratio.
-                            .semantics { stateDescription = progressStateDescription },
-                    )
+                // fill. Feature 04c: also omitted entirely once completed (isCompleted) — a done
+                // task has no "time elapsed" left to show.
+                if (!isCompleted) {
+                    progress?.let { targetFraction ->
+                        // Animate the *rendered* value while the *target* comes from
+                        // derivedStateOf above: the target only changes when the fraction
+                        // meaningfully moves, and animateFloatAsState eases the visible bar
+                        // toward it instead of snapping, including the transition to a full bar
+                        // on becoming overdue.
+                        val animatedProgress by animateFloatAsState(
+                            targetValue = targetFraction,
+                            label = "deadlineProgress",
+                        )
+                        val locale = LocalConfiguration.current.locales[0]
+                        val percentText = remember(locale) { NumberFormat.getPercentInstance(locale) }
+                            .format(targetFraction)
+                        val progressStateDescription =
+                            stringResource(R.string.tasks_progress_state_description, percentText)
+                        LinearProgressIndicator(
+                            progress = { animatedProgress },
+                            color = colorForUrgency(urgencyLevel),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                                // The determinate indicator already exposes progressBarRangeInfo
+                                // semantics for free (it is not decorative) — stateDescription
+                                // adds a human-readable percentage on top, so a screen reader
+                                // announces e.g. "45% transcurrido" instead of just a raw 0..1
+                                // ratio.
+                                .semantics { stateDescription = progressStateDescription },
+                        )
+                    }
                 }
             }
         }
@@ -769,6 +845,7 @@ private fun TasksScreenContentPreview() {
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
+            onToggleComplete = {},
             onQueryChange = {},
             onSortFieldChange = {},
             onToggleSortDirection = {},
@@ -793,6 +870,7 @@ private fun TasksScreenEmptyPreview() {
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
+            onToggleComplete = {},
             onQueryChange = {},
             onSortFieldChange = {},
             onToggleSortDirection = {},
@@ -817,6 +895,7 @@ private fun TasksScreenNoResultsPreview() {
             onStartClick = {},
             onPauseClick = {},
             onDeleteClick = {},
+            onToggleComplete = {},
             onQueryChange = {},
             onSortFieldChange = {},
             onToggleSortDirection = {},

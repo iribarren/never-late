@@ -33,14 +33,15 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
         title: String,
         estimatedDurationMillis: Long?,
         deadline: Long?,
+        completedAt: Long?,
         now: Long,
     ): Task {
         dataSource.connection.use { conn ->
             conn.prepareStatement(
                 """
                 INSERT INTO tasks
-                    (user_id, client_ref, title, estimated_duration_ms, deadline, updated_at, deleted, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, FALSE, ?)
+                    (user_id, client_ref, title, estimated_duration_ms, deadline, completed_at, updated_at, deleted, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?)
                 RETURNING id
                 """.trimIndent(),
             ).use { stmt ->
@@ -49,8 +50,9 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
                 stmt.setString(3, title)
                 stmt.setNullableLong(4, estimatedDurationMillis)
                 stmt.setNullableLong(5, deadline)
-                stmt.setLong(6, now)
+                stmt.setNullableLong(6, completedAt)
                 stmt.setLong(7, now)
+                stmt.setLong(8, now)
                 stmt.executeQuery().use { rs ->
                     rs.next()
                     return Task(
@@ -60,6 +62,7 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
                         title = title,
                         estimatedDurationMillis = estimatedDurationMillis,
                         deadline = deadline,
+                        completedAt = completedAt,
                         deleted = false,
                         updatedAt = now,
                         createdAt = now,
@@ -75,22 +78,24 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
         title: String,
         estimatedDurationMillis: Long?,
         deadline: Long?,
+        completedAt: Long?,
         now: Long,
     ): Task? =
         dataSource.connection.use { conn ->
             conn.prepareStatement(
                 """
                 UPDATE tasks
-                SET title = ?, estimated_duration_ms = ?, deadline = ?, updated_at = ?
+                SET title = ?, estimated_duration_ms = ?, deadline = ?, completed_at = ?, updated_at = ?
                 WHERE user_id = ? AND id = ?
                 """.trimIndent(),
             ).use { stmt ->
                 stmt.setString(1, title)
                 stmt.setNullableLong(2, estimatedDurationMillis)
                 stmt.setNullableLong(3, deadline)
-                stmt.setLong(4, now)
-                stmt.setLong(5, userId)
-                stmt.setLong(6, id)
+                stmt.setNullableLong(4, completedAt)
+                stmt.setLong(5, now)
+                stmt.setLong(6, userId)
+                stmt.setLong(7, id)
                 val rows = stmt.executeUpdate()
                 if (rows == 0) null else findById(userId, id)
             }
@@ -135,6 +140,7 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
         title = getString("title"),
         estimatedDurationMillis = getLong("estimated_duration_ms").let { if (wasNull()) null else it },
         deadline = getLong("deadline").let { if (wasNull()) null else it },
+        completedAt = getLong("completed_at").let { if (wasNull()) null else it },
         deleted = getBoolean("deleted"),
         updatedAt = getLong("updated_at"),
         createdAt = getLong("created_at"),
@@ -142,6 +148,6 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
 
     private companion object {
         const val SELECT_COLUMNS =
-            "SELECT id, user_id, client_ref, title, estimated_duration_ms, deadline, deleted, updated_at, created_at"
+            "SELECT id, user_id, client_ref, title, estimated_duration_ms, deadline, completed_at, deleted, updated_at, created_at"
     }
 }

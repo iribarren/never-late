@@ -23,6 +23,7 @@ class TaskService(private val tasks: TaskRepository) {
         title: String,
         estimatedDurationMillis: Long?,
         deadline: Long?,
+        completedAt: Long? = null,
     ): CreateResult {
         tasks.findByClientRef(userId, clientRef)?.let { existing ->
             return CreateResult(task = existing.toDto(), created = false)
@@ -34,6 +35,7 @@ class TaskService(private val tasks: TaskRepository) {
             title = title,
             estimatedDurationMillis = estimatedDurationMillis,
             deadline = deadline,
+            completedAt = completedAt,
             now = System.currentTimeMillis(),
         )
         return CreateResult(task = task.toDto(), created = true)
@@ -48,6 +50,7 @@ class TaskService(private val tasks: TaskRepository) {
         title: String?,
         estimatedDurationMillis: PatchValue<Long>,
         deadline: PatchValue<Long>,
+        completedAt: PatchValue<Long>,
         clientUpdatedAt: Long,
     ): TaskDto {
         val current = tasks.findById(userId, id) ?: throw NotFoundException("No such task")
@@ -61,6 +64,7 @@ class TaskService(private val tasks: TaskRepository) {
         val mergedTitle = title ?: current.title
         val mergedDuration = estimatedDurationMillis.orElse(current.estimatedDurationMillis)
         val mergedDeadline = deadline.orElse(current.deadline)
+        val mergedCompletedAt = completedAt.orElse(current.completedAt)
         validate(title = mergedTitle, estimatedDurationMillis = mergedDuration, deadline = mergedDeadline)
 
         val updated = tasks.update(
@@ -69,6 +73,7 @@ class TaskService(private val tasks: TaskRepository) {
             title = mergedTitle,
             estimatedDurationMillis = mergedDuration,
             deadline = mergedDeadline,
+            completedAt = mergedCompletedAt,
             now = System.currentTimeMillis(),
         ) ?: throw NotFoundException("No such task")
         return updated.toDto()

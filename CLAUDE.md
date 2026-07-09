@@ -73,9 +73,23 @@ behind the Tasks screen's filter/sort/group-by-urgency controls, `nullsLast` dea
 new Room/network source; feature 04b then made the search **reactive** — `TasksViewModel` moved the
 query into its own `StateFlow` and feeds it through a `debounce` + `combine` + `stateIn` pipeline
 (`SharingStarted.WhileSubscribed`), with the auto-pause side effect split into its own `onEach`
-collector, reusing `shapedBy` unchanged; no new file/package/dependency)), and `ui/components` (feature 17, reusable UI building
-blocks — currently `MessageState`, the shared empty/error state used by the Tasks and Articles
-screens).
+collector, reusing `shapedBy` unchanged; no new file/package/dependency); and feature 04c's pure
+`weeklyStatsFor` in `TaskStats.kt` — `WeeklyTaskStats(completedThisWeek, onTimePercent, dueSoon)` over
+`(tasks, now, zone)`, ISO-week + 24h-due-soon constants, keyed on the new `Task.completedAt`), `ui/stats`
+(feature 04c, the statistics screen: pure-`StateFlow` `StatsViewModel` + stateless `StatsScreen`/`StatsRoute`,
+reached via a stats `IconButton` in the Tasks top bar as a secondary route — bottom bar hidden), and
+`ui/components` (feature 17, reusable UI building blocks — currently `MessageState`, the shared empty/error
+state used by the Tasks, Articles, and Stats screens).
+
+**Task completion + statistics** (feature 04c, the *testing* lesson): `Task` gains a real
+`completedAt: Long?` (epoch millis; `null` = pending) that **syncs** end-to-end — added to the `TaskDto`
+wire shape in `docs/api/contract.md` (no new endpoint; reuses `/tasks` CRUD + `?since=` pull, PATCH via the
+existing `PatchValue` omitted-vs-null mechanism) and the Postgres `tasks.completed_at` column, and rides the
+existing last-write-wins-by-`updatedAt` reconcile with no logic change. A per-row `Checkbox` on the Tasks
+list marks a task done (strikethrough, sorts last, no countdown/urgency) through the normal outbox/transaction
+save path. This bumps `NeverLateDatabase` **3 → 4** via the project's **first real additive `Migration(3,4)`**
+(`ALTER TABLE tasks ADD COLUMN completedAt INTEGER`, data-preserving — the destructive fallback would wipe
+guest-mode tasks that live only on-device). No new permission or dependency.
 
 **Reminders** (feature 09): schedules a one-shot *alerting* local notification a configurable lead
 time before a task's `deadline`, firing even with the app closed, and reschedules after reboot. Pure

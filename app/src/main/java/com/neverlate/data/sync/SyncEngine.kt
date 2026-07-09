@@ -135,6 +135,7 @@ class SyncEngine(
                                     title = dto.title,
                                     estimatedDurationMillis = dto.estimatedDurationMillis,
                                     deadline = dto.deadline,
+                                    completedAt = dto.completedAt,
                                     updatedAt = dto.updatedAt,
                                     syncState = SyncState.SYNCED,
                                 ),

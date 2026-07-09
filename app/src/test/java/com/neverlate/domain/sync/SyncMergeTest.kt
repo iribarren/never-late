@@ -21,7 +21,15 @@ class SyncMergeTest {
         title: String = "Pulled title",
         updatedAt: Long = 1_000L,
         deleted: Boolean = false,
-    ) = TaskDto(id = id, clientRef = clientRef, title = title, updatedAt = updatedAt, deleted = deleted)
+        completedAt: Long? = null,
+    ) = TaskDto(
+        id = id,
+        clientRef = clientRef,
+        title = title,
+        updatedAt = updatedAt,
+        deleted = deleted,
+        completedAt = completedAt,
+    )
 
     private fun local(
         id: Long = 7L,
@@ -30,7 +38,16 @@ class SyncMergeTest {
         updatedAt: Long = 1_000L,
         syncState: SyncState = SyncState.SYNCED,
         deleted: Boolean = false,
-    ) = Task(id = id, title = title, serverId = serverId, updatedAt = updatedAt, syncState = syncState, deleted = deleted)
+        completedAt: Long? = null,
+    ) = Task(
+        id = id,
+        title = title,
+        serverId = serverId,
+        updatedAt = updatedAt,
+        syncState = syncState,
+        deleted = deleted,
+        completedAt = completedAt,
+    )
 
     // No local row -------------------------------------------------------------------------------
 
@@ -189,5 +206,50 @@ class SyncMergeTest {
         val action = reconcilePulledTask(existing, pulled)
 
         assertEquals(PulledTaskAction.Ignore, action)
+    }
+
+    // Completion (feature 04c) — reconcilePulledTask needs no logic change for this: completedAt
+    // rides along inside TaskDto/Task like any other field, under the exact same rules above. ------
+
+    @Test
+    fun `pulling a dto with completedAt set upserts the completion onto the local task`() {
+        val existing = local(syncState = SyncState.SYNCED, completedAt = null)
+        val pulled = dto(updatedAt = 2_000L, completedAt = 5_000L)
+
+        val action = reconcilePulledTask(existing, pulled)
+
+        assertTrue(action is PulledTaskAction.Upsert)
+        assertEquals(5_000L, (action as PulledTaskAction.Upsert).task.completedAt)
+    }
+
+    @Test
+    fun `a newer-updatedAt pulled completion overwrites an older local edit - LWW`() {
+        val existing = local(syncState = SyncState.PENDING_UPDATE, updatedAt = 1_000L, completedAt = null)
+        val pulled = dto(updatedAt = 2_000L, completedAt = 2_000L)
+
+        val action = reconcilePulledTask(existing, pulled)
+
+        assertTrue(action is PulledTaskAction.Upsert)
+        assertEquals(2_000L, (action as PulledTaskAction.Upsert).task.completedAt)
+    }
+
+    @Test
+    fun `an older pulled completion is ignored in favor of a newer pending local edit - LWW`() {
+        val existing = local(syncState = SyncState.PENDING_UPDATE, updatedAt = 5_000L, completedAt = 5_000L)
+        val pulled = dto(updatedAt = 1_000L, completedAt = 1_000L)
+
+        val action = reconcilePulledTask(existing, pulled)
+
+        assertEquals(PulledTaskAction.Ignore, action)
+    }
+
+    @Test
+    fun `a tombstone still wins over a pending local completion`() {
+        val existing = local(syncState = SyncState.PENDING_UPDATE, updatedAt = 9_999_999L, completedAt = 9_999_999L)
+        val pulled = dto(deleted = true, updatedAt = 1L) // even an "older" tombstone still wins
+
+        val action = reconcilePulledTask(existing, pulled)
+
+        assertEquals(PulledTaskAction.Delete(existing.id), action)
     }
 }
