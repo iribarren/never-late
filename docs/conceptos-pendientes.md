@@ -44,7 +44,7 @@ posición final en la secuencia.
 | **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ✅ hecho en **feature 04c** |
 | — | Side-effects en Compose (`LaunchedEffect`, `derivedStateOf`) | 02–04 | Snackbar "tarea creada" | ✅ hecho en **feature 17** |
 | — | Animaciones en Compose (`animateItem`, `animate*AsState`) | 02–04 | Animar aparición/tachado/desaparición de tareas | ✅ hecho en **features 17 y 19** |
-| **07b** ★ | Arquitectura nombrada (UDF/MVVM/capas) | 02–07 | Consolidar + documentar el patrón ya usado (poca UI nueva) | ⬜ pendiente |
+| **07b** ★ | Arquitectura nombrada (UDF/MVVM/capas) | 02–07 | Consolidar + documentar el patrón ya usado (poca UI nueva) | ✅ hecho en **feature 07b** |
 | **10b** ★ | Carga de imágenes con Coil | 10 (red, Retrofit/OkHttp) | Imagen de cabecera por artículo desde la API | ⬜ pendiente |
 | — | Theming dinámico (Material You / `dynamicColor`, roles de color) | 07 (tema, DataStore) | Preferencia de color dinámico + cromo de marca | ✅ hecho en **features 16 y 20** |
 | **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Profundizar en migraciones: `TypeConverter`, `AutoMigration`, test de migración (el caso básico de añadir columna ya lo hizo 04c) | ⬜ pendiente |
@@ -54,8 +54,8 @@ posición final en la secuencia.
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
-**Pendientes: 8** (03b, 07b, 10b, 13b, 13c, 13d, 18b, 21). **Ya hechas por sus propias features:** 04b
-(corrutinas/`Flow`) y 04c (testing). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
+**Pendientes: 7** (03b, 10b, 13b, 13c, 13d, 18b, 21). **Ya hechas por sus propias features:** 04b
+(corrutinas/`Flow`), 04c (testing) y 07b (arquitectura nombrada). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
 dinámico y el repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap;
 cualquier feature futura no listada aquí se numeraría a partir de 22.
 
@@ -149,9 +149,12 @@ El proyecto **usa** UDF/MVVM desde la 02 pero nunca lo nombra.
 `animateFloatAsState`. Las propuestas originales (snackbar al crear, animar el tachado/desaparición)
 quedaron cubiertas por esas features.
 
-**Pendiente — arquitectura nombrada → lección 07b.** Una lección **transversal** que *pone nombre* al
-patrón UDF/MVVM ya usado y documenta las capas UI/dominio/datos (poca UI nueva, mucho "consolidar").
-**Ubicación:** **07b** (tras tener UI + dominio + datos con la 07).
+✅ **Arquitectura nombrada: ya hecha.** La **feature 07b** (`07b-arquitectura`) es una lección
+**transversal** que *pone nombre* al patrón UDF/MVVM ya usado y documenta las capas UI/dominio/datos
+(estado abajo / eventos arriba, funciones puras de dominio, el *seam* `TaskRepository` con sus
+decoradores). Al ser de **consolidación**, la revisión confirmó que las capas ya eran coherentes: no
+tocó código de producción ni cambió comportamiento. **Ubicación:** **07b** (tras tener UI + dominio +
+datos con la 07).
 
 ### 5. Inyección de dependencias real (Hilt/Koin) → lección **13d**
 
