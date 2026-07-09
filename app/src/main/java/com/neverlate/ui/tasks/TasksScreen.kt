@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -123,6 +124,10 @@ fun TasksRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val criteria by viewModel.criteria.collectAsStateWithLifecycle()
+    // Feature 04b: collected separately from criteria above — the field reads this StateFlow
+    // directly so every keystroke shows up immediately, while criteria's sort/group values are
+    // the only ones still bundled together (see TasksViewModel's KDoc).
+    val query by viewModel.query.collectAsStateWithLifecycle()
     // Ask for the POST_NOTIFICATIONS permission (Android 13+) in context, the first time the user
     // reaches their tasks — that is when "also show these on the lock screen" is meaningful. No-op
     // below Android 13, and denial degrades gracefully (see the effect's KDoc / feature 06).
@@ -152,6 +157,7 @@ fun TasksRoute(
         uiState = uiState,
         syncStatus = syncStatus,
         criteria = criteria,
+        query = query,
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
         onAddTaskClick = onAddTaskClick,
@@ -184,6 +190,7 @@ fun TasksScreen(
     uiState: TasksUiState,
     syncStatus: SyncStatus,
     criteria: TaskListCriteria,
+    query: String,
     onRefresh: () -> Unit,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
@@ -250,6 +257,7 @@ fun TasksScreen(
                 // and Content.
                 if (uiState is TasksUiState.NoResults || uiState is TasksUiState.Content) {
                     TaskListControls(
+                        query = query,
                         criteria = criteria,
                         onQueryChange = onQueryChange,
                         onSortFieldChange = onSortFieldChange,
@@ -351,10 +359,14 @@ private fun TaskList(
  *
  * [FlowRow] (rather than a plain [Row]) is what lets the chips wrap onto a second line instead of
  * being clipped or pushing the list off-screen at the system's largest font scale (a visual AC).
+ *
+ * [query] is read separately from [criteria] (feature 04b): the field always shows the immediate,
+ * un-debounced text (see [TasksViewModel]'s `query`), while [criteria] only ever holds sort/group.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TaskListControls(
+    query: String,
     criteria: TaskListCriteria,
     onQueryChange: (String) -> Unit,
     onSortFieldChange: (TaskSortField) -> Unit,
@@ -364,12 +376,25 @@ private fun TaskListControls(
 ) {
     Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         OutlinedTextField(
-            value = criteria.query,
+            value = query,
             onValueChange = onQueryChange,
             label = { Text(stringResource(R.string.tasks_filter_label)) },
             leadingIcon = {
                 // Decorative: the label above already tells a screen reader what this field is for.
                 Icon(Icons.Filled.Search, contentDescription = null)
+            },
+            trailingIcon = {
+                // Feature 04b: only shown once there is text to clear, so an empty field shows no
+                // trailing chrome at all. Clearing goes through the same onQueryChange callback the
+                // field itself uses, exactly like NoResults' "clear filter" action below.
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.tasks_filter_clear_content_description),
+                        )
+                    }
+                }
             },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -737,6 +762,7 @@ private fun TasksScreenContentPreview() {
             ),
             syncStatus = SyncStatus.UpToDate,
             criteria = TaskListCriteria(),
+            query = "",
             onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},
@@ -760,6 +786,7 @@ private fun TasksScreenEmptyPreview() {
             uiState = TasksUiState.Empty,
             syncStatus = SyncStatus.Idle,
             criteria = TaskListCriteria(),
+            query = "",
             onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},
@@ -782,7 +809,8 @@ private fun TasksScreenNoResultsPreview() {
         TasksScreen(
             uiState = TasksUiState.NoResults,
             syncStatus = SyncStatus.Idle,
-            criteria = TaskListCriteria(query = "xyz"),
+            criteria = TaskListCriteria(),
+            query = "xyz",
             onRefresh = {},
             onAddTaskClick = {},
             onTaskClick = {},

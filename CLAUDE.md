@@ -70,7 +70,10 @@ feature 09's pure reminder-scheduling logic in `ReminderPlanning.kt`, feature 17
 the `0f..1f` elapsed-time fraction behind each task card's progress bar — and feature 03b's pure
 in-memory list shaping in `TaskListShaping.kt` (`filteredBy`/`sortedBy`/`groupedByUrgency`/`shapedBy`
 behind the Tasks screen's filter/sort/group-by-urgency controls, `nullsLast` deadline ordering, no
-new Room/network source)), and `ui/components` (feature 17, reusable UI building
+new Room/network source; feature 04b then made the search **reactive** — `TasksViewModel` moved the
+query into its own `StateFlow` and feeds it through a `debounce` + `combine` + `stateIn` pipeline
+(`SharingStarted.WhileSubscribed`), with the auto-pause side effect split into its own `onEach`
+collector, reusing `shapedBy` unchanged; no new file/package/dependency)), and `ui/components` (feature 17, reusable UI building
 blocks — currently `MessageState`, the shared empty/error state used by the Tasks and Articles
 screens).
 

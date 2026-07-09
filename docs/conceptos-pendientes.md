@@ -40,7 +40,7 @@ posición final en la secuencia.
 | Nº | Concepto | Prerrequisitos | Feature propuesta | Estado |
 |----|----------|----------------|-------------------|--------|
 | **03b** ★ | Fundamentos de Kotlin (null-safety, `when`, colecciones, alcance, extensiones) | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos/tareas en memoria | ⬜ pendiente |
-| **04b** ★ | Corrutinas y `Flow` a fondo (`debounce`, `combine`, `stateIn`) | 04 (corrutinas, `Flow`, Room) | Buscador de tareas con `debounce` + `combine` | ⬜ pendiente |
+| **04b** ★ | Corrutinas y `Flow` a fondo (`debounce`, `combine`, `stateIn`) | 04 (corrutinas, `Flow`, Room) | Buscador de tareas con `debounce` + `combine` | ✅ hecho en **feature 04b** |
 | **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ⬜ pendiente |
 | — | Side-effects en Compose (`LaunchedEffect`, `derivedStateOf`) | 02–04 | Snackbar "tarea creada" | ✅ hecho en **feature 17** |
 | — | Animaciones en Compose (`animateItem`, `animate*AsState`) | 02–04 | Animar aparición/tachado/desaparición de tareas | ✅ hecho en **features 17 y 19** |

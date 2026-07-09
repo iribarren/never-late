@@ -87,6 +87,8 @@
 
     <!-- Feature 03b: in-memory filter/sort/group controls, above the list. -->
     <string name="tasks_filter_label">Search by title</string>
+    <!-- Feature 04b: trailing "clear" (✕) icon on the search field, shown only while it has text. -->
+    <string name="tasks_filter_clear_content_description">Clear search</string>
     <string name="tasks_sort_deadline">Deadline</string>
     <string name="tasks_sort_title">Title</string>
     <string name="tasks_sort_direction_ascending">Ascending order</string>
