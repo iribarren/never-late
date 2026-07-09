@@ -189,4 +189,20 @@
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Sin conexión. Los cambios se sincronizarán más tarde.</string>
     <string name="tasks_sync_error">No se ha podido sincronizar. Se reintentará automáticamente.</string>
+
+    <!-- Tasks list screen: mark-done checkbox + Stats entry point (feature 04c) -->
+    <string name="tasks_mark_done_content_description">Marcar como hecha</string>
+    <string name="tasks_completed_content_description">Completada</string>
+    <string name="tasks_stats_content_description">Ver estadísticas</string>
+
+    <!-- Statistics screen (feature 04c): three single-number cards for the current week. -->
+    <string name="stats_title">Estadísticas</string>
+    <string name="stats_back_content_description">Volver</string>
+    <string name="stats_completed_label">Completadas esta semana</string>
+    <string name="stats_on_time_label">A tiempo</string>
+    <!-- Placeholder shown instead of a percentage when there are no dated completions this week
+         to compute a ratio from — never "0%", which would misleadingly read as "always late". -->
+    <string name="stats_on_time_undefined">—</string>
+    <string name="stats_due_soon_label">Vencen pronto</string>
+    <string name="stats_empty">No hay tareas todavía.</string>
 </resources>

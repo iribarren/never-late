@@ -180,12 +180,15 @@ server returns the **already-created** task instead of creating a duplicate.
   "title": "Buy milk",
   "estimatedDurationMillis": 1800000,
   "deadline": 1751900000000,
+  "completedAt": null,
   "updatedAt": 1751800000000
 }
 ```
 `title` is required and non-blank. `estimatedDurationMillis` and `deadline` are each nullable, but
 per the domain rule **at least one** must be present (validated server-side too, not only in the
-client form). `updatedAt` is the client's last-modified time for the row.
+client form). `completedAt` is an optional, nullable field (epoch millis, UTC): normally `null`
+(not done) at creation, but a task may in principle be created already-completed. `updatedAt` is
+the client's last-modified time for the row.
 
 **Responses**
 - `201 Created` — the created `TaskDto` (with the server-assigned `id` and server `updatedAt`).
@@ -200,8 +203,13 @@ the server keeps its version and returns it (the client will reconcile on the ne
 
 **Request** — any updatable subset; send `updatedAt`:
 ```json
-{ "title": "Buy oat milk", "estimatedDurationMillis": 1800000, "deadline": null, "updatedAt": 1751805000000 }
+{ "title": "Buy oat milk", "estimatedDurationMillis": 1800000, "deadline": null, "completedAt": null, "updatedAt": 1751805000000 }
 ```
+`completedAt` is updatable like `deadline`/`estimatedDurationMillis`, and needs the same
+**omitted vs. present-and-`null`** distinction: **omitting** the key leaves `completedAt`
+unchanged, while sending `"completedAt": null` explicitly **clears** it (un-completes the task).
+Sending a non-null value sets/updates the completion instant. Setting or clearing `completedAt`
+bumps `updatedAt` like any other mutation, so it's covered by LWW.
 
 **Responses**
 - `200 OK` — the resulting `TaskDto` (either the applied update, or the retained newer server copy).
@@ -236,6 +244,7 @@ omits purely-local timer state.
   "title": "Buy milk",
   "estimatedDurationMillis": 1800000,
   "deadline": 1751900000000,
+  "completedAt": null,
   "deleted": false,
   "updatedAt": 1751805000000,
   "createdAt": 1751800000000
@@ -249,6 +258,7 @@ omits purely-local timer state.
 | `title` | `String` | Non-blank. |
 | `estimatedDurationMillis` | `Long?` | Nullable. |
 | `deadline` | `Long?` | Nullable, epoch millis. At least one of `estimatedDurationMillis`/`deadline` is present. |
+| `completedAt` | `Long?` | Nullable, epoch millis. `null` while the task is not done; the instant it was marked complete otherwise. **Client-provided**, like `deadline` — the server is authoritative only over `id`/`updatedAt`, not over completion. |
 | `deleted` | `Boolean` | Tombstone flag. `true` rows appear only in pulls so peers can delete locally. |
 | `updatedAt` | `Long` | Server-authoritative last-modified time; the LWW conflict key. |
 | `createdAt` | `Long` | Server creation time. |
@@ -273,6 +283,10 @@ on behaviour the wire shape alone doesn't spell out:
 - **Conflicts:** **last-write-wins by `updatedAt`**; **delete wins** over a concurrent edit. The
   server enforces LWW on `PATCH`; the client applies the same rule when merging a pull against
   pending local changes (in a pure, JVM-testable merge function).
+- **`completedAt`:** travels with the task like any other field and is reconciled under the
+  **existing** last-write-wins-by-`updatedAt` rule — setting or clearing completion is just
+  another edit, so it has no special sync rule of its own, and a tombstone still wins over a
+  concurrent completion edit exactly as it does over any other.
 
 ---
 

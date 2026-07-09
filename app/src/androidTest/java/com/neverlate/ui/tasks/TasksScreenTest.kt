@@ -52,6 +52,8 @@ class TasksScreenTest {
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -85,6 +87,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = { clickedId = it },
@@ -120,6 +124,8 @@ class TasksScreenTest {
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -147,6 +153,8 @@ class TasksScreenTest {
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -200,6 +208,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -234,6 +244,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -273,6 +285,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -313,6 +327,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -353,6 +369,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -391,6 +409,8 @@ class TasksScreenTest {
                     uiState = TasksUiState.Empty,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = { addTaskClicks++ },
                     onTaskClick = {},
@@ -435,6 +455,8 @@ class TasksScreenTest {
                     ),
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
                     criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -468,7 +490,9 @@ class TasksScreenTest {
                 TasksScreen(
                     uiState = TasksUiState.NoResults,
                     syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
-                    criteria = TaskListCriteria(query = "xyz no existe"),
+                    criteria = noOpCriteriaCallbacks(),
+                    query = "xyz no existe",
+                    onToggleComplete = {},
                     onRefresh = {},
                     onAddTaskClick = {},
                     onTaskClick = {},
@@ -488,5 +512,135 @@ class TasksScreenTest {
         composeTestRule.onNodeWithText(string(R.string.tasks_no_results_clear_filter)).performClick()
 
         assert(lastQuery == "") { "Expected the NoResults action to clear the filter, got $lastQuery" }
+    }
+
+    // Feature 04c: mark-done checkbox -------------------------------------------------------------
+
+    /**
+     * US-1: the leading [androidx.compose.material3.Checkbox] is [TaskRow]'s mark-done control —
+     * toggling it must invoke [onToggleComplete] with the **whole** task (not just its id, unlike
+     * start/pause/delete above), since [TasksViewModel.toggleComplete] needs the task's own
+     * `completedAt` to decide whether it is marking done or undoing.
+     */
+    @Test
+    fun content_pendingTask_togglingCheckboxInvokesOnToggleCompleteWithTheTask() {
+        val task = Task(id = 11, title = "Preparar la presentación")
+        var toggledTask: Task? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        ShapedTaskList.Flat(listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false))),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = { toggledTask = it },
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_mark_done_content_description))
+            .performClick()
+
+        assert(toggledTask == task) { "Expected onToggleComplete to be invoked with $task, got $toggledTask" }
+    }
+
+    /**
+     * US-1: a completed task ([Task.completedAt] non-null) renders its checkbox checked, announced
+     * via the "Completed" content description instead of "Mark done" — the same `isCompleted`-gated
+     * pair [TaskRow] computes once and reuses for the strikethrough title.
+     */
+    @Test
+    fun content_completedTask_checkboxIsCheckedAndAnnouncedAsCompleted() {
+        val task = Task(id = 12, title = "Tarea ya hecha", completedAt = 1_000L)
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        ShapedTaskList.Flat(listOf(TaskUiModel(task = task, remainingMillis = 0L, isTimedOut = false))),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        // "Mark done" must be gone (the row is already completed) — "Completed" takes its place.
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_mark_done_content_description))
+            .assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(string(R.string.tasks_completed_content_description))
+            .assertIsDisplayed()
+    }
+
+    /**
+     * US-1/feature 19: a completed row shows no deadline progress bar at all — reusing
+     * [progressBarMatcherFor] from the feature-19 guard above, but here the task *does* have a
+     * usable [Task.estimatedDurationMillis] (it would render a bar if it were still pending), so
+     * this pins that completion — not the absence of a duration — is what suppresses it.
+     */
+    @Test
+    fun content_completedTask_omitsTheProgressBarEvenWithAnEstimatedDuration() {
+        val task = Task(
+            id = 13,
+            title = "Tarea completada con duración",
+            estimatedDurationMillis = 25 * 60_000L,
+            completedAt = 1_000L,
+        )
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                TasksScreen(
+                    uiState = TasksUiState.Content(
+                        ShapedTaskList.Flat(
+                            listOf(TaskUiModel(task = task, remainingMillis = 10 * 60_000L, isTimedOut = false)),
+                        ),
+                    ),
+                    syncStatus = com.neverlate.data.sync.SyncStatus.Idle,
+                    criteria = noOpCriteriaCallbacks(),
+                    query = "",
+                    onToggleComplete = {},
+                    onRefresh = {},
+                    onAddTaskClick = {},
+                    onTaskClick = {},
+                    onStartClick = {},
+                    onPauseClick = {},
+                    onDeleteClick = {},
+                    onQueryChange = {},
+                    onSortFieldChange = {},
+                    onToggleSortDirection = {},
+                    onToggleGrouping = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNode(progressBarMatcherFor(task.title), useUnmergedTree = true).assertDoesNotExist()
     }
 }

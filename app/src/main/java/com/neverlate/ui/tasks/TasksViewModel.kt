@@ -251,4 +251,18 @@ class TasksViewModel(private val repository: TaskRepository) : ViewModel() {
     fun pauseTimer(taskId: Long) = viewModelScope.launch { repository.pauseTimer(taskId) }
 
     fun deleteTask(taskId: Long) = viewModelScope.launch { repository.deleteTask(taskId) }
+
+    /**
+     * US-1 (feature 04c): flips [task]'s completion — `completedAt = now` if it was pending,
+     * `null` (undo) if it was already done. Goes through the normal [TaskRepository.saveTask]
+     * path, exactly like editing any other field, so it writes the task row **and** its outbox
+     * change row in one transaction (feature 11's decorator chain) with no special-casing here.
+     * [now] follows [toUiModels]'s existing convention (a defaulted parameter rather than an
+     * inline [System.currentTimeMillis] call) so a test can pin the exact instant.
+     */
+    fun toggleComplete(task: Task, now: Long = System.currentTimeMillis()) {
+        viewModelScope.launch {
+            repository.saveTask(task.copy(completedAt = if (task.completedAt == null) now else null))
+        }
+    }
 }

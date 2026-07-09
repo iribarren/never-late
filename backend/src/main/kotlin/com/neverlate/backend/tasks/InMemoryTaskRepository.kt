@@ -21,6 +21,7 @@ class InMemoryTaskRepository : TaskRepository {
         title: String,
         estimatedDurationMillis: Long?,
         deadline: Long?,
+        completedAt: Long?,
         now: Long,
     ): Task {
         val task = Task(
@@ -30,6 +31,7 @@ class InMemoryTaskRepository : TaskRepository {
             title = title,
             estimatedDurationMillis = estimatedDurationMillis,
             deadline = deadline,
+            completedAt = completedAt,
             deleted = false,
             updatedAt = now,
             createdAt = now,
@@ -44,6 +46,7 @@ class InMemoryTaskRepository : TaskRepository {
         title: String,
         estimatedDurationMillis: Long?,
         deadline: Long?,
+        completedAt: Long?,
         now: Long,
     ): Task? {
         val current = findById(userId, id) ?: return null
@@ -51,6 +54,7 @@ class InMemoryTaskRepository : TaskRepository {
             title = title,
             estimatedDurationMillis = estimatedDurationMillis,
             deadline = deadline,
+            completedAt = completedAt,
             updatedAt = now,
         )
         tasksById[id] = updated

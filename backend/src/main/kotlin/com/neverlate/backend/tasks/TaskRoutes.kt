@@ -41,6 +41,7 @@ fun Route.taskRoutes(taskService: TaskService) {
                     title = request.title,
                     estimatedDurationMillis = request.estimatedDurationMillis,
                     deadline = request.deadline,
+                    completedAt = request.completedAt,
                 )
                 // 201 for a genuine create, 200 when this clientRef was already seen (idempotent
                 // replay) — contract.md §3.
@@ -63,6 +64,7 @@ fun Route.taskRoutes(taskService: TaskService) {
                     title = title,
                     estimatedDurationMillis = body.patchLong("estimatedDurationMillis"),
                     deadline = body.patchLong("deadline"),
+                    completedAt = body.patchLong("completedAt"),
                     clientUpdatedAt = updatedAt,
                 )
                 call.respond(HttpStatusCode.OK, updated)

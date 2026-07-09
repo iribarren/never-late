@@ -33,6 +33,14 @@ import androidx.room.PrimaryKey
  * **not** synced — a live countdown is local, wall-clock-bound state, not something the backend
  * needs to know about. [com.neverlate.data.sync.OutboxTaskRepository] is the only place that
  * writes [serverId]/[updatedAt]/[syncState]/[deleted]; this class stays a plain data holder.
+ *
+ * Feature 04c adds [completedAt], a plain nullable column like [deadline] rather than sync
+ * metadata: `null` means the task is still pending, and a non-null epoch-millis instant means the
+ * task was marked done at that moment. It is set/cleared by
+ * [com.neverlate.ui.tasks.TasksViewModel.toggleComplete] through the normal [saveTask][
+ * com.neverlate.data.tasks.TaskRepository.saveTask] path — same as any other field edit — so it
+ * rides the existing outbox/sync machinery with no special-casing (see
+ * [com.neverlate.domain.tasks.weeklyStatsFor] for how it drives the Stats screen).
  */
 @Entity(tableName = "tasks")
 data class Task(
@@ -50,6 +58,8 @@ data class Task(
     val syncState: SyncState = SyncState.PENDING_CREATE,
     /** Tombstone flag: true once deleted locally but not yet hard-deleted (awaiting push ack). */
     val deleted: Boolean = false,
+    /** Epoch millis this task was marked done, or null while it is still pending (feature 04c). */
+    val completedAt: Long? = null,
 ) {
     /**
      * True while the countdown is actively ticking down towards [timerEndsAt].

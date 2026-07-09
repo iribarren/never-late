@@ -41,22 +41,23 @@ posición final en la secuencia.
 |----|----------|----------------|-------------------|--------|
 | **03b** ★ | Fundamentos de Kotlin (null-safety, `when`, colecciones, alcance, extensiones) | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos/tareas en memoria | ⬜ pendiente |
 | **04b** ★ | Corrutinas y `Flow` a fondo (`debounce`, `combine`, `stateIn`) | 04 (corrutinas, `Flow`, Room) | Buscador de tareas con `debounce` + `combine` | ✅ hecho en **feature 04b** |
-| **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ⬜ pendiente |
+| **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ✅ hecho en **feature 04c** |
 | — | Side-effects en Compose (`LaunchedEffect`, `derivedStateOf`) | 02–04 | Snackbar "tarea creada" | ✅ hecho en **feature 17** |
 | — | Animaciones en Compose (`animateItem`, `animate*AsState`) | 02–04 | Animar aparición/tachado/desaparición de tareas | ✅ hecho en **features 17 y 19** |
 | **07b** ★ | Arquitectura nombrada (UDF/MVVM/capas) | 02–07 | Consolidar + documentar el patrón ya usado (poca UI nueva) | ⬜ pendiente |
 | **10b** ★ | Carga de imágenes con Coil | 10 (red, Retrofit/OkHttp) | Imagen de cabecera por artículo desde la API | ⬜ pendiente |
 | — | Theming dinámico (Material You / `dynamicColor`, roles de color) | 07 (tema, DataStore) | Preferencia de color dinámico + cromo de marca | ✅ hecho en **features 16 y 20** |
-| **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Añadir un campo a `Task` con migración no destructiva | ⬜ pendiente |
+| **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Profundizar en migraciones: `TypeConverter`, `AutoMigration`, test de migración (el caso básico de añadir columna ya lo hizo 04c) | ⬜ pendiente |
 | **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ⬜ pendiente |
 | **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ⬜ pendiente |
 | — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
-**Pendientes: 10.** **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming dinámico y el
-repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap; cualquier
-feature futura no listada aquí se numeraría a partir de 22.
+**Pendientes: 8** (03b, 07b, 10b, 13b, 13c, 13d, 18b, 21). **Ya hechas por sus propias features:** 04b
+(corrutinas/`Flow`) y 04c (testing). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
+dinámico y el repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap;
+cualquier feature futura no listada aquí se numeraría a partir de 22.
 
 ---
 
@@ -120,9 +121,12 @@ tema propio. Es probablemente el básico más importante que falta.
 - **Probar corrutinas/`Flow`** con `runTest` y `TestDispatcher`.
   Doc: [Testing coroutines](https://developer.android.com/kotlin/coroutines/test).
 
-**Feature propuesta:** una **pantalla de estadísticas** ("tareas completadas esta semana", "% a
-tiempo") cuyo cálculo vive en una función pura muy testeable, más un par de tests de UI de la
-pantalla. Enlaza de forma natural con las funciones puras de tiempo de la 04. **Ubicación:** **04c**.
+✅ **Testing: ya hecho** en la **feature 04c** (`04c-testing-estadisticas`). Una **pantalla de
+estadísticas** ("tareas completadas esta semana", "% a tiempo", "por vencer") cuyo cálculo vive en la
+función pura `weeklyStatsFor`, más el campo real de completado (`Task.completedAt`) sincronizado con el
+backend. La lección enseña tests unitarios JVM (arrange/act/assert, fakes), probar `Flow`/corrutinas
+(`runTest`, `StandardTestDispatcher`, `Clock` inyectable) y tests de UI de Compose (`createComposeRule`,
+semántica). De paso, 04c introdujo la **primera migración de Room real** del proyecto (ver §6).
 
 ### 4. Arquitectura y Compose avanzado
 
@@ -164,16 +168,20 @@ Hilt, sin cambiar comportamiento — una lección de refactor guiado que muestra
 
 ### 6. Datos: migraciones y paginación → lecciones **13b** y **13c**
 
-La 04/10/11 usan Room con `fallbackToDestructiveMigration` (borra datos al cambiar el esquema),
-aceptado pre-release. Un básico pendiente es la **migración de verdad**.
+La 04/10/11 usaban Room con `fallbackToDestructiveMigration` (borra datos al cambiar el esquema),
+aceptado pre-release. La **feature 04c** ya rompió ese patrón: al añadir `Task.completedAt` envió la
+**primera `Migration(3,4)` real** (`ALTER TABLE tasks ADD COLUMN completedAt INTEGER`, aditiva y no
+destructiva), motivada por el modo invitado (feature 13) cuyas tareas viven solo en el dispositivo.
 
 - **Migraciones de Room** (`Migration`, `AutoMigration`) y `TypeConverter`. Doc:
   [Migrate your Room database](https://developer.android.com/training/data-storage/room/migrating-db-versions).
 - **Paginación con Paging 3** (con Room y/o red). Doc:
   [Paging library](https://developer.android.com/topic/libraries/architecture/paging/v3-overview).
 
-**Feature propuesta (migración → 13b):** añadir un campo a `Task` (p. ej. `notes` o `priority`) con
-una **migración no destructiva** que conserve los datos existentes. **Feature propuesta
+**Feature propuesta (migración → 13b):** el caso básico (añadir una columna con migración no
+destructiva) **ya se demostró de pasada en 04c**, así que 13b debe profundizar en lo que 04c no tocó:
+`TypeConverter` para tipos no primitivos, `AutoMigration`, y **tests de migración** con `exportSchema`
+activado (verificar que datos reales sobreviven al salto de versión). **Feature propuesta
 (paging → 13c):** **lista de artículos paginada** desde el backend. **Ubicación:** tras el backend +
 Room con escrituras (11–13).
 

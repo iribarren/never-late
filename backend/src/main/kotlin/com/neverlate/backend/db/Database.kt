@@ -95,6 +95,12 @@ fun initSchema(dataSource: DataSource) {
             statement.execute(
                 "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family_id ON refresh_tokens(family_id)",
             )
+            // Feature 04c: real task completion. Added additively (nullable, no default row
+            // rewrite needed) — same non-destructive policy as the rest of this schema; existing
+            // rows simply get NULL (not completed).
+            statement.execute(
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at BIGINT",
+            )
         }
     }
 }
