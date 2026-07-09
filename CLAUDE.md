@@ -338,6 +338,13 @@ The roadmap of upcoming features and their target concepts lives in the plan and
 `docs/prompts/`. Each future feature is started from a **fresh session** by pasting its prompt
 from `docs/prompts/NN-*.md`.
 
+The **definitive lesson order** (including reserved, not-yet-written slots) is locked in
+`docs/conceptos-pendientes.md` (the backlog with prerequisites) and mirrored in `tutorial/README.md`
+(the reader-facing index). New lessons are **interleaved with letter suffixes** (the existing `12b`
+pattern — e.g. `03b`, `13d`) so shipped lessons are **never renumbered**: the `feature NN` number is
+coupled 1:1 to hundreds of code comments, tests and git history. When a reserved slot is implemented,
+fill its `tutorial/NN-*.md` placeholder and flip its status to ✅ in both files.
+
 ## Execution Policy
 
 - NEVER run anything in a scratch/temporary directory (e.g. `/tmp/...`), and NEVER execute
