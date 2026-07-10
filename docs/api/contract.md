@@ -181,14 +181,16 @@ server returns the **already-created** task instead of creating a duplicate.
   "estimatedDurationMillis": 1800000,
   "deadline": 1751900000000,
   "completedAt": null,
+  "priority": "NONE",
   "updatedAt": 1751800000000
 }
 ```
 `title` is required and non-blank. `estimatedDurationMillis` and `deadline` are each nullable, but
 per the domain rule **at least one** must be present (validated server-side too, not only in the
 client form). `completedAt` is an optional, nullable field (epoch millis, UTC): normally `null`
-(not done) at creation, but a task may in principle be created already-completed. `updatedAt` is
-the client's last-modified time for the row.
+(not done) at creation, but a task may in principle be created already-completed. `priority` is an
+optional string enum (`NONE`/`LOW`/`MEDIUM`/`HIGH`); absent or unknown is treated as `NONE`.
+`updatedAt` is the client's last-modified time for the row.
 
 **Responses**
 - `201 Created` — the created `TaskDto` (with the server-assigned `id` and server `updatedAt`).
@@ -203,7 +205,7 @@ the server keeps its version and returns it (the client will reconcile on the ne
 
 **Request** — any updatable subset; send `updatedAt`:
 ```json
-{ "title": "Buy oat milk", "estimatedDurationMillis": 1800000, "deadline": null, "completedAt": null, "updatedAt": 1751805000000 }
+{ "title": "Buy oat milk", "estimatedDurationMillis": 1800000, "deadline": null, "completedAt": null, "priority": "HIGH", "updatedAt": 1751805000000 }
 ```
 `completedAt` is updatable like `deadline`/`estimatedDurationMillis`, and needs the same
 **omitted vs. present-and-`null`** distinction: **omitting** the key leaves `completedAt`
@@ -245,6 +247,7 @@ omits purely-local timer state.
   "estimatedDurationMillis": 1800000,
   "deadline": 1751900000000,
   "completedAt": null,
+  "priority": "NONE",
   "deleted": false,
   "updatedAt": 1751805000000,
   "createdAt": 1751800000000
@@ -259,6 +262,7 @@ omits purely-local timer state.
 | `estimatedDurationMillis` | `Long?` | Nullable. |
 | `deadline` | `Long?` | Nullable, epoch millis. At least one of `estimatedDurationMillis`/`deadline` is present. |
 | `completedAt` | `Long?` | Nullable, epoch millis. `null` while the task is not done; the instant it was marked complete otherwise. **Client-provided**, like `deadline` — the server is authoritative only over `id`/`updatedAt`, not over completion. |
+| `priority` | `String` | Enum, one of `NONE` / `LOW` / `MEDIUM` / `HIGH` (feature 13b). **Client-provided**, like `completedAt`. Defaults to `NONE` when absent; any **unknown** value is treated as `NONE` (forward-compat). Reconciled under the same LWW rule — no special sync logic. |
 | `deleted` | `Boolean` | Tombstone flag. `true` rows appear only in pulls so peers can delete locally. |
 | `updatedAt` | `Long` | Server-authoritative last-modified time; the LWW conflict key. |
 | `createdAt` | `Long` | Server creation time. |
@@ -287,6 +291,10 @@ on behaviour the wire shape alone doesn't spell out:
   **existing** last-write-wins-by-`updatedAt` rule — setting or clearing completion is just
   another edit, so it has no special sync rule of its own, and a tombstone still wins over a
   concurrent completion edit exactly as it does over any other.
+- **`priority`:** (feature 13b) behaves exactly like `completedAt` — a client-provided field that
+  rides the same LWW-by-`updatedAt` reconcile with no sync logic of its own. Client and server both
+  coerce an absent/unknown value to `NONE`, so an older peer that never sends `priority` simply
+  reads and writes `NONE`.
 
 ---
 

@@ -26,16 +26,20 @@ import com.neverlate.data.sync.OutboxEntity
  * change queue — see `docs/specs/2026-07-06-remote-db-sync.md`'s *Sync Model*.
  *
  * `@TypeConverters(Converters::class)` registers this project's first Room `@TypeConverter`s
- * (see [Converters]): Room has no built-in column type for the enums [SyncState] and
- * [com.neverlate.data.sync.OutboxOperation], so [Converters] tells it how to store/read them as
- * plain text instead.
+ * (see [Converters]): Room has no built-in column type for the enums [SyncState],
+ * [com.neverlate.data.sync.OutboxOperation] and (feature 13b) [com.neverlate.data.tasks.Priority],
+ * so [Converters] tells it how to store/read them as plain text instead.
  *
- * `exportSchema = false` opts out of Room writing a JSON schema-history file on every build (its
- * usual purpose is powering *real* Migration tests, e.g. [MIGRATION_3_4] below). Every prior
- * schema change (versions 1 -> 2 -> 3) relied on [fallbackToDestructiveMigration] instead — see
- * that call's KDoc for why that stops being acceptable from `version = 4` onward.
+ * `exportSchema = true` (flipped from `false` in feature 13b) makes Room write a JSON snapshot of
+ * each schema version under `app/schemas/` on every build. Those snapshots are what a *real*
+ * migration test needs: `MigrationTestHelper` creates a database at the old version's schema and
+ * runs the [Migration] up to the new one, so both `N.json` and `N+1.json` must exist to test the
+ * `N -> N+1` jump. Because export was off through version 4, its baseline `4.json` was generated
+ * one-off (build the module with export on but still at `version = 4`) and committed alongside
+ * `5.json` — see `tutorial/13b-migraciones-room.md`. The schema output location is set via the
+ * `room.schemaLocation` KSP argument in `app/build.gradle.kts`.
  */
-@Database(entities = [Task::class, ArticleEntity::class, OutboxEntity::class], version = 4, exportSchema = false)
+@Database(entities = [Task::class, ArticleEntity::class, OutboxEntity::class], version = 5, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class NeverLateDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
@@ -81,7 +85,7 @@ abstract class NeverLateDatabase : RoomDatabase() {
                     // this project's first **real** Migration ([MIGRATION_3_4]) instead of falling
                     // back — [fallbackToDestructiveMigration] stays registered only as a safety net
                     // for schema versions Room has no explicit migration path for at all.
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }
@@ -98,6 +102,25 @@ abstract class NeverLateDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN completedAt INTEGER")
+            }
+        }
+
+        /**
+         * `4 -> 5` (feature 13b): adds [Task.priority]. Unlike [MIGRATION_3_4]'s *nullable* column,
+         * this one is **`NOT NULL`**, so SQLite needs a `DEFAULT` to give every pre-existing row a
+         * value — here `'NONE'`, the stored form ([Priority.name]) of [Priority.NONE], which is
+         * exactly what a task with no priority set should read as after the upgrade. Without the
+         * default, `ALTER TABLE ... ADD COLUMN ... NOT NULL` would fail on a non-empty table.
+         *
+         * We hand-write this `Migration` rather than use an `@AutoMigration`. For a purely additive
+         * change like this, Room could *generate* the SQL by diffing the exported `4.json`/`5.json`
+         * schemas (`@AutoMigration(from = 4, to = 5)` on the `@Database`), and that is the right
+         * tool once schemas are exported. We write it by hand here because the lesson's whole point
+         * is to *see* the SQL a migration runs; the tutorial contrasts the two approaches.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'NONE'")
             }
         }
     }

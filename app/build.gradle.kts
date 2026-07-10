@@ -81,6 +81,21 @@ android {
         // Android environment for the OutboxTaskRepository/SyncEngine Room tests.
         unitTests.isIncludeAndroidResources = true
     }
+
+    // Ships the exported Room schema JSONs (see the `ksp` block below) as androidTest assets so
+    // MigrationTestHelper can load them on-device to build the old-version database (feature 13b).
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+// Tells Room's KSP processor where to export the schema JSON snapshots that `exportSchema = true`
+// (feature 13b) produces — one `N.json` per @Database version. MigrationTestHelper reads these to
+// build an old-version database and migrate it forward, so the files are committed to the repo
+// (`app/schemas/`). Wired here rather than via the Room Gradle plugin to keep the build config
+// minimal; the directory is also added to androidTest assets so the helper can find it at runtime.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -143,6 +158,9 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+    // MigrationTestHelper (feature 13b): drives a real Room migration against the exported schemas
+    // to prove data survives the 4 -> 5 upgrade. Instrumented, so it lands in androidTest.
+    androidTestImplementation(libs.androidx.room.testing)
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

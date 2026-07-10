@@ -2,6 +2,7 @@ package com.neverlate.ui.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskFormResult
 import com.neverlate.data.tasks.TaskRepository
@@ -19,6 +20,7 @@ data class TaskEditUiState(
     val title: String = "",
     val estimatedDurationMinutes: String = "",
     val deadlineText: String = "",
+    val priority: Priority = Priority.NONE,
     val validationError: TaskValidationError? = null,
     // A one-shot signal (not meant to survive recomposition) that the Route uses to navigate
     // back once save/delete has actually round-tripped through the repository.
@@ -58,6 +60,7 @@ class TaskEditViewModel(
                         ?.let { (it / 60_000L).toString() }
                         .orEmpty(),
                     deadlineText = task.deadline?.let(::formatDeadlineForInput).orEmpty(),
+                    priority = task.priority,
                 )
             }
         }
@@ -75,6 +78,10 @@ class TaskEditViewModel(
         _uiState.value = _uiState.value.copy(deadlineText = text, validationError = null)
     }
 
+    fun onPriorityChange(priority: Priority) {
+        _uiState.value = _uiState.value.copy(priority = priority)
+    }
+
     /** Validates the form (see [validateTaskForm]) and, if valid, persists it through [repository]. */
     fun save() {
         val state = _uiState.value
@@ -85,6 +92,7 @@ class TaskEditViewModel(
                     title = result.title,
                     estimatedDurationMillis = result.durationMillis,
                     deadline = result.deadlineMillis,
+                    priority = state.priority,
                 )
                 viewModelScope.launch {
                     repository.saveTask(task)

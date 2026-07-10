@@ -17,6 +17,7 @@ fun Task.toCreateRequest(clientRef: String): CreateTaskRequest = CreateTaskReque
     estimatedDurationMillis = estimatedDurationMillis,
     deadline = deadline,
     completedAt = completedAt,
+    priority = priority,
     updatedAt = updatedAt,
 )
 
@@ -26,6 +27,7 @@ fun Task.toUpdateRequest(): UpdateTaskRequest = UpdateTaskRequest(
     estimatedDurationMillis = estimatedDurationMillis,
     deadline = deadline,
     completedAt = completedAt,
+    priority = priority,
     updatedAt = updatedAt,
 )
 
@@ -39,6 +41,7 @@ fun TaskDto.toNewLocalTask(): Task = Task(
     estimatedDurationMillis = estimatedDurationMillis,
     deadline = deadline,
     completedAt = completedAt,
+    priority = priority,
     serverId = id,
     updatedAt = updatedAt,
     syncState = SyncState.SYNCED,

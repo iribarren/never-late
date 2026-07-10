@@ -1,6 +1,7 @@
 package com.neverlate.ui.tasks
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,9 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -54,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -625,16 +631,37 @@ private fun TaskRow(
                     .weight(1f)
                     .padding(start = 16.dp),
             ) {
-                Text(
-                    text = task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    // US-1: strikethrough + de-emphasized color are the only visual change a
-                    // completed row's title gets — both theme tokens (TextDecoration is a style
-                    // primitive, not a color; onSurfaceVariant is the same de-emphasized role
-                    // SectionHeader/MessageState already use), never a hardcoded gray.
-                    textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
-                    color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
-                )
+                // Feature 13b (US-2): a small priority dot leads the title for a non-NONE priority.
+                // It is suppressed on a completed row (isCompleted) so the muted/strikethrough
+                // done-state styling stays the row's only signal — "completed styling wins", the
+                // same reason the countdown/urgency color is dropped above.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val priorityColor = task.priority.indicatorColor()
+                    if (!isCompleted && priorityColor != null) {
+                        val priorityDescription = stringResource(
+                            R.string.tasks_priority_content_description,
+                            stringResource(task.priority.labelRes()),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(priorityColor)
+                                .semantics { contentDescription = priorityDescription },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        // US-1: strikethrough + de-emphasized color are the only visual change a
+                        // completed row's title gets — both theme tokens (TextDecoration is a style
+                        // primitive, not a color; onSurfaceVariant is the same de-emphasized role
+                        // SectionHeader/MessageState already use), never a hardcoded gray.
+                        textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
+                        color = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+                    )
+                }
 
                 task.estimatedDurationMillis?.let { duration ->
                     Text(

@@ -34,14 +34,15 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
         estimatedDurationMillis: Long?,
         deadline: Long?,
         completedAt: Long?,
+        priority: String,
         now: Long,
     ): Task {
         dataSource.connection.use { conn ->
             conn.prepareStatement(
                 """
                 INSERT INTO tasks
-                    (user_id, client_ref, title, estimated_duration_ms, deadline, completed_at, updated_at, deleted, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?)
+                    (user_id, client_ref, title, estimated_duration_ms, deadline, completed_at, priority, updated_at, deleted, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, FALSE, ?)
                 RETURNING id
                 """.trimIndent(),
             ).use { stmt ->
@@ -51,8 +52,9 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
                 stmt.setNullableLong(4, estimatedDurationMillis)
                 stmt.setNullableLong(5, deadline)
                 stmt.setNullableLong(6, completedAt)
-                stmt.setLong(7, now)
+                stmt.setString(7, priority)
                 stmt.setLong(8, now)
+                stmt.setLong(9, now)
                 stmt.executeQuery().use { rs ->
                     rs.next()
                     return Task(
@@ -63,6 +65,7 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
                         estimatedDurationMillis = estimatedDurationMillis,
                         deadline = deadline,
                         completedAt = completedAt,
+                        priority = priority,
                         deleted = false,
                         updatedAt = now,
                         createdAt = now,
@@ -79,13 +82,14 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
         estimatedDurationMillis: Long?,
         deadline: Long?,
         completedAt: Long?,
+        priority: String,
         now: Long,
     ): Task? =
         dataSource.connection.use { conn ->
             conn.prepareStatement(
                 """
                 UPDATE tasks
-                SET title = ?, estimated_duration_ms = ?, deadline = ?, completed_at = ?, updated_at = ?
+                SET title = ?, estimated_duration_ms = ?, deadline = ?, completed_at = ?, priority = ?, updated_at = ?
                 WHERE user_id = ? AND id = ?
                 """.trimIndent(),
             ).use { stmt ->
@@ -93,9 +97,10 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
                 stmt.setNullableLong(2, estimatedDurationMillis)
                 stmt.setNullableLong(3, deadline)
                 stmt.setNullableLong(4, completedAt)
-                stmt.setLong(5, now)
-                stmt.setLong(6, userId)
-                stmt.setLong(7, id)
+                stmt.setString(5, priority)
+                stmt.setLong(6, now)
+                stmt.setLong(7, userId)
+                stmt.setLong(8, id)
                 val rows = stmt.executeUpdate()
                 if (rows == 0) null else findById(userId, id)
             }
@@ -141,6 +146,7 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
         estimatedDurationMillis = getLong("estimated_duration_ms").let { if (wasNull()) null else it },
         deadline = getLong("deadline").let { if (wasNull()) null else it },
         completedAt = getLong("completed_at").let { if (wasNull()) null else it },
+        priority = getString("priority"),
         deleted = getBoolean("deleted"),
         updatedAt = getLong("updated_at"),
         createdAt = getLong("created_at"),
@@ -148,6 +154,6 @@ class PostgresTaskRepository(private val dataSource: DataSource) : TaskRepositor
 
     private companion object {
         const val SELECT_COLUMNS =
-            "SELECT id, user_id, client_ref, title, estimated_duration_ms, deadline, completed_at, deleted, updated_at, created_at"
+            "SELECT id, user_id, client_ref, title, estimated_duration_ms, deadline, completed_at, priority, deleted, updated_at, created_at"
     }
 }

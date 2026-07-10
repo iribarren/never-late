@@ -1,6 +1,7 @@
 package com.neverlate.data.sync
 
 import androidx.room.TypeConverter
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.SyncState
 
 /**
@@ -32,4 +33,14 @@ class Converters {
     @TypeConverter
     fun toOutboxOperation(value: String): OutboxOperation =
         OutboxOperation.entries.firstOrNull { it.name == value } ?: OutboxOperation.UPDATE
+
+    // [Priority] (feature 13b): the same tolerant name<->TEXT pattern as the two enums above. The
+    // fallback to NONE also matches how an unknown/absent priority is handled on the wire (see the
+    // API contract §5), so a value this app no longer recognises degrades safely instead of crashing.
+    @TypeConverter
+    fun fromPriority(value: Priority): String = value.name
+
+    @TypeConverter
+    fun toPriority(value: String): Priority =
+        Priority.entries.firstOrNull { it.name == value } ?: Priority.NONE
 }

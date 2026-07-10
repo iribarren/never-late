@@ -2,7 +2,10 @@ package com.neverlate.ui.tasks
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -48,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.TaskValidationError
 import com.neverlate.data.tasks.deadlineFromPickedDateTime
@@ -95,6 +101,7 @@ fun TaskEditRoute(
         onTitleChange = viewModel::onTitleChange,
         onDurationChange = viewModel::onDurationMinutesChange,
         onDeadlineChange = viewModel::onDeadlineTextChange,
+        onPriorityChange = viewModel::onPriorityChange,
         onSaveClick = viewModel::save,
         onDeleteClick = viewModel::deleteTask,
         onBack = onBack,
@@ -106,7 +113,7 @@ fun TaskEditRoute(
  * Stateless composable: renders a [TaskEditUiState] and reports user intent through callbacks
  * only (state hoisting), same as [com.neverlate.ui.articles.ArticleDetailScreen].
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TaskEditScreen(
     uiState: TaskEditUiState,
@@ -114,6 +121,7 @@ fun TaskEditScreen(
     onTitleChange: (String) -> Unit,
     onDurationChange: (String) -> Unit,
     onDeadlineChange: (String) -> Unit,
+    onPriorityChange: (Priority) -> Unit,
     onSaveClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onBack: () -> Unit,
@@ -229,6 +237,32 @@ fun TaskEditScreen(
                     .fillMaxWidth()
                     .padding(top = 8.dp),
             )
+
+            // Priority selector (feature 13b): single-select FilterChips in a FlowRow, reusing the
+            // exact pattern feature 03b's TaskListControls uses, so the chips wrap at the largest
+            // font scale instead of clipping. The label is a plain Text above the row rather than a
+            // TextField label because a chip group has no single focusable field to attach one to.
+            Text(
+                text = stringResource(R.string.task_edit_priority_label),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            ) {
+                Priority.entries.forEach { priority ->
+                    FilterChip(
+                        selected = uiState.priority == priority,
+                        onClick = { onPriorityChange(priority) },
+                        label = { Text(stringResource(priority.labelRes())) },
+                        modifier = Modifier.minimumInteractiveComponentSize(),
+                    )
+                }
+            }
 
             uiState.validationError?.let { error ->
                 Text(
@@ -348,6 +382,7 @@ private fun TaskEditScreenCreatePreview() {
             onTitleChange = {},
             onDurationChange = {},
             onDeadlineChange = {},
+            onPriorityChange = {},
             onSaveClick = {},
             onDeleteClick = {},
             onBack = {},
@@ -369,6 +404,7 @@ private fun TaskEditScreenEditPreview() {
             onTitleChange = {},
             onDurationChange = {},
             onDeadlineChange = {},
+            onPriorityChange = {},
             onSaveClick = {},
             onDeleteClick = {},
             onBack = {},

@@ -41,6 +41,13 @@ import androidx.room.PrimaryKey
  * com.neverlate.data.tasks.TaskRepository.saveTask] path — same as any other field edit — so it
  * rides the existing outbox/sync machinery with no special-casing (see
  * [com.neverlate.domain.tasks.weeklyStatsFor] for how it drives the Stats screen).
+ *
+ * Feature 13b adds [priority], the first column of a type Room can't store natively (the [Priority]
+ * enum): it is persisted through a `@TypeConverter` ([com.neverlate.data.sync.Converters]), and the
+ * `4 -> 5` non-null-with-default migration that adds it ([NeverLateDatabase.MIGRATION_4_5]) is this
+ * project's first migration to add a `NOT NULL DEFAULT` column (a step past [completedAt]'s nullable
+ * one). Like
+ * [completedAt] it is client-provided and syncs end-to-end under the existing last-write-wins rule.
  */
 @Entity(tableName = "tasks")
 data class Task(
@@ -60,6 +67,8 @@ data class Task(
     val deleted: Boolean = false,
     /** Epoch millis this task was marked done, or null while it is still pending (feature 04c). */
     val completedAt: Long? = null,
+    /** How important the user considers this task (feature 13b); [Priority.NONE] by default. */
+    val priority: Priority = Priority.NONE,
 ) {
     /**
      * True while the countdown is actively ticking down towards [timerEndsAt].

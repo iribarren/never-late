@@ -1,5 +1,6 @@
 package com.neverlate.ui.tasks
 
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.TaskValidationError
@@ -132,6 +133,38 @@ class TaskEditViewModelTest {
         assertEquals(15 * 60_000L, saved.estimatedDurationMillis)
         assertNull(saved.deadline)
         assertTrue(viewModel.uiState.value.isSaved)
+    }
+
+    @Test
+    fun `create mode defaults priority to NONE and persists a chosen priority`() {
+        val repository = FakeTaskRepositoryForEdit()
+        val viewModel = TaskEditViewModel(repository, taskId = null)
+
+        assertEquals(Priority.NONE, viewModel.uiState.value.priority)
+
+        viewModel.onTitleChange("Preparar informe")
+        viewModel.onDurationMinutesChange("30")
+        viewModel.onPriorityChange(Priority.HIGH)
+        viewModel.save()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(Priority.HIGH, repository.savedTasks.single().priority)
+    }
+
+    @Test
+    fun `edit mode preloads the existing task's priority`() {
+        val existing = Task(
+            id = 11,
+            title = "Renovar el DNI",
+            estimatedDurationMillis = 20 * 60_000L,
+            priority = Priority.MEDIUM,
+        )
+        val repository = FakeTaskRepositoryForEdit(listOf(existing))
+        val viewModel = TaskEditViewModel(repository, taskId = existing.id)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(Priority.MEDIUM, viewModel.uiState.value.priority)
     }
 
     @Test

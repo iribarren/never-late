@@ -101,6 +101,12 @@ fun initSchema(dataSource: DataSource) {
             statement.execute(
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at BIGINT",
             )
+            // Feature 13b: task priority. NOT NULL with a DEFAULT so existing rows get 'NONE'
+            // (the mirror of the client's MIGRATION_4_5); still additive and non-destructive.
+            // Stored as TEXT — the enum's name — matching the wire values (contract.md §4).
+            statement.execute(
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'NONE'",
+            )
         }
     }
 }

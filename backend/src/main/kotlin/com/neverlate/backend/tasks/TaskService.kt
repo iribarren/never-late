@@ -24,6 +24,7 @@ class TaskService(private val tasks: TaskRepository) {
         estimatedDurationMillis: Long?,
         deadline: Long?,
         completedAt: Long? = null,
+        priority: String = "NONE",
     ): CreateResult {
         tasks.findByClientRef(userId, clientRef)?.let { existing ->
             return CreateResult(task = existing.toDto(), created = false)
@@ -36,6 +37,9 @@ class TaskService(private val tasks: TaskRepository) {
             estimatedDurationMillis = estimatedDurationMillis,
             deadline = deadline,
             completedAt = completedAt,
+            // Coerce here (not just at the DB) so an unknown value can never reach the column —
+            // priority is client-provided, so the server sanitises it (contract.md §4/§5).
+            priority = normalizePriority(priority),
             now = System.currentTimeMillis(),
         )
         return CreateResult(task = task.toDto(), created = true)
@@ -51,6 +55,7 @@ class TaskService(private val tasks: TaskRepository) {
         estimatedDurationMillis: PatchValue<Long>,
         deadline: PatchValue<Long>,
         completedAt: PatchValue<Long>,
+        priority: PatchValue<String>,
         clientUpdatedAt: Long,
     ): TaskDto {
         val current = tasks.findById(userId, id) ?: throw NotFoundException("No such task")
@@ -65,6 +70,8 @@ class TaskService(private val tasks: TaskRepository) {
         val mergedDuration = estimatedDurationMillis.orElse(current.estimatedDurationMillis)
         val mergedDeadline = deadline.orElse(current.deadline)
         val mergedCompletedAt = completedAt.orElse(current.completedAt)
+        // Absent leaves the stored priority; present (even null) is coerced to a valid value.
+        val mergedPriority = normalizePriority(priority.orElse(current.priority))
         validate(title = mergedTitle, estimatedDurationMillis = mergedDuration, deadline = mergedDeadline)
 
         val updated = tasks.update(
@@ -74,6 +81,7 @@ class TaskService(private val tasks: TaskRepository) {
             estimatedDurationMillis = mergedDuration,
             deadline = mergedDeadline,
             completedAt = mergedCompletedAt,
+            priority = mergedPriority,
             now = System.currentTimeMillis(),
         ) ?: throw NotFoundException("No such task")
         return updated.toDto()

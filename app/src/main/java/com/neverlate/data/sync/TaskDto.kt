@@ -1,5 +1,6 @@
 package com.neverlate.data.sync
 
+import com.neverlate.data.tasks.Priority
 import kotlinx.serialization.Serializable
 
 /**
@@ -15,6 +16,8 @@ import kotlinx.serialization.Serializable
  *   local-only (see that class's KDoc).
  * - [completedAt] (feature 04c) is client-provided, exactly like [deadline] — the server is
  *   authoritative only over [id]/[updatedAt], never over completion.
+ * - [priority] (feature 13b) is likewise client-provided; it defaults to [Priority.NONE] when the
+ *   key is absent, and an unknown value coerces to `NONE` (see [BackendNetwork]'s `Json` config).
  *
  * See [TaskMapping.kt][toNewLocalTask] for how a [TaskDto] becomes a local [com.neverlate.data.tasks.Task].
  */
@@ -27,6 +30,8 @@ data class TaskDto(
     val deadline: Long? = null,
     /** Epoch millis, `null` while the task is not done (contract.md §4). */
     val completedAt: Long? = null,
+    /** How important the task is (contract.md §4); `NONE` when the server omits it. */
+    val priority: Priority = Priority.NONE,
     val deleted: Boolean = false,
     val updatedAt: Long,
     val createdAt: Long = 0L,
@@ -48,6 +53,7 @@ data class CreateTaskRequest(
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
     val completedAt: Long? = null,
+    val priority: Priority = Priority.NONE,
     val updatedAt: Long,
 )
 
@@ -62,5 +68,6 @@ data class UpdateTaskRequest(
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
     val completedAt: Long? = null,
+    val priority: Priority = Priority.NONE,
     val updatedAt: Long,
 )

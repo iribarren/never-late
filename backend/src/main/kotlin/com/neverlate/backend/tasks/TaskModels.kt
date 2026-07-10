@@ -14,6 +14,7 @@ data class Task(
     val estimatedDurationMillis: Long?,
     val deadline: Long?,
     val completedAt: Long?,
+    val priority: String,
     val deleted: Boolean,
     val updatedAt: Long,
     val createdAt: Long,
@@ -26,10 +27,20 @@ fun Task.toDto() = TaskDto(
     estimatedDurationMillis = estimatedDurationMillis,
     deadline = deadline,
     completedAt = completedAt,
+    priority = priority,
     deleted = deleted,
     updatedAt = updatedAt,
     createdAt = createdAt,
 )
+
+/** The priority values the contract (§4) defines. The server stays a passthrough for priority (it
+ *  is client-provided, reconciled by LWW), but coerces anything absent/blank/unrecognised to
+ *  `NONE` so an unknown value from an older or misbehaving client can never reach the column or the
+ *  wire — the forward-compat rule the contract promises on both sides. */
+private val VALID_PRIORITIES = setOf("NONE", "LOW", "MEDIUM", "HIGH")
+
+fun normalizePriority(value: String?): String =
+    value?.takeIf { it in VALID_PRIORITIES } ?: "NONE"
 
 /** The wire shape (contract.md §4). */
 @Serializable
@@ -40,6 +51,7 @@ data class TaskDto(
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
     val completedAt: Long? = null,
+    val priority: String = "NONE",
     val deleted: Boolean = false,
     val updatedAt: Long,
     val createdAt: Long,
@@ -57,6 +69,7 @@ data class CreateTaskRequest(
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
     val completedAt: Long? = null,
+    val priority: String = "NONE",
     val updatedAt: Long? = null,
 )
 
@@ -73,6 +86,7 @@ data class UpdateTaskRequest(
     val estimatedDurationMillis: Long? = null,
     val deadline: Long? = null,
     val completedAt: Long? = null,
+    val priority: String? = null,
     val updatedAt: Long,
 )
 
