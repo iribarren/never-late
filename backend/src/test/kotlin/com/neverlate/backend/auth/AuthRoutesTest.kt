@@ -1,5 +1,6 @@
 package com.neverlate.backend.auth
 
+import com.neverlate.backend.articles.InMemoryArticleRepository
 import com.neverlate.backend.configureApp
 import com.neverlate.backend.jsonClient
 import com.neverlate.backend.tasks.InMemoryTaskRepository
@@ -49,7 +50,7 @@ class AuthRoutesTest {
 
     @Test
     fun `register then login round-trip`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val registerResponse = client.register("alice@example.com", "password123")
@@ -69,7 +70,7 @@ class AuthRoutesTest {
 
     @Test
     fun `register and a subsequent login start independent refresh-token families - killing one leaves the other valid`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val registered = Json.decodeFromString(AuthResponse.serializer(), client.register("cora@example.com", "password123").bodyAsText())
         val loggedIn = Json.decodeFromString(AuthResponse.serializer(), client.login("cora@example.com", "password123").bodyAsText())
@@ -87,7 +88,7 @@ class AuthRoutesTest {
 
     @Test
     fun `duplicate email on register returns 409 email_taken`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         client.register("bob@example.com", "password123")
@@ -99,7 +100,7 @@ class AuthRoutesTest {
 
     @Test
     fun `wrong password returns 401 invalid_credentials`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         client.register("carol@example.com", "correctPassword")
@@ -111,7 +112,7 @@ class AuthRoutesTest {
 
     @Test
     fun `unknown email returns the same 401 invalid_credentials as a wrong password`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val response = client.login("nobody@example.com", "whatever123")
@@ -122,7 +123,7 @@ class AuthRoutesTest {
 
     @Test
     fun `password shorter than 8 chars is rejected with 400 validation_error`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val response = client.register("dave@example.com", "short")
@@ -135,7 +136,7 @@ class AuthRoutesTest {
 
     @Test
     fun `refresh returns a new access AND refresh token, and the old refresh token is rejected afterward`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val registered = Json.decodeFromString(AuthResponse.serializer(), client.register("erin@example.com", "password123").bodyAsText())
 
@@ -160,7 +161,7 @@ class AuthRoutesTest {
 
     @Test
     fun `blank refreshToken on refresh returns 400 validation_error`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val response = client.refresh("")
@@ -171,7 +172,7 @@ class AuthRoutesTest {
 
     @Test
     fun `an unknown refresh token is rejected with 401 invalid_refresh_token`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val response = client.refresh("this-token-was-never-issued")
@@ -182,7 +183,7 @@ class AuthRoutesTest {
 
     @Test
     fun `reusing an already-rotated refresh token kills the whole family, including its freshly-rotated sibling`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val registered = Json.decodeFromString(AuthResponse.serializer(), client.register("frank@example.com", "password123").bodyAsText())
         val r0 = registered.refreshToken
@@ -205,7 +206,7 @@ class AuthRoutesTest {
 
     @Test
     fun `an independent family (a separate login) survives another family's reuse-triggered kill`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         client.register("grace@example.com", "password123")
         // Two independent sessions/families for the same user: the register call itself, and a
@@ -227,7 +228,7 @@ class AuthRoutesTest {
 
     @Test
     fun `logout revokes the refresh token - subsequent refresh with it returns 401`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val registered = Json.decodeFromString(AuthResponse.serializer(), client.register("henry@example.com", "password123").bodyAsText())
 
@@ -241,7 +242,7 @@ class AuthRoutesTest {
 
     @Test
     fun `logout is idempotent - an unknown or already-revoked token still returns 204`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val unknownTokenLogout = client.logout("never-issued-token")
@@ -255,7 +256,7 @@ class AuthRoutesTest {
 
     @Test
     fun `blank refreshToken on logout returns 400 validation_error`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val response = client.logout("")

@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,8 +34,7 @@ import com.neverlate.ui.theme.NeverLateTheme
 /**
  * Stateful wrapper: obtains [ArticleDetailViewModel] (via [AppViewModelFactory], passing the
  * [articleId] that came from the navigation route) and forwards its state to the stateless
- * [ArticleDetailScreen]. [ArticleDetailViewModel.retry] (feature 10) is forwarded the same way —
- * it is what the Error state's retry button below calls.
+ * [ArticleDetailScreen].
  */
 @Composable
 fun ArticleDetailRoute(
@@ -49,14 +47,13 @@ fun ArticleDetailRoute(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    ArticleDetailScreen(uiState = uiState, onRetry = viewModel::retry, onBack = onBack, modifier = modifier)
+    ArticleDetailScreen(uiState = uiState, onBack = onBack, modifier = modifier)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArticleDetailScreen(
     uiState: ArticleDetailUiState,
-    onRetry: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -80,7 +77,6 @@ fun ArticleDetailScreen(
         when (uiState) {
             is ArticleDetailUiState.Loading -> Unit
             is ArticleDetailUiState.NotFound -> NotFoundMessage(modifier = Modifier.padding(innerPadding))
-            is ArticleDetailUiState.Error -> ErrorMessage(onRetry = onRetry, modifier = Modifier.padding(innerPadding))
             is ArticleDetailUiState.Content -> ArticleBody(
                 article = uiState.article,
                 modifier = Modifier.padding(innerPadding),
@@ -121,25 +117,6 @@ private fun NotFoundMessage(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Rendered for [ArticleDetailUiState.Error]: same shape as [ArticlesScreen]'s error state (a
- * short message plus a **Reintentar** / **Retry** button), so the two screens feel consistent.
- */
-@Composable
-private fun ErrorMessage(onRetry: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 32.dp),
-        ) {
-            Text(stringResource(R.string.articles_error))
-            Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
-                Text(stringResource(R.string.articles_retry))
-            }
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun ArticleDetailScreenContentPreview() {
@@ -153,7 +130,6 @@ private fun ArticleDetailScreenContentPreview() {
                     body = "Cuerpo de ejemplo para la vista previa del detalle de un artículo.",
                 ),
             ),
-            onRetry = {},
             onBack = {},
         )
     }
@@ -163,14 +139,6 @@ private fun ArticleDetailScreenContentPreview() {
 @Composable
 private fun ArticleDetailScreenNotFoundPreview() {
     NeverLateTheme {
-        ArticleDetailScreen(uiState = ArticleDetailUiState.NotFound, onRetry = {}, onBack = {})
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ArticleDetailScreenErrorPreview() {
-    NeverLateTheme {
-        ArticleDetailScreen(uiState = ArticleDetailUiState.Error, onRetry = {}, onBack = {})
+        ArticleDetailScreen(uiState = ArticleDetailUiState.NotFound, onBack = {})
     }
 }

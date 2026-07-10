@@ -1,69 +1,50 @@
 package com.neverlate.ui.articles
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.PagingSource
+import androidx.paging.PagingState
+import androidx.paging.testing.asSnapshot
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
-import com.neverlate.data.articles.RefreshResult
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * In-memory fake for [ArticleRepository]. [cache] stands in for what Room currently holds;
- * [enqueueRefresh] lets a test script exactly what the *next* call to [refresh] should report and,
- * optionally, what the cache should look like immediately afterwards (simulating a network write)
- * — which is what makes it possible to drive [ArticlesViewModel]'s stale-while-revalidate paths
- * (offline-with-cache, empty, error, retry) from a plain JVM test, with no real network or Room.
- *
- * [refresh] always waits on a tiny [delay] before resolving, purely so a test can observe
- * [ArticlesViewModel.isRefreshing] flip to `true` mid-flight (see the `isRefreshing` test below):
- * with no suspension point at all inside [refresh], draining the test dispatcher's queue up to the
- * current virtual time would run the whole coroutine to completion in one step, leaving nothing to
- * observe in between.
+ * In-memory fake for [ArticleRepository]. [articlesPager] returns a **real** [Pager] flow over a
+ * trivial single-page [PagingSource], rather than a bare `PagingData.from(items)`: `asSnapshot()`
+ * drives a Pager the way the production [ArticlesRemoteMediator]-backed one is driven (it waits for
+ * the load states a real [Pager] produces), whereas a static `PagingData.from()` piped through
+ * [androidx.paging.cachedIn] never emits those settle signals and hangs the collector. This still
+ * fakes away the network/[ArticlesRemoteMediator] entirely — that seam is
+ * [com.neverlate.data.articles.ArticlesRemoteMediatorTest]'s job — and only proves
+ * [ArticlesViewModel.articles] is correctly wired through `cachedIn` end to end.
  */
-private class FakeArticleRepository(initialCache: List<Article> = emptyList()) : ArticleRepository {
+private class FakeArticleRepositoryForList(private val items: List<Article> = emptyList()) : ArticleRepository {
 
-    var cache: List<Article> = initialCache
-        private set
+    override fun articlesPager(): Flow<PagingData<Article>> = Pager(
+        config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+        pagingSourceFactory = { SinglePagePagingSource(items) },
+    ).flow
 
-    private val queuedResults = ArrayDeque<RefreshResult>()
-    private val queuedCacheUpdates = ArrayDeque<List<Article>?>()
+    override suspend fun getArticleById(id: String): Article? = items.firstOrNull { it.id == id }
+}
 
-    var refreshCallCount = 0
-        private set
-
-    /**
-     * Queues the [RefreshResult] the *next* call to [refresh] will return. [newCache], if
-     * non-null, becomes [cache]'s new content once that refresh "completes" — standing in for a
-     * successful network fetch being written to Room. Leave it `null` to simulate a refresh that
-     * doesn't change the cache (a failure, or a success that found nothing new).
-     */
-    fun enqueueRefresh(result: RefreshResult, newCache: List<Article>? = null) {
-        queuedResults.addLast(result)
-        queuedCacheUpdates.addLast(newCache)
-    }
-
-    override suspend fun getArticles(): List<Article> = cache
-
-    override suspend fun getArticleById(id: String): Article? = cache.firstOrNull { it.id == id }
-
-    override suspend fun refresh(): RefreshResult {
-        refreshCallCount++
-        delay(1)
-        val result = if (queuedResults.isNotEmpty()) queuedResults.removeFirst() else RefreshResult.Success
-        val newCache = if (queuedCacheUpdates.isNotEmpty()) queuedCacheUpdates.removeFirst() else null
-        if (newCache != null) cache = newCache
-        return result
-    }
+/** Serves [items] as one already-complete page — the whole catalog, with no page after it. */
+private class SinglePagePagingSource(private val items: List<Article>) : PagingSource<Int, Article>() {
+    override fun getRefreshKey(state: PagingState<Int, Article>): Int? = null
+    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Article> =
+        LoadResult.Page(data = items, prevKey = null, nextKey = null)
 }
 
 private val pomodoro = Article(
@@ -80,15 +61,29 @@ private val timeBlocking = Article(
     body = "Cuerpo completo del artículo sobre time-blocking.",
 )
 
+/**
+ * Light smoke test: [ArticlesViewModel.articles] is a non-null [Flow] of [PagingData] that, once
+ * collected, reflects whatever the repository's [ArticleRepository.articlesPager] produced — the
+ * only thing this ViewModel is responsible for since feature 13c removed its hand-rolled
+ * `ArticlesUiState`/`isRefreshing` (see its KDoc). Deliberately does not over-assert on Paging
+ * internals (load states, `cachedIn`'s replay behavior across collectors, etc.) — those are Paging
+ * library concerns, not this project's code.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArticlesViewModelTest {
 
-    private val testDispatcher = StandardTestDispatcher()
+    // asSnapshot() + cachedIn(viewModelScope) is delicate to drive from a test: the cachedIn
+    // multicast collector runs on Dispatchers.Main while asSnapshot() suspends until Paging settles.
+    // Two things must both hold, or the snapshot hangs until runTest's watchdog fires:
+    //  - the test body and Main must share ONE scheduler — achieved by passing this same dispatcher
+    //    to runTest(testDispatcher) below (runTest adopts the dispatcher's scheduler), so there is a
+    //    single clock instead of asSnapshot() and the cachedIn collector waiting on separate ones;
+    //  - it must run eagerly (Unconfined, not Standard) so the cachedIn collector actually emits the
+    //    PagingData without needing a manual advanceUntilIdle() that asSnapshot()'s wait never issues.
+    private val testDispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setUp() {
-        // ArticlesViewModel.init launches on viewModelScope (Dispatchers.Main); StandardTestDispatcher
-        // + setMain lets the test control exactly when that coroutine runs.
         Dispatchers.setMain(testDispatcher)
     }
 
@@ -98,87 +93,20 @@ class ArticlesViewModelTest {
     }
 
     @Test
-    fun `initial state is Loading before the repository call completes`() {
-        val viewModel = ArticlesViewModel(FakeArticleRepository(listOf(pomodoro)))
+    fun `articles reflects the repository's pager content`() = runTest(testDispatcher) {
+        val viewModel = ArticlesViewModel(FakeArticleRepositoryForList(listOf(pomodoro, timeBlocking)))
 
-        // No advanceUntilIdle() yet: the init{} coroutine is queued on testDispatcher but hasn't run.
-        assertTrue(viewModel.uiState.value is ArticlesUiState.Loading)
+        val snapshot = viewModel.articles.asSnapshot()
+
+        assertEquals(listOf(pomodoro, timeBlocking), snapshot)
     }
 
     @Test
-    fun `cached articles are shown as Content after a refresh that finds no changes`() {
-        val viewModel = ArticlesViewModel(FakeArticleRepository(listOf(pomodoro, timeBlocking)))
+    fun `an empty catalog produces an empty snapshot`() = runTest(testDispatcher) {
+        val viewModel = ArticlesViewModel(FakeArticleRepositoryForList(emptyList()))
 
-        testDispatcher.scheduler.advanceUntilIdle()
+        val snapshot = viewModel.articles.asSnapshot()
 
-        val state = viewModel.uiState.value
-        assertTrue(state is ArticlesUiState.Content)
-        assertEquals(listOf(pomodoro, timeBlocking), (state as ArticlesUiState.Content).articles)
-    }
-
-    @Test
-    fun `empty cache with a successful refresh that finds nothing produces Empty state`() {
-        val viewModel = ArticlesViewModel(FakeArticleRepository(emptyList()))
-
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value is ArticlesUiState.Empty)
-    }
-
-    @Test
-    fun `offline with cache - a failed refresh keeps showing the cached content instead of Error`() {
-        val repository = FakeArticleRepository(listOf(pomodoro, timeBlocking))
-        repository.enqueueRefresh(RefreshResult.Error(IOException("no network")))
-
-        val viewModel = ArticlesViewModel(repository)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertTrue(state is ArticlesUiState.Content)
-        assertEquals(listOf(pomodoro, timeBlocking), (state as ArticlesUiState.Content).articles)
-    }
-
-    @Test
-    fun `empty cache with a failed refresh produces Error state`() {
-        val repository = FakeArticleRepository(emptyList())
-        repository.enqueueRefresh(RefreshResult.Error(IOException("no network")))
-
-        val viewModel = ArticlesViewModel(repository)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value is ArticlesUiState.Error)
-    }
-
-    @Test
-    fun `calling refresh after an Error retries and can recover to Content`() {
-        val repository = FakeArticleRepository(emptyList())
-        repository.enqueueRefresh(RefreshResult.Error(IOException("no network")))
-
-        val viewModel = ArticlesViewModel(repository)
-        testDispatcher.scheduler.advanceUntilIdle()
-        assertTrue(viewModel.uiState.value is ArticlesUiState.Error)
-
-        repository.enqueueRefresh(RefreshResult.Success, newCache = listOf(pomodoro))
-        viewModel.refresh()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertTrue(state is ArticlesUiState.Content)
-        assertEquals(listOf(pomodoro), (state as ArticlesUiState.Content).articles)
-        assertEquals(2, repository.refreshCallCount)
-    }
-
-    @Test
-    fun `isRefreshing is true only while a refresh is in flight`() {
-        val viewModel = ArticlesViewModel(FakeArticleRepository(listOf(pomodoro)))
-        assertFalse(viewModel.isRefreshing.value)
-
-        // Runs everything scheduled up to (but not past) the fake's delay(1) inside refresh() —
-        // enough to observe isRefreshing flip to true mid-flight, without finishing the refresh.
-        testDispatcher.scheduler.runCurrent()
-        assertTrue(viewModel.isRefreshing.value)
-
-        testDispatcher.scheduler.advanceUntilIdle()
-        assertFalse(viewModel.isRefreshing.value)
+        assertEquals(emptyList<Article>(), snapshot)
     }
 }

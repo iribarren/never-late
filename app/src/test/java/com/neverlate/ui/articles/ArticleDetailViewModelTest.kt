@@ -1,11 +1,12 @@
 package com.neverlate.ui.articles
 
+import androidx.paging.PagingData
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
-import com.neverlate.data.articles.RefreshResult
-import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -16,47 +17,16 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * In-memory fake for [ArticleRepository], same shape as the one in [ArticlesViewModelTest] (see
- * that file's KDoc for why [enqueueRefresh] exists). Kept as a separate private copy (rather than
- * shared test code) to match this project's existing one-fake-per-test-file convention (see
- * [com.neverlate.ui.onboarding.OnboardingViewModelTest]).
- *
- * Named differently from the [ArticlesViewModelTest] fake: Kotlin top-level `private` only
- * restricts *access* to the declaring file, but the class name must still be unique within the
- * package, so two files can't both declare a top-level `private class FakeArticleRepository`.
+ * In-memory fake for [ArticleRepository]. Feature 13c removed `refresh()`/`RefreshResult` from the
+ * interface (see [ArticleRepository]'s KDoc), so [ArticleDetailViewModel] now only ever calls
+ * [getArticleById] — [articlesPager] is never exercised by these tests, but must still be
+ * implemented to satisfy the interface; an empty [PagingData] stream is enough of a stub.
  */
-private class FakeArticleRepositoryForDetail(initialCache: List<Article> = emptyList()) : ArticleRepository {
+private class FakeArticleRepositoryForDetail(private val cache: List<Article> = emptyList()) : ArticleRepository {
 
-    var cache: List<Article> = initialCache
-        private set
-
-    private val queuedResults = ArrayDeque<RefreshResult>()
-    private val queuedCacheUpdates = ArrayDeque<List<Article>?>()
-
-    var refreshCallCount = 0
-        private set
-
-    /**
-     * Queues the [RefreshResult] the *next* call to [refresh] will return, and optionally what
-     * [cache] should hold immediately afterwards (simulating a successful network write). Leave
-     * [newCache] `null` to simulate a refresh that doesn't change the cache.
-     */
-    fun enqueueRefresh(result: RefreshResult, newCache: List<Article>? = null) {
-        queuedResults.addLast(result)
-        queuedCacheUpdates.addLast(newCache)
-    }
-
-    override suspend fun getArticles(): List<Article> = cache
+    override fun articlesPager(): Flow<PagingData<Article>> = flowOf(PagingData.empty())
 
     override suspend fun getArticleById(id: String): Article? = cache.firstOrNull { it.id == id }
-
-    override suspend fun refresh(): RefreshResult {
-        refreshCallCount++
-        val result = if (queuedResults.isNotEmpty()) queuedResults.removeFirst() else RefreshResult.Success
-        val newCache = if (queuedCacheUpdates.isNotEmpty()) queuedCacheUpdates.removeFirst() else null
-        if (newCache != null) cache = newCache
-        return result
-    }
 }
 
 private val pomodoro = Article(
@@ -81,8 +51,8 @@ class ArticleDetailViewModelTest {
 
     @Before
     fun setUp() {
-        // ArticleDetailViewModel.init launches on viewModelScope (Dispatchers.Main); same pattern
-        // as ArticlesViewModelTest so the test controls when that coroutine runs.
+        // ArticleDetailViewModel.init launches on viewModelScope (Dispatchers.Main); StandardTestDispatcher
+        // + setMain lets the test control exactly when that coroutine runs.
         Dispatchers.setMain(testDispatcher)
     }
 
@@ -99,7 +69,7 @@ class ArticleDetailViewModelTest {
     }
 
     @Test
-    fun `valid id already in the cache produces Content without needing a refresh`() {
+    fun `valid id already in the cache produces Content`() {
         val viewModel = ArticleDetailViewModel(repository, articleId = twoMinuteRule.id)
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -107,11 +77,10 @@ class ArticleDetailViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state is ArticleDetailUiState.Content)
         assertEquals(twoMinuteRule, (state as ArticleDetailUiState.Content).article)
-        assertEquals(0, repository.refreshCallCount)
     }
 
     @Test
-    fun `unknown id with a successful refresh that still finds nothing produces NotFound`() {
+    fun `unknown id produces NotFound`() {
         val viewModel = ArticleDetailViewModel(repository, articleId = "does-not-exist")
 
         testDispatcher.scheduler.advanceUntilIdle()
@@ -120,41 +89,11 @@ class ArticleDetailViewModelTest {
     }
 
     @Test
-    fun `empty cache produces NotFound for any id once the refresh succeeds without finding it`() {
+    fun `empty cache produces NotFound for any id`() {
         val viewModel = ArticleDetailViewModel(FakeArticleRepositoryForDetail(emptyList()), articleId = pomodoro.id)
 
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value is ArticleDetailUiState.NotFound)
-    }
-
-    @Test
-    fun `absent id with a failed refresh produces Error instead of NotFound`() {
-        val repo = FakeArticleRepositoryForDetail(emptyList())
-        repo.enqueueRefresh(RefreshResult.Error(IOException("no network")))
-
-        val viewModel = ArticleDetailViewModel(repo, articleId = "does-not-exist")
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(viewModel.uiState.value is ArticleDetailUiState.Error)
-    }
-
-    @Test
-    fun `retry after Error can recover to Content once the article becomes available`() {
-        val repo = FakeArticleRepositoryForDetail(emptyList())
-        repo.enqueueRefresh(RefreshResult.Error(IOException("no network")))
-
-        val viewModel = ArticleDetailViewModel(repo, articleId = pomodoro.id)
-        testDispatcher.scheduler.advanceUntilIdle()
-        assertTrue(viewModel.uiState.value is ArticleDetailUiState.Error)
-
-        repo.enqueueRefresh(RefreshResult.Success, newCache = listOf(pomodoro))
-        viewModel.retry()
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertTrue(state is ArticleDetailUiState.Content)
-        assertEquals(pomodoro, (state as ArticleDetailUiState.Content).article)
-        assertEquals(2, repo.refreshCallCount)
     }
 }

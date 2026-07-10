@@ -56,7 +56,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 12b | [keystore-recuperacion](12b-keystore-recuperacion.md) | Depurar un crash real de dispositivo: Keystore, backup | ✅ |
 | 13 | [modo-invitado](13-modo-invitado.md) | Modo invitado local + merge al iniciar sesión | ✅ |
 | 13b | [migraciones-room](13b-migraciones-room.md) | Migraciones de Room reales + `TypeConverter` | ✅ |
-| 13c | [paginacion](13c-paginacion.md) | Paginación con Paging 3 (red + Room) | 🚧 |
+| 13c | [paginacion](13c-paginacion.md) | Paginación con Paging 3 (red + Room) | ✅ |
 | 13d | [hilt-di](13d-hilt-di.md) | Inyección de dependencias con Hilt (migrar la DI manual) | 🚧 |
 
 ## Bloque 4 — Diseño e identidad visual

@@ -111,6 +111,13 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // Feature 13c: Room's Paging integration, needed for ArticleDao to return a
+    // PagingSource<Int, ArticleEntity> directly (Room/KSP generates the query implementation).
+    implementation(libs.androidx.room.paging)
+    // Feature 13c: Jetpack Paging 3 — paging-runtime is the core Pager/PagingSource/RemoteMediator
+    // machinery, paging-compose adds collectAsLazyPagingItems()/LazyPagingItems for the UI layer.
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
     // Glance: declarative API (Compose-like, but a restricted subset) for building App Widgets —
     // the home-screen pending-tasks widget (feature 05) is this project's first use of it.
     implementation(libs.androidx.glance.appwidget)
@@ -153,6 +160,9 @@ dependencies {
     // Robolectric (feature 11): a real in-memory Room database (with real transactions) for
     // OutboxTaskRepository/SyncEngine tests — see the version catalog comment on `robolectric`.
     testImplementation(libs.robolectric)
+    // Feature 13c test coverage: asSnapshot() for testing ArticlesRemoteMediator/
+    // CachingArticleRepository/ArticlesViewModel's Flow<PagingData<T>> without a Compose collector.
+    testImplementation(libs.androidx.paging.testing)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

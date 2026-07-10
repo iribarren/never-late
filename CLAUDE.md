@@ -55,7 +55,7 @@ never-late/
    ├─ api/                      # API contract — source of truth for client + server (feature 11)
    ├─ prompts/                  # Ready-to-paste prompts to start each feature in a new session
    ├─ specs/                    # Feature specs (project-manager-docs)
-   └─ articles-api/             # Static JSON served over HTTPS via GitHub raw (feature 10)
+   └─ articles-api/             # Article catalog content (feature 10; now the backend seed source, feature 13c)
 ```
 
 As the app grows, feature code lives under `app/src/main/java/com/neverlate/` in packages such as
@@ -161,6 +161,28 @@ bumps `version` 1 → 2 — per that database's existing `fallbackToDestructiveM
 wipes tasks on devices that already have data, accepted pre-release the same way earlier schema
 changes were.
 
+**Paginated articles with Paging 3** (feature 13c, the *pagination* lesson): the Articles list stops
+fetching the whole catalog at once and loads it **page by page on scroll** via **Jetpack Paging 3**,
+Room as the cache/single-source-of-truth behind a **`RemoteMediator`**. Articles also move from the
+feature-10 static GitHub-raw JSON to a **real backend endpoint** — `GET /articles?page=&size=`, the
+backend's **first and only public (unauthenticated) route** (guest mode, feature 13, requires articles
+with no account; registered **outside** the `authenticate("auth-jwt")` block, serving a global
+read-only catalog seeded at startup from `backend/src/main/resources/seed/articles.json`). Client shells
+extend `data/articles/`: `ArticlesApi` gains `@Query` `page`/`size` returning `ArticlesPageDto`
+(`items`/`page`/`size`/`total`, contract §7); `ArticleDao.pagingSource()` (Room-generated
+`PagingSource`); a new `article_remote_keys` table (`ArticleRemoteKeys` + DAO) and an
+`ArticleEntity.remoteOrder` column for stable cross-page ordering; `ArticlesRemoteMediator`
+(REFRESH/APPEND/PREPEND, single-transaction writes, `endOfPaginationReached = items.size < size`,
+reusing `ArticleDto.toDomain()`); and `CachingArticleRepository.articlesPager(): Flow<PagingData<Article>>`.
+The old whole-list `getArticles()`/`refresh()`/`RefreshResult` + `ArticlesUiState` SWR loop is
+**removed** — `ArticlesScreen` now uses `collectAsLazyPagingItems()` + `loadState` (pull-to-refresh
+spinner, bottom append spinner, inline append-retry, full-screen `MessageState` for refresh-error/empty),
+and `getArticleById` is kept for Article Detail. This bumps `NeverLateDatabase` **5 → 6** via an additive
+`MIGRATION_5_6` (new table + `remoteOrder INTEGER NOT NULL DEFAULT 0`; additive because the shared DB
+holds guest-only tasks), with a committed `6.json` and a `MigrationTestHelper` test. New dependency:
+`androidx.paging` (runtime + compose) + `androidx.room:room-paging` in the version catalog. No new
+permission.
+
 **Remote DB + offline-first sync** (feature 11): the app gains a real backend (`backend/`, Kotlin +
 Ktor + Postgres) that owns accounts and tasks; the Android app becomes an **offline-first client**.
 Basic email/password **auth** issues a stateless **JWT** (no refresh in v1 — **superseded by feature
@@ -250,7 +272,8 @@ it, and do not re-document endpoints elsewhere (the backend `README.md` points t
 than re-listing routes).
 
 - **Contract:** [`docs/api/contract.md`](docs/api/contract.md) — endpoints (`/auth/register`,
-  `/auth/login`, `/auth/refresh` + `/auth/logout` (feature 12), `/tasks` CRUD + `GET ?since=` for pull),
+  `/auth/login`, `/auth/refresh` + `/auth/logout` (feature 12), `/tasks` CRUD + `GET ?since=` for pull,
+  and the public paginated `GET /articles?page=&size=` (feature 13c, §7 — the only unauthenticated route)),
   the `TaskDto` wire shape (deliberately distinct from the Room `Task` entity), the JSON error envelope,
   auth (Bearer access token + refresh-token rotation/revocation/reuse, §2.1), and sync
   semantics.

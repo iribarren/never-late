@@ -11,11 +11,20 @@ import androidx.room.PrimaryKey
  * remote catalog that already assigns each one a stable id, so there is nothing for SQLite to
  * generate.
  *
- * Deliberately shaped exactly like [Article] (same four fields) rather than like [ArticleDto]:
- * the cache stores the app's stable domain shape, not the API's wire format, so [toDomain] and
- * [Article.toEntity] are trivial one-to-one mappings. All the interesting mapping work (deriving
- * [summary], renaming fields) already happened once, in [ArticleDto.toDomain], when the row was
- * written.
+ * Deliberately shaped exactly like [Article] (plus one bookkeeping column) rather than like
+ * [ArticleDto]: the cache stores the app's stable domain shape, not the API's wire format, so
+ * [toDomain] and [Article.toEntity] are trivial one-to-one mappings. All the interesting mapping
+ * work (deriving [Article.summary], renaming fields) already happened once, in
+ * [ArticleDto.toDomain], when the row was written.
+ *
+ * [remoteOrder] is new in feature 13c: SQLite has **no inherent row order**, so once articles
+ * arrive in pages (rather than as one whole-catalog write), something has to remember the
+ * server's order across pages, or [ArticleDao.pagingSource] could return rows out of sequence —
+ * visible jumps or gaps as the user scrolls. [ArticlesRemoteMediator] sets it to each article's
+ * **global** catalog index (`page * size + indexWithinPage`) as it writes a page, and
+ * `ORDER BY remoteOrder ASC` is what makes the paging source's order match the server's. It
+ * defaults to `0` so existing call sites (tests, previews) that only care about the article's
+ * *content* can keep constructing an [ArticleEntity] without naming it.
  */
 @Entity(tableName = "articles")
 data class ArticleEntity(
@@ -23,6 +32,7 @@ data class ArticleEntity(
     val title: String,
     val summary: String,
     val body: String,
+    val remoteOrder: Int = 0,
 )
 
 /** Maps a cached row back to the domain [Article] type that the rest of the app depends on. */
@@ -33,10 +43,16 @@ fun ArticleEntity.toDomain(): Article = Article(
     body = body,
 )
 
-/** Maps a domain [Article] to the row shape [ArticleDao] persists it as. */
-fun Article.toEntity(): ArticleEntity = ArticleEntity(
+/**
+ * Maps a domain [Article] to the row shape [ArticleDao] persists it as. [remoteOrder] is not part
+ * of the domain [Article] (it is a purely local, paging-bookkeeping concern), so it is supplied
+ * separately by the only caller that actually knows a page's position — [ArticlesRemoteMediator] —
+ * rather than living on [Article] itself.
+ */
+fun Article.toEntity(remoteOrder: Int = 0): ArticleEntity = ArticleEntity(
     id = id,
     title = title,
     summary = summary,
     body = body,
+    remoteOrder = remoteOrder,
 )

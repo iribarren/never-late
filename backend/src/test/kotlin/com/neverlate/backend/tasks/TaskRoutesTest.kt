@@ -1,5 +1,6 @@
 package com.neverlate.backend.tasks
 
+import com.neverlate.backend.articles.InMemoryArticleRepository
 import com.neverlate.backend.auth.AuthRequest
 import com.neverlate.backend.auth.AuthResponse
 import com.neverlate.backend.auth.InMemoryRefreshTokenRepository
@@ -69,7 +70,7 @@ class TaskRoutesTest {
 
     @Test
     fun `create then list via since=0 returns the task`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("alice@example.com")
 
@@ -85,7 +86,7 @@ class TaskRoutesTest {
 
     @Test
     fun `posting the same clientRef twice does not create a duplicate`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("bob@example.com")
 
@@ -107,7 +108,7 @@ class TaskRoutesTest {
 
     @Test
     fun `user A cannot read or modify user B's task`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val userA = client.registerAndLogin("userA@example.com")
         val userB = client.registerAndLogin("userB@example.com")
@@ -136,7 +137,7 @@ class TaskRoutesTest {
 
     @Test
     fun `request without a token is rejected with 401 unauthorized`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
 
         val response = client.get("/tasks?since=0")
@@ -147,7 +148,7 @@ class TaskRoutesTest {
 
     @Test
     fun `delete tombstones the task and it is returned by a subsequent since pull`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("erin@example.com")
         val task = Json.decodeFromString(
@@ -171,7 +172,7 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH with an older updatedAt than stored is ignored (last-write-wins)`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("frank@example.com")
         val created = Json.decodeFromString(
@@ -202,7 +203,7 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH can explicitly clear the deadline while leaving duration untouched`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("grace@example.com")
         val created = Json.decodeFromString(
@@ -231,7 +232,7 @@ class TaskRoutesTest {
 
     @Test
     fun `completedAt round-trips through create and a since pull`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("hank@example.com")
         val completedAt = System.currentTimeMillis()
@@ -252,7 +253,7 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH sets completedAt to mark a task done, and an omitted completedAt leaves it unchanged`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("iris@example.com")
         val created = Json.decodeFromString(
@@ -283,7 +284,7 @@ class TaskRoutesTest {
 
     @Test
     fun `priority round-trips through create and pull, and an unknown value is coerced to NONE`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("prio@example.com")
 
@@ -313,7 +314,7 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH updates priority, and an omitted priority leaves it unchanged`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("prio2@example.com")
         val created = Json.decodeFromString(
@@ -347,7 +348,7 @@ class TaskRoutesTest {
 
     @Test
     fun `PATCH with present-null completedAt clears it (un-completes the task)`() = testApplication {
-        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository(), InMemoryArticleRepository()) }
         val client = jsonClient()
         val auth = client.registerAndLogin("jules@example.com")
         val completedAt = System.currentTimeMillis()
