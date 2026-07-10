@@ -91,6 +91,21 @@ save path. This bumps `NeverLateDatabase` **3 → 4** via the project's **first 
 (`ALTER TABLE tasks ADD COLUMN completedAt INTEGER`, data-preserving — the destructive fallback would wipe
 guest-mode tasks that live only on-device). No new permission or dependency.
 
+**Task priority + real Room migration** (feature 13b, the *migrations* lesson): `Task` gains a
+`priority: Priority` **enum** (`NONE`/`LOW`/`MEDIUM`/`HIGH`, `data/tasks/Priority.kt`) — the first column of a
+type Room can't store natively, so it's persisted through a **`@TypeConverter`** added to the existing
+`Converters` (stores `Enum.name` as TEXT, tolerant fallback to `NONE`). It **syncs** end-to-end like
+`completedAt` (added to `TaskDto`/`docs/api/contract.md` + the Postgres `tasks.priority` column, riding the
+existing LWW reconcile; client/server both coerce absent/unknown → `NONE`). This bumps `NeverLateDatabase`
+**4 → 5** via a hand-written **`MIGRATION_4_5`** (`ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT
+'NONE'`) — the project's first `NOT NULL … DEFAULT` migration (`AutoMigration` is taught by contrast, not
+shipped). The feature flips `exportSchema = true` + adds the `room.schemaLocation` KSP arg, commits the
+exported `app/schemas/…/{4,5}.json` (the `4.json` baseline was generated one-off since v4 shipped with export
+off), and adds the **`androidx.room:room-testing`** dependency for a `MigrationTestHelper` test that proves
+4 → 5 data survival (`app/src/androidTest/.../MigrationTest.kt`). UI: a `FilterChip` priority selector on the
+Task Edit screen + a small token-colored dot on the task card (`ui/tasks/PriorityUi.kt`, no mockup slice —
+net-new). No new permission.
+
 **Reminders** (feature 09): schedules a one-shot *alerting* local notification a configurable lead
 time before a task's `deadline`, firing even with the app closed, and reschedules after reboot. Pure
 scheduling logic (`reminderTimeFor`, `isReminderInFuture`, `remindersToSchedule`) lives in

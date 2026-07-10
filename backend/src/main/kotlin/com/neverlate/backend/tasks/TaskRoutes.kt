@@ -42,6 +42,7 @@ fun Route.taskRoutes(taskService: TaskService) {
                     estimatedDurationMillis = request.estimatedDurationMillis,
                     deadline = request.deadline,
                     completedAt = request.completedAt,
+                    priority = request.priority,
                 )
                 // 201 for a genuine create, 200 when this clientRef was already seen (idempotent
                 // replay) — contract.md §3.
@@ -65,6 +66,7 @@ fun Route.taskRoutes(taskService: TaskService) {
                     estimatedDurationMillis = body.patchLong("estimatedDurationMillis"),
                     deadline = body.patchLong("deadline"),
                     completedAt = body.patchLong("completedAt"),
+                    priority = body.patchString("priority"),
                     clientUpdatedAt = updatedAt,
                 )
                 call.respond(HttpStatusCode.OK, updated)
@@ -100,4 +102,13 @@ private fun JsonObject.patchLong(key: String): PatchValue<Long> =
         PatchValue.Absent
     } else {
         PatchValue.Present((this[key] as? JsonPrimitive)?.longOrNull)
+    }
+
+/** Same absent-vs-present distinction as [patchLong], for the `priority` string field (feature
+ *  13b). [TaskService.update] normalises an unknown/null value to `NONE`. */
+private fun JsonObject.patchString(key: String): PatchValue<String> =
+    if (!containsKey(key)) {
+        PatchValue.Absent
+    } else {
+        PatchValue.Present((this[key] as? JsonPrimitive)?.contentOrNullSafe())
     }

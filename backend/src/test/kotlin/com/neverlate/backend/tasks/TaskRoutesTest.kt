@@ -47,6 +47,7 @@ class TaskRoutesTest {
         estimatedDurationMillis: Long? = 1_800_000L,
         deadline: Long? = null,
         completedAt: Long? = null,
+        priority: String = "NONE",
     ): HttpResponse = post("/tasks") {
         header("Authorization", "Bearer $token")
         contentType(ContentType.Application.Json)
@@ -59,6 +60,7 @@ class TaskRoutesTest {
                     estimatedDurationMillis = estimatedDurationMillis,
                     deadline = deadline,
                     completedAt = completedAt,
+                    priority = priority,
                     updatedAt = System.currentTimeMillis(),
                 ),
             ),
@@ -277,6 +279,70 @@ class TaskRoutesTest {
         }
         val untouched = Json.decodeFromString(TaskDto.serializer(), untouchedResponse.bodyAsText())
         assertEquals(markDoneAt, untouched.completedAt) // unchanged by the omitted-field PATCH
+    }
+
+    @Test
+    fun `priority round-trips through create and pull, and an unknown value is coerced to NONE`() = testApplication {
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        val client = jsonClient()
+        val auth = client.registerAndLogin("prio@example.com")
+
+        // A valid priority is stored and echoed back verbatim.
+        val high = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.createTask(auth.accessToken, clientRef = "high-ref", priority = "HIGH").bodyAsText(),
+        )
+        assertEquals("HIGH", high.priority)
+
+        // An unrecognised value is sanitised to NONE server-side (contract.md §4/§5) — the client is
+        // untrusted, so the server never lets a junk priority reach the column or the wire.
+        val junk = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.createTask(auth.accessToken, clientRef = "junk-ref", priority = "CRITICAL").bodyAsText(),
+        )
+        assertEquals("NONE", junk.priority)
+
+        // Both come back on a pull with their stored priority.
+        val list = Json.decodeFromString(
+            TasksResponse.serializer(),
+            client.get("/tasks?since=0") { header("Authorization", "Bearer ${auth.accessToken}") }.bodyAsText(),
+        )
+        assertEquals("HIGH", list.tasks.first { it.clientRef == "high-ref" }.priority)
+        assertEquals("NONE", list.tasks.first { it.clientRef == "junk-ref" }.priority)
+    }
+
+    @Test
+    fun `PATCH updates priority, and an omitted priority leaves it unchanged`() = testApplication {
+        application { configureApp(testConfig(), InMemoryUserRepository(), InMemoryTaskRepository(), InMemoryRefreshTokenRepository()) }
+        val client = jsonClient()
+        val auth = client.registerAndLogin("prio2@example.com")
+        val created = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.createTask(auth.accessToken, clientRef = "prio-patch-ref", priority = "LOW").bodyAsText(),
+        )
+        assertEquals("LOW", created.priority)
+
+        val bumpedAt = created.updatedAt + 1000
+        val bumped = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.patch("/tasks/${created.id}") {
+                header("Authorization", "Bearer ${auth.accessToken}")
+                contentType(ContentType.Application.Json)
+                setBody("""{"priority": "HIGH", "updatedAt": $bumpedAt}""")
+            }.bodyAsText(),
+        )
+        assertEquals("HIGH", bumped.priority)
+
+        // A PATCH that omits "priority" must leave the stored value untouched (absent != clear).
+        val untouched = Json.decodeFromString(
+            TaskDto.serializer(),
+            client.patch("/tasks/${created.id}") {
+                header("Authorization", "Bearer ${auth.accessToken}")
+                contentType(ContentType.Application.Json)
+                setBody("""{"title": "Renamed", "updatedAt": ${bumpedAt + 1000}}""")
+            }.bodyAsText(),
+        )
+        assertEquals("HIGH", untouched.priority)
     }
 
     @Test

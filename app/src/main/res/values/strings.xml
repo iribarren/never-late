@@ -111,6 +111,8 @@
     <string name="task_edit_deadline_clear_content_description">Borrar fecha límite</string>
     <string name="task_edit_date_confirm">Aceptar</string>
     <string name="task_edit_date_dismiss">Cancelar</string>
+    <!-- Feature 13b: task priority selector. -->
+    <string name="task_edit_priority_label">Prioridad</string>
     <string name="task_edit_save_button">Guardar</string>
     <string name="task_edit_delete_button">Borrar tarea</string>
     <string name="tasks_error_blank_title">El título no puede estar vacío.</string>
@@ -194,6 +196,13 @@
     <string name="tasks_mark_done_content_description">Marcar como hecha</string>
     <string name="tasks_completed_content_description">Completada</string>
     <string name="tasks_stats_content_description">Ver estadísticas</string>
+
+    <!-- Feature 13b: task priority labels (chip selector + list indicator). -->
+    <string name="priority_none">Ninguna</string>
+    <string name="priority_low">Baja</string>
+    <string name="priority_medium">Media</string>
+    <string name="priority_high">Alta</string>
+    <string name="tasks_priority_content_description">Prioridad: %1$s</string>
 
     <!-- Statistics screen (feature 04c): three single-number cards for the current week. -->
     <string name="stats_title">Estadísticas</string>

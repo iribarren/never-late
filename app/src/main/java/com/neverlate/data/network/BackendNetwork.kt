@@ -77,7 +77,15 @@ object BackendNetwork {
         // (AuthNetwork never does, precisely so the refresh call itself can't recurse into it).
         authenticator?.let { clientBuilder.authenticator(it) }
 
-        val json = Json { ignoreUnknownKeys = true }
+        // coerceInputValues (feature 13b): if the server ever sends a `priority` this client no
+        // longer knows (or a plain `null`), decode it as the property's default (Priority.NONE)
+        // instead of throwing — the forward-compat behaviour the API contract §5 promises. Pairs
+        // with the tolerant Room converter so an unknown priority degrades safely on both the wire
+        // and on disk.
+        val json = Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+        }
 
         val retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)

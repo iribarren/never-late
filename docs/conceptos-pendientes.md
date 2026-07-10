@@ -47,15 +47,15 @@ posición final en la secuencia.
 | **07b** ★ | Arquitectura nombrada (UDF/MVVM/capas) | 02–07 | Consolidar + documentar el patrón ya usado (poca UI nueva) | ✅ hecho en **feature 07b** |
 | **10b** ★ | Carga de imágenes con Coil | 10 (red, Retrofit/OkHttp) | Imagen de cabecera por artículo desde la API | ⬜ pendiente |
 | — | Theming dinámico (Material You / `dynamicColor`, roles de color) | 07 (tema, DataStore) | Preferencia de color dinámico + cromo de marca | ✅ hecho en **features 16 y 20** |
-| **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Profundizar en migraciones: `TypeConverter`, `AutoMigration`, test de migración (el caso básico de añadir columna ya lo hizo 04c) | ⬜ pendiente |
+| **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Profundizar en migraciones: `TypeConverter`, `AutoMigration`, test de migración (el caso básico de añadir columna ya lo hizo 04c) | ✅ hecho en **feature 13b** |
 | **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ⬜ pendiente |
 | **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ⬜ pendiente |
 | — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
-**Pendientes: 7** (03b, 10b, 13b, 13c, 13d, 18b, 21). **Ya hechas por sus propias features:** 04b
-(corrutinas/`Flow`), 04c (testing) y 07b (arquitectura nombrada). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
+**Pendientes: 6** (03b, 10b, 13c, 13d, 18b, 21). **Ya hechas por sus propias features:** 04b
+(corrutinas/`Flow`), 04c (testing), 07b (arquitectura nombrada) y 13b (migraciones de Room). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
 dinámico y el repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap;
 cualquier feature futura no listada aquí se numeraría a partir de 22.
 

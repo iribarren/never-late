@@ -23,6 +23,7 @@ interface TaskRepository {
         estimatedDurationMillis: Long?,
         deadline: Long?,
         completedAt: Long?,
+        priority: String,
         now: Long,
     ): Task
 
@@ -36,6 +37,7 @@ interface TaskRepository {
         estimatedDurationMillis: Long?,
         deadline: Long?,
         completedAt: Long?,
+        priority: String,
         now: Long,
     ): Task?
 
@@ -55,4 +57,5 @@ data class TaskUpdateFields(
     val estimatedDurationMillis: PatchValue<Long>,
     val deadline: PatchValue<Long>,
     val completedAt: PatchValue<Long>,
+    val priority: PatchValue<String>,
 )
