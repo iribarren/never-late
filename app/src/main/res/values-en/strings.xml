@@ -53,6 +53,10 @@
     <string name="articles_detail_title_fallback">Article</string>
     <string name="articles_error">Couldn\'t load the articles.</string>
     <string name="articles_retry">Retry</string>
+    <!-- Feature 13c: shown at the bottom of the list when loading the next page fails, distinct
+         from articles_error (a failed *first* load, with nothing cached to show instead). -->
+    <string name="articles_append_error">Couldn\'t load more articles.</string>
+    <string name="articles_loading_more_content_description">Loading more articles…</string>
 
     <!-- Tasks list screen -->
     <string name="tasks_title">Tasks</string>

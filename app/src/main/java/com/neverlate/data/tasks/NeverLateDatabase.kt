@@ -9,6 +9,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.neverlate.data.articles.ArticleDao
 import com.neverlate.data.articles.ArticleEntity
+import com.neverlate.data.articles.ArticleRemoteKeys
+import com.neverlate.data.articles.ArticleRemoteKeysDao
 import com.neverlate.data.sync.Converters
 import com.neverlate.data.sync.OutboxDao
 import com.neverlate.data.sync.OutboxEntity
@@ -38,13 +40,25 @@ import com.neverlate.data.sync.OutboxEntity
  * one-off (build the module with export on but still at `version = 4`) and committed alongside
  * `5.json` — see `tutorial/13b-migraciones-room.md`. The schema output location is set via the
  * `room.schemaLocation` KSP argument in `app/build.gradle.kts`.
+ *
+ * Feature 13c bumps `version = 5 -> 6`: paginating Articles with Jetpack Paging 3 needs a second
+ * table, [ArticleRemoteKeys] (Paging's per-article "which page did this come from" bookkeeping —
+ * see its KDoc), and [ArticleEntity] itself gains an ordering column
+ * ([ArticleEntity.remoteOrder]) so cached pages come back in the server's order instead of
+ * SQLite's arbitrary one.
  */
-@Database(entities = [Task::class, ArticleEntity::class, OutboxEntity::class], version = 5, exportSchema = true)
+@Database(
+    entities = [Task::class, ArticleEntity::class, OutboxEntity::class, ArticleRemoteKeys::class],
+    version = 6,
+    exportSchema = true,
+)
 @TypeConverters(Converters::class)
 abstract class NeverLateDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
 
     abstract fun articleDao(): ArticleDao
+
+    abstract fun articleRemoteKeysDao(): ArticleRemoteKeysDao
 
     abstract fun outboxDao(): OutboxDao
 
@@ -85,7 +99,7 @@ abstract class NeverLateDatabase : RoomDatabase() {
                     // this project's first **real** Migration ([MIGRATION_3_4]) instead of falling
                     // back — [fallbackToDestructiveMigration] stays registered only as a safety net
                     // for schema versions Room has no explicit migration path for at all.
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }
@@ -121,6 +135,32 @@ abstract class NeverLateDatabase : RoomDatabase() {
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'NONE'")
+            }
+        }
+
+        /**
+         * `5 -> 6` (feature 13c): adds the [ArticleRemoteKeys] table and [ArticleEntity.remoteOrder],
+         * both purely additive like [MIGRATION_4_5]. Even though `articles` is *only* a cache (unlike
+         * `tasks`, it fully repopulates from the network on the next refresh, so a destructive
+         * migration would be technically tolerable for that table alone), this database also holds
+         * `tasks`/`task_outbox`, and since feature 13 (guest mode) a guest's tasks live **only**
+         * on-device. Falling back to `fallbackToDestructiveMigration` here would wipe those tasks
+         * purely as a side effect of an unrelated Articles change — so this migration stays additive,
+         * the same reasoning [MIGRATION_3_4]/[MIGRATION_4_5] already documented.
+         *
+         * `remoteOrder`'s `NOT NULL DEFAULT 0` (same shape as [MIGRATION_4_5]'s `priority` column)
+         * gives every article already cached before this upgrade a valid, if arbitrary, order — it
+         * will simply be re-sorted (and the cache re-filled from page 0) the next time
+         * [com.neverlate.data.articles.ArticlesRemoteMediator] runs a REFRESH, exactly as the class
+         * KDoc there describes.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS article_remote_keys (" +
+                        "articleId TEXT NOT NULL PRIMARY KEY, prevKey INTEGER, nextKey INTEGER)",
+                )
+                db.execSQL("ALTER TABLE articles ADD COLUMN remoteOrder INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

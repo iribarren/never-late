@@ -1,71 +1,52 @@
 package com.neverlate.data.articles
 
+import androidx.paging.testing.asSnapshot
+import com.neverlate.data.sync.buildInMemoryTestDatabase
+import com.neverlate.data.tasks.NeverLateDatabase
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
- * Hand-written in-memory fake for [ArticleDao]. Room's generated DAO implementation needs an
- * Android runtime (or Robolectric) to actually run SQL, neither of which this plain-JVM test uses
- * — a `MutableMap` keyed by [ArticleEntity.id] gives [CachingArticleRepository] the exact same
- * upsert/clear/read semantics the real, Room-generated `ArticleDao` provides.
+ * Integration-style test for [CachingArticleRepository]: a real [ArticlesApi] (see
+ * [ArticlesRemoteMediatorTest]'s KDoc for why a real Retrofit + [MockWebServer] pair is this
+ * project's convention here) plus a real, Robolectric-backed in-memory [NeverLateDatabase]
+ * ([buildInMemoryTestDatabase]).
+ *
+ * Feature 13c retired the old `getArticles()`/`refresh()` pair this class used to expose (see its
+ * KDoc) in favour of one continuous [androidx.paging.PagingData] stream — [asSnapshot] (from
+ * `androidx.paging:paging-testing`) is Paging's own way to turn that stream back into a plain
+ * `List<Article>` inside a coroutine test, driving the underlying [Pager][androidx.paging.Pager] +
+ * [ArticlesRemoteMediator] exactly like a real UI collector would.
  */
-private class FakeArticleDao : ArticleDao {
-    private val rows = mutableMapOf<String, ArticleEntity>()
-
-    override suspend fun getAll(): List<ArticleEntity> = rows.values.toList()
-
-    override suspend fun getById(id: String): ArticleEntity? = rows[id]
-
-    override suspend fun upsertAll(items: List<ArticleEntity>) {
-        items.forEach { rows[it.id] = it }
-    }
-
-    override suspend fun clear() {
-        rows.clear()
-    }
-}
-
-/** The actual wire shape the remote API sends (see docs/articles-api/articles.json): snake_case
- * `article_id`, `content` instead of `body`, and no `summary` field at all. */
-private const val WIRE_JSON = """
-[
-  {"article_id": "pomodoro", "title": "La técnica Pomodoro", "content": "Contenido completo sobre Pomodoro."},
-  {"article_id": "time-blocking", "title": "Time blocking", "content": "Contenido completo sobre time blocking."}
-]
-"""
-
-/**
- * Integration-style test for [CachingArticleRepository]: a real [ArticlesApi] — built exactly the
- * way [com.neverlate.MainActivity] builds it, via [ArticlesNetwork.create] — talks HTTP to a local
- * [MockWebServer] instead of the real network, paired with [FakeArticleDao] instead of a real Room
- * database. This is the "repositorio con servidor mock" the feature 10 prompt calls for, kept on
- * the plain JVM (no emulator/Robolectric needed) by faking only the one piece (the DAO) that would
- * otherwise require Room/Android.
- */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class CachingArticleRepositoryTest {
 
     private lateinit var mockWebServer: MockWebServer
-    private lateinit var dao: FakeArticleDao
+    private lateinit var database: NeverLateDatabase
     private lateinit var repository: CachingArticleRepository
 
     @Before
     fun setUp() {
         mockWebServer = MockWebServer()
         mockWebServer.start()
-        dao = FakeArticleDao()
+        database = buildInMemoryTestDatabase()
         val api = ArticlesNetwork.create(baseUrl = mockWebServer.url("/").toString())
-        repository = CachingArticleRepository(api = api, dao = dao)
+        repository = CachingArticleRepository(api = api, database = database)
     }
 
     @After
     fun tearDown() {
+        database.close()
         try {
             mockWebServer.shutdown()
         } catch (error: Exception) {
@@ -74,70 +55,29 @@ class CachingArticleRepositoryTest {
     }
 
     @Test
-    fun `refresh on 200 maps the wire JSON to domain articles and stores them in the cache`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody(WIRE_JSON))
+    fun `articlesPager emits the mapped domain articles once the initial REFRESH lands`() = runTest {
+        mockWebServer.enqueue(
+            MockResponse().setResponseCode(200).setBody(
+                """{"items":[
+                    {"article_id":"pomodoro","title":"La técnica Pomodoro","content":"Divide el trabajo en bloques."},
+                    {"article_id":"time-blocking","title":"Time blocking","content":"Asigna cada hora a una tarea."}
+                ],"page":0,"size":20,"total":2}""",
+            ),
+        )
 
-        val result = repository.refresh()
+        val snapshot = repository.articlesPager().asSnapshot()
 
-        assertTrue(result is RefreshResult.Success)
-        assertEquals(2, dao.getAll().size)
-
-        val cached = repository.getArticles()
-        val pomodoro = cached.first { it.id == "pomodoro" }
+        assertEquals(2, snapshot.size)
+        val pomodoro = snapshot.first { it.id == "pomodoro" }
         assertEquals("La técnica Pomodoro", pomodoro.title)
-        assertEquals("Contenido completo sobre Pomodoro.", pomodoro.body)
-        assertEquals(summarize("Contenido completo sobre Pomodoro."), pomodoro.summary)
-
-        val timeBlocking = cached.first { it.id == "time-blocking" }
-        assertEquals("Time blocking", timeBlocking.title)
-        assertEquals("Contenido completo sobre time blocking.", timeBlocking.body)
+        assertEquals("Divide el trabajo en bloques.", pomodoro.body)
     }
 
     @Test
-    fun `refresh on a server error returns Error and preserves the previously cached articles`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody(WIRE_JSON))
-        repository.refresh()
-        val cachedBefore = repository.getArticles()
-
-        mockWebServer.enqueue(MockResponse().setResponseCode(500))
-        val result = repository.refresh()
-
-        assertTrue(result is RefreshResult.Error)
-        assertEquals(cachedBefore, repository.getArticles())
-    }
-
-    @Test
-    fun `refresh when the socket fails returns Error and preserves the previously cached articles`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody(WIRE_JSON))
-        repository.refresh()
-        val cachedBefore = repository.getArticles()
-
-        // Simulates no connectivity / a dead server: the next call can't even open a connection.
-        mockWebServer.shutdown()
-
-        val result = repository.refresh()
-
-        assertTrue(result is RefreshResult.Error)
-        assertEquals(cachedBefore, repository.getArticles())
-    }
-
-    @Test
-    fun `refresh on a malformed response body returns Error and preserves the previously cached articles`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody(WIRE_JSON))
-        repository.refresh()
-        val cachedBefore = repository.getArticles()
-
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody("not valid json"))
-        val result = repository.refresh()
-
-        assertTrue(result is RefreshResult.Error)
-        assertEquals(cachedBefore, repository.getArticles())
-    }
-
-    @Test
-    fun `getArticleById reads from the cache - present returns the article, absent returns null`() = runTest {
-        mockWebServer.enqueue(MockResponse().setResponseCode(200).setBody(WIRE_JSON))
-        repository.refresh()
+    fun `getArticleById reads from the Room cache directly - present returns the article, absent returns null`() = runTest {
+        database.articleDao().upsertAll(
+            listOf(ArticleEntity(id = "time-blocking", title = "Time blocking", summary = "Asigna horas.", body = "Cuerpo completo.")),
+        )
 
         val found = repository.getArticleById("time-blocking")
         assertEquals("time-blocking", found?.id)

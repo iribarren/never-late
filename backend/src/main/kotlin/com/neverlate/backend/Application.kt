@@ -1,5 +1,9 @@
 package com.neverlate.backend
 
+import com.neverlate.backend.articles.ArticleRepository
+import com.neverlate.backend.articles.ArticleService
+import com.neverlate.backend.articles.PostgresArticleRepository
+import com.neverlate.backend.articles.articleRoutes
 import com.neverlate.backend.auth.AuthService
 import com.neverlate.backend.auth.PostgresRefreshTokenRepository
 import com.neverlate.backend.auth.PostgresUserRepository
@@ -8,6 +12,7 @@ import com.neverlate.backend.auth.UserRepository
 import com.neverlate.backend.auth.authRoutes
 import com.neverlate.backend.db.createDataSource
 import com.neverlate.backend.db.initSchema
+import com.neverlate.backend.db.seedArticlesIfEmpty
 import com.neverlate.backend.plugins.configureErrorHandling
 import com.neverlate.backend.plugins.configureSecurity
 import com.neverlate.backend.plugins.configureSerialization
@@ -33,6 +38,7 @@ fun main() {
     val config = Config.fromEnv()
     val dataSource = createDataSource(config)
     initSchema(dataSource)
+    seedArticlesIfEmpty(dataSource)
 
     embeddedServer(Netty, port = config.port) {
         configureApp(
@@ -40,6 +46,7 @@ fun main() {
             PostgresUserRepository(dataSource),
             PostgresTaskRepository(dataSource),
             PostgresRefreshTokenRepository(dataSource),
+            PostgresArticleRepository(dataSource),
         )
     }.start(wait = true)
 }
@@ -47,12 +54,14 @@ fun main() {
 /** Wires plugins + routes given a [Config] and repositories. Split out from [main] so tests can
  *  call it with [com.neverlate.backend.auth.InMemoryUserRepository] /
  *  [com.neverlate.backend.tasks.InMemoryTaskRepository] /
- *  [com.neverlate.backend.auth.InMemoryRefreshTokenRepository] instead of a real database. */
+ *  [com.neverlate.backend.auth.InMemoryRefreshTokenRepository] /
+ *  [com.neverlate.backend.articles.InMemoryArticleRepository] instead of a real database. */
 fun Application.configureApp(
     config: Config,
     userRepository: UserRepository,
     taskRepository: TaskRepository,
     refreshTokenRepository: RefreshTokenRepository,
+    articleRepository: ArticleRepository,
 ) {
     install(CallLogging)
     configureSerialization()
@@ -61,9 +70,13 @@ fun Application.configureApp(
 
     val authService = AuthService(userRepository, refreshTokenRepository, config)
     val taskService = TaskService(taskRepository)
+    val articleService = ArticleService(articleRepository)
 
     routing {
         authRoutes(authService)
         taskRoutes(taskService)
+        // Public — deliberately registered outside any authenticate("auth-jwt") block
+        // (contract.md §7): the article catalog must be readable in guest mode (feature 13).
+        articleRoutes(articleService)
     }
 }

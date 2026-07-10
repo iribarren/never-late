@@ -1,67 +1,53 @@
 package com.neverlate.data.articles
 
-import java.io.IOException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
-import retrofit2.HttpException
+import androidx.paging.ExperimentalPagingApi
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
+import com.neverlate.data.tasks.NeverLateDatabase
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
- * [ArticleRepository] backed by a remote REST API ([api]) with a local Room cache ([dao]) as the
- * **single source of truth**.
+ * How many articles [ArticlesRemoteMediator] fetches per network page, and how many rows
+ * [Pager] loads from Room per local page. Kept as one constant (rather than duplicated) so the
+ * two always agree — a Paging `Pager` reading smaller chunks from Room than the mediator writes
+ * per network page would still work, but pointlessly: it would only ever have "whole" pages to
+ * hand out anyway.
+ */
+internal const val ARTICLES_PAGE_SIZE = 20
+
+/**
+ * [ArticleRepository] backed by a remote REST API ([api]) with a local Room cache
+ * ([database]'s [ArticleDao]) as the **single source of truth**.
  *
- * "Single source of truth" means the UI never reads [api] directly: [getArticles] and
- * [getArticleById] always read [dao], full stop. [refresh] is the only function that talks to the
- * network, and its entire job is to update [dao] so that the *next* read reflects it — it never
- * hands network data straight to a caller. This is what makes the app usable offline (US-2 in the
- * feature spec): once anything has been cached, reads keep working with zero network calls.
- *
- * This is also what a *stale-while-revalidate* strategy looks like in code: instead of blocking
- * the UI on the network before showing anything, [com.neverlate.ui.articles.ArticlesViewModel]
- * reads the (possibly stale) cache first, shows that immediately, and calls [refresh] afterwards
- * to bring the cache up to date — updating what the UI shows a second time only if [refresh]
- * actually changed something.
+ * "Single source of truth" means the UI never reads [api] directly: [getArticleById] and
+ * [articlesPager] always read Room, full stop. Through feature 13b that split was hand-written —
+ * a `getArticles()` method read the cache, a separate `refresh()` cleared and re-populated it from
+ * the network, and [com.neverlate.ui.articles.ArticlesViewModel] called both in sequence
+ * (*stale-while-revalidate*). Feature 13c replaces that pair with Jetpack Paging 3: [articlesPager]
+ * builds a single [Pager] that reads from [ArticleDao.pagingSource] (the local half) and writes
+ * through [ArticlesRemoteMediator] (the network half, see its KDoc) — the same "network writes,
+ * cache reads" shape, now expressed as one continuous [Flow] of [PagingData] instead of two
+ * separately-called methods. [database] (rather than a bare [ArticleDao]) is what this class needs
+ * now: [ArticlesRemoteMediator] writes both the `articles` and `article_remote_keys` tables inside
+ * one Room transaction (`database.withTransaction`), which requires the database instance, not
+ * just one of its DAOs.
  */
 class CachingArticleRepository(
     private val api: ArticlesApi,
-    private val dao: ArticleDao,
+    private val database: NeverLateDatabase,
 ) : ArticleRepository {
 
-    override suspend fun getArticles(): List<Article> = dao.getAll().map { it.toDomain() }
+    private val dao = database.articleDao()
+
+    @OptIn(ExperimentalPagingApi::class)
+    override fun articlesPager(): Flow<PagingData<Article>> = Pager(
+        config = PagingConfig(pageSize = ARTICLES_PAGE_SIZE, enablePlaceholders = false),
+        remoteMediator = ArticlesRemoteMediator(api, database),
+        pagingSourceFactory = { dao.pagingSource() },
+    ).flow.map { pagingData -> pagingData.map { entity -> entity.toDomain() } }
 
     override suspend fun getArticleById(id: String): Article? = dao.getById(id)?.toDomain()
-
-    override suspend fun refresh(): RefreshResult = withContext(Dispatchers.IO) {
-        // The network call, JSON parsing (inside `api.getArticles()`) and the Room writes below
-        // are all blocking work, so this whole function runs on Dispatchers.IO — the same reason
-        // LocalArticleRepository used to, for reading assets.
-        try {
-            val articles = api.getArticles().map { it.toDomain() }
-
-            // Clear-then-insert (rather than only upserting) is what makes the cache a faithful
-            // mirror of the server's current catalog: upsertAll alone would update/add articles
-            // the server still has, but would never remove one the server deleted. There is a
-            // brief window here where the table is empty if the process died between the two
-            // calls; acceptable for a pre-release app with no real migration story yet (see
-            // NeverLateDatabase's KDoc), and no worse than the destructive-migration trade-off
-            // already accepted there.
-            dao.clear()
-            dao.upsertAll(articles.map { it.toEntity() })
-
-            RefreshResult.Success
-        } catch (error: IOException) {
-            // No connectivity, DNS failure, timeout, etc. The existing cache is simply left as-is
-            // because nothing was written above.
-            RefreshResult.Error(error)
-        } catch (error: HttpException) {
-            // The server responded, but with a non-2xx status (404, 500...).
-            RefreshResult.Error(error)
-        } catch (error: SerializationException) {
-            // The server responded with 2xx, but the body wasn't the JSON shape ArticleDto expects.
-            RefreshResult.Error(error)
-        }
-        // Deliberately NOT `catch (error: Throwable)`: that would also swallow
-        // kotlinx.coroutines.CancellationException, which every coroutine relies on propagating
-        // to actually stop when its scope is cancelled (e.g. the ViewModel is cleared mid-refresh).
-    }
 }

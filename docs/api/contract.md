@@ -5,14 +5,16 @@ between the Android client (`app/`) and the backend (`backend/`). Client and ser
 reviewed against this file; when the contract changes, this file changes **first** and both sides
 follow. Introduced by **Feature 11** (remote DB + offline-first sync). See the spec at
 `docs/specs/2026-07-06-remote-db-sync.md`. Extended by **Feature 12** (refresh token + silent session
-renewal — see `docs/specs/2026-07-07-refresh-token.md`).
+renewal — see `docs/specs/2026-07-07-refresh-token.md`) and by **Feature 13c** (public paginated
+`/articles` endpoint — see `docs/specs/2026-07-10-articles-paging.md`).
 
 - **Base URL (local dev):** `http://10.0.2.2:8080` from the Android emulator (`10.0.2.2` is the
   host loopback as seen from the emulator), `http://localhost:8080` from the host. Production TLS
   hosting is out of scope for v1 (see spec *Out of Scope*).
 - **Content type:** `application/json` for all request and response bodies (UTF-8).
 - **Auth scheme:** a short-lived **access token** (stateless JWT, ~15 min) sent as
-  `Authorization: Bearer <accessToken>` on every `/tasks*` call, plus a long-lived **refresh token**
+  `Authorization: Bearer <accessToken>` on every `/tasks*` call (the public `GET /articles` is the sole
+  exception — see §7), plus a long-lived **refresh token**
   (~30 days, opaque, server-stateful) used **only** at `POST /auth/refresh` to mint a new pair. On a
   `401` the client **renews first** (once, transparently) and only clears its session and returns to
   login if the refresh itself fails. Refresh tokens are **rotated** on every use, **revoked** on
@@ -304,8 +306,73 @@ on behaviour the wire shape alone doesn't spell out:
 POST /auth/register {email,password}              -> 201 {accessToken,refreshToken,user}
 POST /tasks (Bearer accessToken) {clientRef,title,...} -> 201 {id,...}
 GET  /tasks?since=0 (Bearer accessToken)          -> 200 {tasks:[{id,title,...}], serverTime}
+GET  /articles?page=0&size=20 (NO auth header)    -> 200 {items:[{article_id,...}], page, size, total}
 POST /auth/refresh {refreshToken}                 -> 200 {accessToken,refreshToken,user}  (old refresh now invalid)
 POST /auth/refresh {refreshToken: <the old one>}  -> 401 {error.code: invalid_refresh_token}  (reuse -> family killed)
 POST /auth/login {email,password}                 -> 200 {accessToken,refreshToken,user}
 POST /auth/logout {refreshToken}                  -> 204  (refresh token revoked; idempotent)
 ```
+
+---
+
+## 7. Articles endpoint (public) — Feature 13c
+
+The article catalog (feature 10) moves from a static GitHub-raw JSON file to a **real backend
+resource**, served **paginated** so the client can page through it with Jetpack Paging 3 (a
+`RemoteMediator` writing pages into Room). This is the API's **first and only public endpoint**: it
+requires **no `Authorization` header** because Articles must be readable in **guest mode** (feature 13,
+no account). It is registered **outside** the `authenticate("auth-jwt")` block server-side, serves a
+**global, read-only** catalog (nothing user-scoped), and never reads or trusts a token.
+
+### `GET /articles?page=<int>&size=<int>`
+
+Returns one page of the catalog.
+
+- **`page`** — **zero-based** page index. Optional; defaults to `0`. A negative value → `400`.
+- **`size`** — page size (items per page). Optional; defaults to `20`. The server **clamps** it to
+  `1..100`; a non-numeric value → `400 validation_error`.
+- **No auth**: sending a `Bearer` token is harmless (ignored); omitting it is the norm. Never returns
+  `401`.
+
+**Response** `200 OK`
+```json
+{
+  "items": [ ArticleDto, ArticleDto, ... ],
+  "page": 0,
+  "size": 20,
+  "total": 42
+}
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `items` | `ArticleDto[]` | The page's articles, in a **stable, deterministic total order** (server insertion `position`), so pages never overlap or skip. Empty array past the last page. |
+| `page` | `Int` | The zero-based page index echoed back. |
+| `size` | `Int` | The page size **actually used** (after server clamping), i.e. the max `items.length` this page could contain. |
+| `total` | `Int` | Full catalog count, so a client can compute the number of pages if it wants. |
+
+The client derives **`endOfPaginationReached`** as `items.size < size` (with `total` as a cross-check).
+
+**`ArticleDto` (articles wire shape)** — unchanged from feature 10, deliberately distinct from the
+client's `Article` domain model (`article_id`/`content`, no `summary`; the client derives the summary
+via `ArticleDto.toDomain()`):
+```json
+{ "article_id": "pomodoro", "title": "La técnica Pomodoro", "content": "Full body text…" }
+```
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `article_id` | `String` | Stable catalog id (maps to the client's `Article.id`). |
+| `title` | `String` | Non-blank. |
+| `content` | `String` | Full body; the client derives a short `summary` from it. |
+
+**Errors:** the standard envelope (§1.1) — `400 validation_error` for a malformed `page`/`size`.
+
+**Ordering guarantee:** the endpoint returns items in a **stable total order** across pages (server-side
+`position`, assigned at seed time). Paging correctness depends on this: without it the same offset could
+return different rows between requests, skipping or duplicating articles.
+
+> **Seed & source of truth:** the catalog is **seeded** into the backend at startup from the repo's
+> `docs/articles-api/articles.json` (idempotent insert-if-empty). That file is now **backend seed data**,
+> no longer fetched directly by the app. Article authoring/admin (create/update/delete over HTTP) is out
+> of scope — the catalog is read-only via this endpoint in v1.

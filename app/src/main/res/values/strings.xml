@@ -48,6 +48,10 @@
     <string name="articles_detail_title_fallback">Artículo</string>
     <string name="articles_error">No se han podido cargar los artículos.</string>
     <string name="articles_retry">Reintentar</string>
+    <!-- Feature 13c: shown at the bottom of the list when loading the next page fails, distinct
+         from articles_error (a failed *first* load, with nothing cached to show instead). -->
+    <string name="articles_append_error">No se han podido cargar más artículos.</string>
+    <string name="articles_loading_more_content_description">Cargando más artículos…</string>
 
     <!-- Tasks list screen -->
     <string name="tasks_title">Tareas</string>

@@ -11,9 +11,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The headline test for feature 13b: proves [NeverLateDatabase.MIGRATION_4_5] is **data-preserving**
- * — a real user upgrading from schema v4 to v5 keeps every task, and each one gains the new
- * [Task.priority] column defaulted to `NONE`.
+ * The headline test for feature 13b/13c: proves [NeverLateDatabase.MIGRATION_4_5] and
+ * [NeverLateDatabase.MIGRATION_5_6] are each **data-preserving** — a real user upgrading through
+ * these schema versions keeps every task/article they already had, gaining each migration's new
+ * column(s) with a sane default instead of losing data to a destructive fallback.
  *
  * [MigrationTestHelper] is what makes this possible. It reads the schema JSON files Room exports
  * (`app/schemas/…/4.json`, `5.json`, shipped as androidTest assets — see `app/build.gradle.kts`)
@@ -87,6 +88,65 @@ class MigrationTest {
         db.query("SELECT COUNT(*) FROM tasks").use { cursor ->
             cursor.moveToFirst()
             assertFalse("no rows were dropped", cursor.getInt(0) == 0)
+        }
+        db.close()
+    }
+
+    /**
+     * Feature 13c's headline migration test: [NeverLateDatabase.MIGRATION_5_6] must preserve an
+     * `articles` row already cached before the upgrade, giving it the new
+     * [com.neverlate.data.articles.ArticleEntity.remoteOrder] column defaulted to `0` (it will be
+     * re-sorted from page 0 the next time [com.neverlate.data.articles.ArticlesRemoteMediator]
+     * runs a REFRESH — see that migration's KDoc).
+     */
+    @Test
+    fun migrate5To6_preservesExistingArticles_andDefaultsRemoteOrderToZero() {
+        helper.createDatabase(TEST_DB, 5).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO articles (id, title, summary, body)
+                VALUES ('pomodoro', 'La técnica Pomodoro', 'Resumen breve.', 'Cuerpo completo sobre Pomodoro.')
+                """.trimIndent(),
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 6, true, NeverLateDatabase.MIGRATION_5_6)
+
+        db.query("SELECT id, title, summary, body, remoteOrder FROM articles").use { cursor ->
+            assertEquals("exactly one article should survive the migration", 1, cursor.count)
+            cursor.moveToFirst()
+            assertEquals("pomodoro", cursor.getString(cursor.getColumnIndexOrThrow("id")))
+            assertEquals("La técnica Pomodoro", cursor.getString(cursor.getColumnIndexOrThrow("title")))
+            assertEquals("Resumen breve.", cursor.getString(cursor.getColumnIndexOrThrow("summary")))
+            // The key assertion: the NOT NULL DEFAULT 0 gave the pre-existing row a valid value.
+            assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("remoteOrder")))
+        }
+        db.close()
+    }
+
+    /**
+     * The same migration must also create the new `article_remote_keys` table (empty, since it is
+     * purely local Paging bookkeeping with no pre-13c equivalent to migrate data from) without
+     * disturbing an unrelated, pre-existing `tasks` row sharing the same database.
+     */
+    @Test
+    fun migrate5To6_createsArticleRemoteKeysTable_andKeepsExistingTasks() {
+        helper.createDatabase(TEST_DB, 5).use { db ->
+            db.execSQL(
+                "INSERT INTO tasks (title, updatedAt, syncState, deleted, priority) " +
+                    "VALUES ('Comprar leche', 1, 'SYNCED', 0, 'NONE')",
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 6, true, NeverLateDatabase.MIGRATION_5_6)
+
+        db.query("SELECT COUNT(*) FROM tasks").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("the pre-existing task must survive an unrelated Articles migration", 1, cursor.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM article_remote_keys").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("article_remote_keys starts empty; only ArticlesRemoteMediator populates it", 0, cursor.getInt(0))
         }
         db.close()
     }

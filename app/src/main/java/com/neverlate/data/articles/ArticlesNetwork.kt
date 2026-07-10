@@ -9,8 +9,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 
 /** Where the remote article catalog is hosted. See [create]'s KDoc for the full URL story. */
-private const val DEFAULT_BASE_URL =
-    "https://raw.githubusercontent.com/iribarren/never-late/master/docs/articles-api/"
+private const val DEFAULT_BASE_URL = BuildConfig.BACKEND_BASE_URL
 
 /**
  * Builds a ready-to-use [ArticlesApi], wiring together the three pieces a Retrofit setup always
@@ -25,13 +24,20 @@ object ArticlesNetwork {
     /**
      * Builds an [ArticlesApi] pointed at [baseUrl].
      *
-     * [baseUrl] defaults to [DEFAULT_BASE_URL] — a **static JSON file served from this very
-     * repository's `docs/articles-api/articles.json`, via GitHub's "raw" file server** (plain
-     * HTTPS, no auth, no API key). That endpoint only starts responding once this branch is
-     * merged and pushed to `master` (GitHub raw serves whatever is currently on that branch), so
-     * this app cannot fetch real data from it until then. Unit/integration tests never depend on
-     * that: they pass their own `baseUrl` pointing at a local `MockWebServer` instance instead,
-     * which is exactly why this parameter exists rather than being hardcoded.
+     * [baseUrl] defaults to [DEFAULT_BASE_URL] — [BuildConfig.BACKEND_BASE_URL], this project's
+     * own Ktor backend (`backend/`, feature 11). Through feature 13b, articles came from a
+     * **static JSON file served over GitHub raw** instead (`docs/articles-api/articles.json`);
+     * feature 13c retires that source in favour of a real, **paginated**, backend endpoint
+     * (`GET /articles?page=&size=`, `docs/api/contract.md` §7) — the article catalog is now seeded
+     * into the backend from that same JSON file, rather than fetched from it directly. Unlike
+     * every other call this backend serves, `/articles` is **public**: it needs no `Authorization`
+     * header at all (see [com.neverlate.data.network.BackendNetwork] for the auth-attaching
+     * wiring `/tasks*`/`/auth*` use instead), which is why this endpoint keeps its own small,
+     * separate Retrofit setup here rather than going through that shared helper.
+     *
+     * Unit/integration tests never depend on the real backend either: they pass their own
+     * `baseUrl` pointing at a local `MockWebServer` instance instead, which is exactly why this
+     * parameter exists rather than being hardcoded.
      */
     fun create(baseUrl: String = DEFAULT_BASE_URL): ArticlesApi {
         // HttpLoggingInterceptor prints every request/response OkHttp makes — invaluable while

@@ -48,7 +48,7 @@ posición final en la secuencia.
 | **10b** ★ | Carga de imágenes con Coil | 10 (red, Retrofit/OkHttp) | Imagen de cabecera por artículo desde la API | ⬜ pendiente |
 | — | Theming dinámico (Material You / `dynamicColor`, roles de color) | 07 (tema, DataStore) | Preferencia de color dinámico + cromo de marca | ✅ hecho en **features 16 y 20** |
 | **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Profundizar en migraciones: `TypeConverter`, `AutoMigration`, test de migración (el caso básico de añadir columna ya lo hizo 04c) | ✅ hecho en **feature 13b** |
-| **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ⬜ pendiente |
+| **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ✅ hecho en **feature 13c** |
 | **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ⬜ pendiente |
 | — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |

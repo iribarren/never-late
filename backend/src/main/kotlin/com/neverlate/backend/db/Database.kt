@@ -1,8 +1,11 @@
 package com.neverlate.backend.db
 
 import com.neverlate.backend.Config
+import com.neverlate.backend.articles.ArticleDto
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import java.sql.Connection
 import javax.sql.DataSource
 
@@ -107,6 +110,72 @@ fun initSchema(dataSource: DataSource) {
             statement.execute(
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'NONE'",
             )
+            // Feature 13c: the article catalog becomes real backend data (previously a static
+            // GitHub-raw JSON file fetched directly by the client). `position` is what gives
+            // `GET /articles` its stable total order across pages (contract.md §7) — SQL tables
+            // have no inherent row order, so without it the same offset could return different
+            // rows between requests. `article_id` is UNIQUE so re-running the seed (see
+            // [seedArticlesIfEmpty]) can never insert a duplicate.
+            statement.execute(
+                """
+                CREATE TABLE IF NOT EXISTS articles (
+                    id BIGSERIAL PRIMARY KEY,
+                    article_id TEXT NOT NULL UNIQUE,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    position INT NOT NULL
+                )
+                """.trimIndent(),
+            )
+            statement.execute(
+                "CREATE INDEX IF NOT EXISTS idx_articles_position ON articles(position)",
+            )
         }
     }
+}
+
+/**
+ * Seeds the `articles` table from the bundled catalog **the first time** the backend starts
+ * against an empty table; a no-op on every later startup, so it's safe to call unconditionally
+ * from [com.neverlate.backend.main] right after [initSchema]. `position` is assigned by the seed
+ * file's array order, which is what gives the endpoint its stable ordering guarantee.
+ *
+ * The seed content is bundled as a classpath resource (`resources/seed/articles.json`) rather
+ * than read from a repo-relative path: the packaged Docker image (see backend/Dockerfile) only
+ * ships the built jar, not the wider repo checkout, so a relative path to `docs/articles-api/`
+ * would not resolve at runtime. That file stays the canonical, human-edited source; the bundled
+ * copy is what actually ships (see its header comment).
+ */
+fun seedArticlesIfEmpty(dataSource: DataSource) {
+    dataSource.connection.use { conn ->
+        val alreadySeeded = conn.createStatement().use { statement ->
+            statement.executeQuery("SELECT count(*) FROM articles").use { rs ->
+                rs.next()
+                rs.getInt(1) > 0
+            }
+        }
+        if (alreadySeeded) return
+
+        val catalog = loadSeedCatalog()
+        conn.prepareStatement(
+            "INSERT INTO articles (article_id, title, content, position) VALUES (?, ?, ?, ?)",
+        ).use { stmt ->
+            catalog.forEachIndexed { position, article ->
+                stmt.setString(1, article.articleId)
+                stmt.setString(2, article.title)
+                stmt.setString(3, article.content)
+                stmt.setInt(4, position)
+                stmt.addBatch()
+            }
+            stmt.executeBatch()
+        }
+    }
+}
+
+private fun loadSeedCatalog(): List<ArticleDto> {
+    val json = ClassLoader.getSystemResourceAsStream("seed/articles.json")
+        ?.bufferedReader()
+        ?.readText()
+        ?: error("Missing bundled seed/articles.json resource")
+    return Json.decodeFromString(ListSerializer(ArticleDto.serializer()), json)
 }

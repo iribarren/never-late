@@ -46,7 +46,9 @@ import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
  * [ArticleRepository] are both backed by [NeverLateDatabase] — [NeverLateDatabase.getInstance]
  * takes care of creating (or reusing) the single instance for the whole process.
  * [ArticleRepository]'s concrete implementation, [CachingArticleRepository], additionally needs a
- * network client ([ArticlesNetwork.create]) to refresh that cache from the remote articles API.
+ * network client ([ArticlesNetwork.create]) and the whole [database] (not just its DAO) — feature
+ * 13c's [com.neverlate.data.articles.ArticlesRemoteMediator] writes both the `articles` and
+ * `article_remote_keys` tables in one Room transaction, which needs the database instance itself.
  *
  * [TaskRepository] is wrapped in three decorators, composed in the order they should run: features
  * 05 + 06's [TaskSurfacesRefreshingRepository] (refreshes the widget/lock-screen summary) wraps
@@ -74,7 +76,7 @@ class MainActivity : ComponentActivity() {
         val repository: UserPreferencesRepository = DataStoreUserPreferencesRepository(applicationContext)
         val database = NeverLateDatabase.getInstance(applicationContext)
         val articleRepository: ArticleRepository =
-            CachingArticleRepository(ArticlesNetwork.create(), database.articleDao())
+            CachingArticleRepository(ArticlesNetwork.create(), database)
         val reminderScheduler: ReminderScheduler = AlarmManagerReminderScheduler(applicationContext)
 
         // Auth (feature 11): the token storage and AuthRepository are built first, since the
