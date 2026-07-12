@@ -7,102 +7,69 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.neverlate.data.DataStoreUserPreferencesRepository
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
-import com.neverlate.data.articles.ArticleRepository
-import com.neverlate.data.articles.ArticlesNetwork
-import com.neverlate.data.articles.CachingArticleRepository
-import com.neverlate.data.auth.AuthNetwork
-import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthRepositoryImpl
-import com.neverlate.data.auth.EncryptedTokenStorage
-import com.neverlate.data.sync.OutboxTaskRepository
-import com.neverlate.data.sync.SyncEngine
-import com.neverlate.data.sync.SyncWorker
-import com.neverlate.data.sync.TasksNetwork
-import com.neverlate.data.tasks.NeverLateDatabase
-import com.neverlate.data.tasks.RoomTaskRepository
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppNavHost
-import com.neverlate.ui.notification.AlarmManagerReminderScheduler
 import com.neverlate.ui.notification.ReminderNotificationHelper
-import com.neverlate.ui.notification.ReminderScheduler
-import com.neverlate.ui.notification.ReminderSchedulingRepository
 import com.neverlate.ui.notification.TasksNotificationService
 import com.neverlate.ui.theme.NeverLateTheme
 import com.neverlate.ui.theme.themeModeToDark
 import com.neverlate.ui.widget.TaskSurfacesRefreshWorker
-import com.neverlate.ui.widget.TaskSurfacesRefreshingRepository
+import com.neverlate.data.sync.SyncWorker
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Single entry point of the app. In Compose there is usually one Activity that hosts the whole
  * UI tree declared inside [setContent].
  *
- * The [UserPreferencesRepository], [ArticleRepository] and [TaskRepository] are created once
- * here (manual dependency injection — no framework needed for a project this size) and threaded
- * down into [AppNavHost], which passes each to whichever screen needs it via
- * [com.neverlate.ui.navigation.AppViewModelFactory]. [TaskRepository] and, since feature 10,
- * [ArticleRepository] are both backed by [NeverLateDatabase] — [NeverLateDatabase.getInstance]
- * takes care of creating (or reusing) the single instance for the whole process.
- * [ArticleRepository]'s concrete implementation, [CachingArticleRepository], additionally needs a
- * network client ([ArticlesNetwork.create]) and the whole [database] (not just its DAO) — feature
- * 13c's [com.neverlate.data.articles.ArticlesRemoteMediator] writes both the `articles` and
- * `article_remote_keys` tables in one Room transaction, which needs the database instance itself.
+ * Feature 13d replaces this class's former manual dependency injection — a construction block
+ * that used to build [UserPreferencesRepository], [com.neverlate.data.tasks.NeverLateDatabase],
+ * the whole [TaskRepository] decorator chain, [AuthRepositoryImpl], [com.neverlate.data.sync.SyncEngine]
+ * and friends inline, right here in [onCreate] — with **Hilt**: `@AndroidEntryPoint` below makes
+ * this class a member of Hilt's generated `SingletonComponent`, so the three `@Inject`ed fields
+ * are simply *handed to it*, already fully built, by the providers in `di/` (`DatabaseModule`,
+ * `NetworkModule`, `StorageModule`, `RepositoryModule`). Every screen's `ViewModel` gets its own
+ * repositories the same way, via `@HiltViewModel` + `hiltViewModel()` — see e.g.
+ * [com.neverlate.ui.tasks.TasksViewModel]. This class now does exactly two things: wires the one
+ * piece of state Hilt cannot express as a static dependency graph (the guest-mode adoption hook,
+ * below), and runs the app's imperative startup side effects — nothing here *constructs* an
+ * object anymore.
  *
- * [TaskRepository] is wrapped in three decorators, composed in the order they should run: features
- * 05 + 06's [TaskSurfacesRefreshingRepository] (refreshes the widget/lock-screen summary) wraps
- * feature 09's [ReminderSchedulingRepository] (schedules/cancels each task's alarm), which wraps
- * feature 11's [OutboxTaskRepository] (stamps sync metadata and enqueues an outbox row for every
- * write), which in turn wraps the real, Room-backed [RoomTaskRepository]. Every write made
- * anywhere in the app therefore refreshes those read-only surfaces, keeps reminders in sync, *and*
- * queues itself for the backend — see each decorator's KDoc for why neither can simply observe
- * the repository the way this app's `ViewModel`s do.
- *
- * Feature 11 also adds an account layer *above* [TaskRepository]: [AuthRepository] (backed by
- * [EncryptedTokenStorage] for the JWT + refresh token) gates the whole nav graph in [AppNavHost] —
- * see that function's KDoc — and [SyncEngine] is the thing [OutboxTaskRepository] actually talks
- * to for push/pull, built here with a [com.neverlate.data.sync.TasksApi] whose
- * [com.neverlate.data.sync.AuthInterceptor] attaches the session token. Feature 12 adds
- * [com.neverlate.data.sync.TokenAuthenticator] to that same client: it renews an expired token
- * silently on a `401` and only routes back to [AuthRepository.notifyUnauthorized] once renewal
- * itself is impossible.
+ * [taskRepository] is the assembled, outermost [TaskRepository] — features 05+06's
+ * [com.neverlate.ui.widget.TaskSurfacesRefreshingRepository] wrapping feature 09's
+ * [com.neverlate.ui.notification.ReminderSchedulingRepository] wrapping feature 11's
+ * [com.neverlate.data.sync.OutboxTaskRepository] wrapping the real, Room-backed
+ * [com.neverlate.data.tasks.RoomTaskRepository] — composed by
+ * [com.neverlate.di.RepositoryModule]'s qualified providers in that exact order (see its KDoc for
+ * why the order is a behavioural contract, not just a construction detail). [authRepositoryImpl]
+ * (feature 11) is injected as its **concrete** type, not the [com.neverlate.data.auth.AuthRepository]
+ * interface every ViewModel sees, because only this class needs its `onAuthenticated` hook below —
+ * see [AuthRepositoryImpl.onAuthenticated]'s KDoc.
  */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+
+    @Inject
+    lateinit var taskRepository: TaskRepository
+
+    @Inject
+    lateinit var authRepositoryImpl: AuthRepositoryImpl
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val repository: UserPreferencesRepository = DataStoreUserPreferencesRepository(applicationContext)
-        val database = NeverLateDatabase.getInstance(applicationContext)
-        val articleRepository: ArticleRepository =
-            CachingArticleRepository(ArticlesNetwork.create(), database)
-        val reminderScheduler: ReminderScheduler = AlarmManagerReminderScheduler(applicationContext)
-
-        // Auth (feature 11): the token storage and AuthRepository are built first, since the
-        // tasks network client below needs a way to attach the current token and to report a 401
-        // back — see AuthRepositoryImpl.notifyUnauthorized.
-        val tokenStorage = EncryptedTokenStorage(applicationContext)
-        val authRepositoryImpl = AuthRepositoryImpl(AuthNetwork.create(), tokenStorage, database, repository)
-        val authRepository: AuthRepository = authRepositoryImpl
-
-        val tasksApi = TasksNetwork.create(tokenStorage = tokenStorage, onUnauthorized = authRepositoryImpl::notifyUnauthorized)
-        val syncEngine = SyncEngine(tasksApi, database, repository, tokenStorage)
-
-        val taskRepository: TaskRepository = TaskSurfacesRefreshingRepository(
-            ReminderSchedulingRepository(
-                OutboxTaskRepository(database, RoomTaskRepository(database.taskDao()), syncEngine),
-                reminderScheduler,
-                repository,
-            ),
-            applicationContext,
-        )
-
         // Feature 13 (guest mode): belt-and-braces adoption trigger. taskRepository must exist
-        // before this can be wired, which is why it is assigned here rather than passed into
-        // AuthRepositoryImpl's constructor — see AuthRepositoryImpl.onAuthenticated's KDoc for why
-        // this is redundant insurance alongside MainAppNavHost's own LaunchedEffect, not the only
-        // mechanism.
+        // before this can be wired, which is why it is assigned here (both fields already
+        // injected by the time onCreate runs) rather than passed into AuthRepositoryImpl's own
+        // constructor — see AuthRepositoryImpl.onAuthenticated's KDoc for why this is redundant
+        // insurance alongside MainAppNavHost's own LaunchedEffect, not the only mechanism.
         authRepositoryImpl.onAuthenticated = { taskRepository.refreshFromServer() }
 
         // The reminders channel must exist before ReminderReceiver can ever post to it; creating
@@ -135,7 +102,7 @@ class MainActivity : ComponentActivity() {
             // colours for the whole app (not just the Settings screen). While DataStore is still
             // loading from disk the value is null; we fall back to SYSTEM to avoid a flash of the
             // wrong theme, the same "startup flash" reasoning AppNavHost uses for its start route.
-            val userPreferences by repository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
+            val userPreferences by userPreferencesRepository.userPreferences.collectAsStateWithLifecycle(initialValue = null)
             val themeMode = userPreferences?.themeMode ?: ThemeMode.SYSTEM
             val darkTheme = themeModeToDark(themeMode, isSystemInDarkTheme())
             // Same null-guard reasoning as themeMode above: while DataStore is still loading, fall
@@ -145,11 +112,9 @@ class MainActivity : ComponentActivity() {
 
             NeverLateTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 AppNavHost(
-                    authRepository = authRepository,
-                    repository = repository,
-                    articleRepository = articleRepository,
+                    authRepository = authRepositoryImpl,
+                    repository = userPreferencesRepository,
                     taskRepository = taskRepository,
-                    reminderScheduler = reminderScheduler,
                     openTasksOnStart = openTasksOnStart,
                 )
             }

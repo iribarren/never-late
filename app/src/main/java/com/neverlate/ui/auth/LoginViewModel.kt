@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.neverlate.data.auth.AuthErrorType
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthResult
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,8 +27,11 @@ data class LoginUiState(
  * [com.neverlate.ui.navigation.AppNavHost] observes that state directly and reactively swaps the
  * whole auth-gated graph for the main one once it changes, the same way it already reacts to the
  * `onboarded` preference.
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor`, obtained via `hiltViewModel()`.
  */
-class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
+@HiltViewModel
+class LoginViewModel @Inject constructor(private val repository: AuthRepository) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()

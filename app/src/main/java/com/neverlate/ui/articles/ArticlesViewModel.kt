@@ -6,6 +6,8 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -25,7 +27,11 @@ import kotlinx.coroutines.flow.Flow
  * [cachedIn] shares one upstream [Flow] of [PagingData] across configuration changes (e.g. a
  * screen rotation) by keying it to [viewModelScope]: without it, every recomposition that
  * re-collects [articles] would restart paging from page 0.
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor` — obtained via `hiltViewModel()` in
+ * [ArticlesRoute] instead of the retired `AppViewModelFactory`.
  */
-class ArticlesViewModel(repository: ArticleRepository) : ViewModel() {
+@HiltViewModel
+class ArticlesViewModel @Inject constructor(repository: ArticleRepository) : ViewModel() {
     val articles: Flow<PagingData<Article>> = repository.articlesPager().cachedIn(viewModelScope)
 }

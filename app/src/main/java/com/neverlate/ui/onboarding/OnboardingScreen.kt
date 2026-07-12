@@ -17,28 +17,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
 /**
  * Stateful wrapper (the "route"): this is the only place that knows an [OnboardingViewModel]
- * exists. It obtains the ViewModel (built by [AppViewModelFactory], since it needs a
- * [repository]), collects its state, and wires callbacks into the stateless [OnboardingScreen].
+ * exists. It obtains the ViewModel via `hiltViewModel()` (feature 13d — Hilt resolves its
+ * [com.neverlate.data.UserPreferencesRepository] dependency on its own), collects its state, and
+ * wires callbacks into the stateless [OnboardingScreen].
  *
  * `collectAsStateWithLifecycle` (instead of the plain `collectAsState`) pauses collection while
  * the screen is not visible (e.g. app backgrounded), which avoids doing work for nothing.
  */
 @Composable
 fun OnboardingRoute(
-    repository: UserPreferencesRepository,
     onSaved: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: OnboardingViewModel = viewModel(factory = AppViewModelFactory(repository)),
+    viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

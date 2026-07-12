@@ -1,5 +1,6 @@
 package com.neverlate.ui.articles
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.paging.PagingData
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
@@ -43,6 +44,14 @@ private val twoMinuteRule = Article(
     body = "Cuerpo completo del artículo sobre la regla de los 2 minutos.",
 )
 
+/**
+ * Feature 13d: [ArticleDetailViewModel] now reads its `articleId` navigation argument from a
+ * [SavedStateHandle] instead of a plain constructor parameter — this builds one pre-seeded with
+ * the same key ("articleId") `AppNavHost`'s `navArgument` declares, exactly as `hiltViewModel()`
+ * would when reached through real navigation.
+ */
+private fun savedStateHandleFor(articleId: String) = SavedStateHandle(mapOf("articleId" to articleId))
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArticleDetailViewModelTest {
 
@@ -63,14 +72,14 @@ class ArticleDetailViewModelTest {
 
     @Test
     fun `initial state is Loading before the repository call completes`() {
-        val viewModel = ArticleDetailViewModel(repository, articleId = pomodoro.id)
+        val viewModel = ArticleDetailViewModel(repository, savedStateHandleFor(pomodoro.id))
 
         assertTrue(viewModel.uiState.value is ArticleDetailUiState.Loading)
     }
 
     @Test
     fun `valid id already in the cache produces Content`() {
-        val viewModel = ArticleDetailViewModel(repository, articleId = twoMinuteRule.id)
+        val viewModel = ArticleDetailViewModel(repository, savedStateHandleFor(twoMinuteRule.id))
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -81,7 +90,7 @@ class ArticleDetailViewModelTest {
 
     @Test
     fun `unknown id produces NotFound`() {
-        val viewModel = ArticleDetailViewModel(repository, articleId = "does-not-exist")
+        val viewModel = ArticleDetailViewModel(repository, savedStateHandleFor("does-not-exist"))
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -90,7 +99,7 @@ class ArticleDetailViewModelTest {
 
     @Test
     fun `empty cache produces NotFound for any id`() {
-        val viewModel = ArticleDetailViewModel(FakeArticleRepositoryForDetail(emptyList()), articleId = pomodoro.id)
+        val viewModel = ArticleDetailViewModel(FakeArticleRepositoryForDetail(emptyList()), savedStateHandleFor(pomodoro.id))
 
         testDispatcher.scheduler.advanceUntilIdle()
 

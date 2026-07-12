@@ -3,7 +3,7 @@
 Lee `CLAUDE.md` (**Tutorial Methodology** + **Mandatory Workflow**) y las lecciones previas (en
 especial la 02: primer `ViewModelProvider.Factory` manual; la 09/11: decoradores de repositorio
 compuestos a mano en `MainActivity`; y la 13: guest mode y su cableado). Implementa **"migrar la DI
-manual a Hilt sin cambiar comportamiento"** siguiendo el flujo `/feature`.
+manual a Hilt sin cambiar comportamiento"**
 
 > **Refactor guiado "antes/después", no producto nuevo.** Desde la 02 la app inyecta a mano
 > (`AppViewModelFactory`, singletons, decoradores compuestos en `MainActivity`). Con el backend +

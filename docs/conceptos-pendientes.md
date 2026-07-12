@@ -49,13 +49,14 @@ posición final en la secuencia.
 | — | Theming dinámico (Material You / `dynamicColor`, roles de color) | 07 (tema, DataStore) | Preferencia de color dinámico + cromo de marca | ✅ hecho en **features 16 y 20** |
 | **13b** ★ | Migraciones de Room reales + `TypeConverter` | 04/11 (Room, esquema) | Profundizar en migraciones: `TypeConverter`, `AutoMigration`, test de migración (el caso básico de añadir columna ya lo hizo 04c) | ✅ hecho en **feature 13b** |
 | **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ✅ hecho en **feature 13c** |
-| **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ⬜ pendiente |
+| **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ✅ hecho en **feature 13d** |
 | — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
-**Pendientes: 6** (03b, 10b, 13c, 13d, 18b, 21). **Ya hechas por sus propias features:** 04b
-(corrutinas/`Flow`), 04c (testing), 07b (arquitectura nombrada) y 13b (migraciones de Room). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
+**Pendientes: 4** (03b, 10b, 18b, 21). **Ya hechas por sus propias features:** 04b
+(corrutinas/`Flow`), 04c (testing), 07b (arquitectura nombrada), 13b (migraciones de Room), 13c
+(paginación) y 13d (Hilt). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
 dinámico y el repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap;
 cualquier feature futura no listada aquí se numeraría a partir de 22.
 
@@ -168,6 +169,13 @@ crece con cada feature; es el momento didáctico perfecto para introducir un con
 **Feature propuesta:** **migrar la DI manual** existente (repositorios, base de datos, ViewModels) a
 Hilt, sin cambiar comportamiento — una lección de refactor guiado que muestra el "antes/después".
 **Ubicación:** **13d**, cuando el cableado manual (backend + sync + auth) ya es máximamente tedioso.
+
+✅ **Hilt: ya hecho** en la **feature 13d** (`13d-hilt-di`). `AppViewModelFactory` y la construcción
+manual en `MainActivity.onCreate` se retiran a favor de `@HiltAndroidApp`/`@AndroidEntryPoint` +
+módulos `@Provides`/`@Binds` en `di/`; la cadena de decoradores de `TaskRepository` se provee con
+qualifiers (`@RoomRepo`/`@OutboxRepo`/`@ReminderRepo`) en el mismo orden de siempre; los nueve
+`ViewModel`s pasan a `@HiltViewModel` + `hiltViewModel()`, con `articleId`/`taskId` llegando por
+`SavedStateHandle`. Cero cambios de comportamiento — ver el resumen en `CLAUDE.md` y la lección.
 
 ### 6. Datos: migraciones y paginación → lecciones **13b** y **13c**
 

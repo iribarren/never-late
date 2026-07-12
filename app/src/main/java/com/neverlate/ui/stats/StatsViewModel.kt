@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.domain.tasks.WeeklyTaskStats
 import com.neverlate.domain.tasks.weeklyStatsFor
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Clock
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -33,8 +35,17 @@ sealed interface StatsUiState {
  * [clock] mirrors [com.neverlate.domain.tasks.ReminderPlanning.kt]'s injected-time seam: it
  * defaults to the real system clock so callers never have to pass one, but a test can construct
  * this ViewModel with a fixed [Clock] instead.
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor`, obtained via `hiltViewModel()`. [clock]
+ * keeps its Kotlin default value (still exactly what a test relies on to construct this class
+ * directly) — but Dagger/Hilt's generated code always calls the `@Inject` constructor with every
+ * parameter explicit, so it does *not* fall back to that default on its own: a real
+ * `hiltViewModel()`-obtained instance needs an actual `@Provides fun provideClock(): Clock`
+ * binding, added to `di/RepositoryModule.kt` (see its KDoc), or the build fails with a
+ * missing-binding error despite the source-level default.
  */
-class StatsViewModel(
+@HiltViewModel
+class StatsViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
 ) : ViewModel() {

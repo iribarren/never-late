@@ -30,29 +30,26 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
-import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.domain.tasks.WeeklyTaskStats
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 import java.text.NumberFormat
 
 /**
- * Stateful wrapper: obtains [StatsViewModel] (via [AppViewModelFactory]) and forwards its state to
- * the stateless [StatsScreen] — the same route/screen split every other screen in this app follows
- * (e.g. [com.neverlate.ui.tasks.TasksRoute]).
+ * Stateful wrapper: obtains [StatsViewModel] via `hiltViewModel()` (feature 13d) and forwards its
+ * state to the stateless [StatsScreen] — the same route/screen split every other screen in this
+ * app follows (e.g. [com.neverlate.ui.tasks.TasksRoute]).
  */
 @Composable
 fun StatsRoute(
-    taskRepository: TaskRepository,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    viewModel: StatsViewModel = viewModel(factory = AppViewModelFactory(taskRepository = taskRepository)),
+    viewModel: StatsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     StatsScreen(uiState = uiState, onBack = onBack, modifier = modifier)

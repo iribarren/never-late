@@ -1,13 +1,19 @@
 package com.neverlate.ui.articles
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neverlate.data.articles.Article
 import com.neverlate.data.articles.ArticleRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+/** [SavedStateHandle] key for the `articleId` navigation argument — see `AppNavHost`'s `Routes.ARTICLE_DETAIL`. */
+private const val ARG_ARTICLE_ID = "articleId"
 
 /**
  * Everything the Article detail screen needs to render itself.
@@ -33,19 +39,25 @@ sealed interface ArticleDetailUiState {
  * the feature 13c spec's *Detail screen coupling* risk: this screen is only reachable by tapping
  * an already-visible, already-cached row, so a genuine miss here is not expected in normal use).
  *
- * [articleId] arrives here as a plain constructor parameter, built by
- * [com.neverlate.ui.navigation.AppViewModelFactory] from the navigation argument read in
- * `AppNavHost`. AndroidX's more idiomatic way to hand a navigation argument to a ViewModel is
- * `SavedStateHandle`, but every other ViewModel in this project already receives its
- * dependencies as explicit constructor parameters through manual DI (see
- * [com.neverlate.ui.onboarding.OnboardingViewModel], [com.neverlate.ui.settings.SettingsViewModel]);
- * reusing that same familiar pattern here keeps this lesson focused on one new concept
- * (navigation with arguments) instead of introducing a second DI mechanism at the same time.
+ * Feature 13d: [articleId] now arrives via [SavedStateHandle] instead of a plain constructor
+ * parameter built by the retired `AppViewModelFactory` — the idiomatic way a Hilt `ViewModel`
+ * reads a navigation argument, since `hiltViewModel()` (called from [ArticleDetailRoute]) gives
+ * every injected ViewModel a [SavedStateHandle] backed by the current `NavBackStackEntry`, with no
+ * extra wiring at the call site as long as the route declares the matching `navArgument` (see
+ * `AppNavHost`'s `Routes.ARTICLE_DETAIL` composable). A missing `articleId` here is a *programmer
+ * error* (every article screen needs one) — [requireNotNull] throws immediately, the same
+ * "require, don't silently default" contract the retired `AppViewModelFactory` used to enforce via
+ * its own `requireArticleId()`. Contrast with [com.neverlate.ui.tasks.TaskEditViewModel], where a
+ * missing `taskId` is a normal, expected value instead.
  */
-class ArticleDetailViewModel(
+@HiltViewModel
+class ArticleDetailViewModel @Inject constructor(
     private val repository: ArticleRepository,
-    private val articleId: String,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    private val articleId: String =
+        requireNotNull(savedStateHandle.get<String>(ARG_ARTICLE_ID)) { "ArticleDetailViewModel requires an articleId" }
 
     private val _uiState = MutableStateFlow<ArticleDetailUiState>(ArticleDetailUiState.Loading)
     val uiState: StateFlow<ArticleDetailUiState> = _uiState.asStateFlow()

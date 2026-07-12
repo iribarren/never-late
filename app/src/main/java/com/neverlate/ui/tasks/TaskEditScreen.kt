@@ -50,18 +50,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.tasks.Priority
-import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.TaskValidationError
 import com.neverlate.data.tasks.deadlineFromPickedDateTime
 import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.data.tasks.formatDeadlineForInput
 import com.neverlate.data.tasks.parseDeadline
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 import java.time.Instant
 import java.time.LocalDate
@@ -70,20 +68,20 @@ import java.time.ZoneId
 import kotlinx.coroutines.flow.collectLatest
 
 /**
- * Stateful wrapper: obtains [TaskEditViewModel] (via [AppViewModelFactory], passing the
- * nullable [taskId] that came from the navigation route) and forwards its state to the stateless
- * [TaskEditScreen].
+ * Stateful wrapper: obtains [TaskEditViewModel] via `hiltViewModel()` (feature 13d) — Hilt reads
+ * the same nullable `taskId` navigation argument off the current `NavBackStackEntry`'s
+ * `SavedStateHandle` that the ViewModel needs (see its KDoc) — and forwards its state to the
+ * stateless [TaskEditScreen]. [taskId] is still passed into this Route (rather than dropped
+ * entirely) purely so [isEditing] below can be derived from it directly, without adding a field to
+ * [TaskEditUiState] just to mirror a value Hilt already resolves independently.
  */
 @Composable
 fun TaskEditRoute(
-    taskRepository: TaskRepository,
     taskId: Long?,
     onSaved: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: TaskEditViewModel = viewModel(
-        factory = AppViewModelFactory(taskRepository = taskRepository, taskId = taskId),
-    ),
+    viewModel: TaskEditViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

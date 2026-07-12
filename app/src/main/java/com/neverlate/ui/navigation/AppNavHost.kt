@@ -32,7 +32,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.neverlate.R
 import com.neverlate.data.UserPreferencesRepository
-import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
@@ -40,7 +39,6 @@ import com.neverlate.ui.articles.ArticleDetailRoute
 import com.neverlate.ui.articles.ArticlesRoute
 import com.neverlate.ui.auth.LoginRoute
 import com.neverlate.ui.auth.RegisterRoute
-import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.onboarding.OnboardingRoute
 import com.neverlate.ui.settings.SettingsRoute
 import com.neverlate.ui.stats.StatsRoute
@@ -101,36 +99,38 @@ private const val ARG_TASK_ID = "taskId"
  * [com.neverlate.ui.settings.SettingsViewModel] (see each one's KDoc). Each branch keeps its own
  * `rememberNavController()`, so switching branches naturally starts with a fresh back stack
  * instead of carrying over stale routes from the other graph.
+ *
+ * Feature 13d: every `*ViewModel` in this graph now obtains its repositories via `hiltViewModel()`
+ * (Hilt resolves them from `di/`), so this function itself only keeps the three dependencies it
+ * uses **directly**, never merely to thread through to a `*Route` for building a ViewModel by
+ * hand: [authRepository] (`authState`, above), [repository] (the `onboarded` flag that decides
+ * [MainAppNavHost]'s start destination), and [taskRepository] (the sync-refresh
+ * `LaunchedEffect(Unit)` in [MainAppNavHost]). All three are `@Inject`ed in
+ * [com.neverlate.MainActivity] and passed in here — a plain `@Composable` function like this one
+ * cannot call `hiltViewModel()` itself (that only resolves `ViewModel`s), so this is the simplest
+ * way to reach a Hilt-provided singleton from outside a `ViewModel`.
  */
 @Composable
 fun AppNavHost(
     authRepository: AuthRepository,
     repository: UserPreferencesRepository,
-    articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
-    reminderScheduler: ReminderScheduler,
     openTasksOnStart: Boolean = false,
 ) {
     val authState by authRepository.authState.collectAsStateWithLifecycle()
 
     when (authState) {
-        is AuthState.LoggedOut -> AuthGateNavHost(authRepository = authRepository)
+        is AuthState.LoggedOut -> AuthGateNavHost()
 
         is AuthState.Guest -> MainAppNavHost(
             repository = repository,
-            articleRepository = articleRepository,
             taskRepository = taskRepository,
-            reminderScheduler = reminderScheduler,
-            authRepository = authRepository,
             openTasksOnStart = openTasksOnStart,
         )
 
         is AuthState.LoggedIn -> MainAppNavHost(
             repository = repository,
-            articleRepository = articleRepository,
             taskRepository = taskRepository,
-            reminderScheduler = reminderScheduler,
-            authRepository = authRepository,
             openTasksOnStart = openTasksOnStart,
         )
     }
@@ -143,17 +143,15 @@ fun AppNavHost(
  * "Sign in / Create account"), since for them signing in is optional, not a gate to pass.
  */
 @Composable
-private fun AuthGateNavHost(authRepository: AuthRepository, navController: NavHostController = rememberNavController()) {
+private fun AuthGateNavHost(navController: NavHostController = rememberNavController()) {
     NavHost(navController = navController, startDestination = Routes.LOGIN) {
         composable(Routes.LOGIN) {
             LoginRoute(
-                authRepository = authRepository,
                 onRegisterClick = { navController.navigate(Routes.REGISTER) },
             )
         }
         composable(Routes.REGISTER) {
             RegisterRoute(
-                authRepository = authRepository,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -196,10 +194,7 @@ private fun AuthGateNavHost(authRepository: AuthRepository, navController: NavHo
 @Composable
 private fun MainAppNavHost(
     repository: UserPreferencesRepository,
-    articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
-    reminderScheduler: ReminderScheduler,
-    authRepository: AuthRepository,
     navController: NavHostController = rememberNavController(),
     openTasksOnStart: Boolean = false,
 ) {
@@ -252,7 +247,6 @@ private fun MainAppNavHost(
                 ) {
                     composable(Routes.ONBOARDING) {
                         OnboardingRoute(
-                            repository = repository,
                             onSaved = {
                                 navController.navigate(Routes.TASKS) {
                                     // Pop Onboarding off the back stack: after saving, system back
@@ -264,10 +258,6 @@ private fun MainAppNavHost(
                     }
                     composable(Routes.SETTINGS) {
                         SettingsRoute(
-                            repository = repository,
-                            taskRepository = taskRepository,
-                            reminderScheduler = reminderScheduler,
-                            authRepository = authRepository,
                             // Settings is a top-level tab now (feature 18): no back arrow, the
                             // bottom bar replaces it. See TasksScreen/ArticlesScreen for the same.
                             onBack = null,
@@ -282,20 +272,17 @@ private fun MainAppNavHost(
                     // anywhere on success.
                     composable(Routes.LOGIN) {
                         LoginRoute(
-                            authRepository = authRepository,
                             onRegisterClick = { navController.navigate(Routes.REGISTER) },
                             onBack = { navController.popBackStack() },
                         )
                     }
                     composable(Routes.REGISTER) {
                         RegisterRoute(
-                            authRepository = authRepository,
                             onBack = { navController.popBackStack() },
                         )
                     }
                     composable(Routes.ARTICLES) {
                         ArticlesRoute(
-                            articleRepository = articleRepository,
                             onArticleClick = { articleId ->
                                 navController.navigate("${Routes.ARTICLE_DETAIL}/$articleId")
                             },
@@ -305,17 +292,17 @@ private fun MainAppNavHost(
                         )
                     }
                     composable(
-                        route = "${Routes.ARTICLE_DETAIL}/{$ARG_ARTICLE_ID}",
-                        arguments = listOf(navArgument(ARG_ARTICLE_ID) { type = NavType.StringType }),
-                    ) { backStackEntry ->
                         // Only the id crosses the navigation boundary — never the full Article —
                         // so the detail screen reloads the article from the repository by id.
                         // This keeps the route argument small and matches the "no complex objects
-                        // in routes" constraint from the feature spec.
-                        val articleId = backStackEntry.arguments?.getString(ARG_ARTICLE_ID).orEmpty()
+                        // in routes" constraint from the feature spec. Feature 13d: hiltViewModel()
+                        // reads this same {articleId} argument off the back stack entry's
+                        // SavedStateHandle on its own (see ArticleDetailViewModel's KDoc), so this
+                        // composable no longer needs to read it out by hand.
+                        route = "${Routes.ARTICLE_DETAIL}/{$ARG_ARTICLE_ID}",
+                        arguments = listOf(navArgument(ARG_ARTICLE_ID) { type = NavType.StringType }),
+                    ) {
                         ArticleDetailRoute(
-                            articleRepository = articleRepository,
-                            articleId = articleId,
                             // Secondary screen (feature 18): keeps its back arrow, and the bottom
                             // bar is hidden here (see TOP_LEVEL_ROUTES above).
                             onBack = { navController.popBackStack() },
@@ -323,7 +310,6 @@ private fun MainAppNavHost(
                     }
                     composable(Routes.TASKS) { backStackEntry ->
                         TasksRoute(
-                            taskRepository = taskRepository,
                             onAddTaskClick = { navController.navigate(Routes.TASK_EDIT) },
                             onTaskClick = { taskId -> navController.navigate("${Routes.TASK_EDIT}/$taskId") },
                             // Feature 04c: a top-bar action on Tasks, not a fourth bottom-nav tab
@@ -346,7 +332,6 @@ private fun MainAppNavHost(
                     // exactly like Article Detail / Task Edit.
                     composable(Routes.STATS) {
                         StatsRoute(
-                            taskRepository = taskRepository,
                             onBack = { navController.popBackStack() },
                         )
                     }
@@ -355,7 +340,6 @@ private fun MainAppNavHost(
                         // taskId, which is exactly what tells TaskEditViewModel to create a new
                         // task instead of loading an existing one.
                         TaskEditRoute(
-                            taskRepository = taskRepository,
                             taskId = null,
                             onSaved = {
                                 // Reaching onSaved here always means "created": this composable
@@ -382,7 +366,6 @@ private fun MainAppNavHost(
                         // reasoning as the article detail route above.
                         val taskId = backStackEntry.arguments?.getLong(ARG_TASK_ID)
                         TaskEditRoute(
-                            taskRepository = taskRepository,
                             taskId = taskId,
                             onSaved = { navController.popBackStack() },
                             // Secondary screen (feature 18): keeps its back arrow.

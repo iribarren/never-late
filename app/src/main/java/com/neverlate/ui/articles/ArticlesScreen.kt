@@ -33,7 +33,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.LoadStates
 import androidx.paging.PagingData
@@ -43,16 +43,14 @@ import androidx.paging.compose.itemContentType
 import androidx.paging.compose.itemKey
 import com.neverlate.R
 import com.neverlate.data.articles.Article
-import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 import kotlinx.coroutines.flow.flowOf
 
 /**
- * Stateful wrapper: obtains [ArticlesViewModel] (via [AppViewModelFactory]) and turns its
+ * Stateful wrapper: obtains [ArticlesViewModel] via `hiltViewModel()` (feature 13d) and turns its
  * [ArticlesViewModel.articles] stream into a [LazyPagingItems] snapshot via
  * `collectAsLazyPagingItems()` — the Compose-Paging bridge that gives [ArticlesScreen] something
  * it can index/iterate like a list, while still loading more pages behind the scenes as the user
@@ -64,13 +62,10 @@ import kotlinx.coroutines.flow.flowOf
  */
 @Composable
 fun ArticlesRoute(
-    articleRepository: ArticleRepository,
     onArticleClick: (String) -> Unit,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    viewModel: ArticlesViewModel = viewModel(
-        factory = AppViewModelFactory(articleRepository = articleRepository),
-    ),
+    viewModel: ArticlesViewModel = hiltViewModel(),
 ) {
     val articles = viewModel.articles.collectAsLazyPagingItems()
     ArticlesScreen(

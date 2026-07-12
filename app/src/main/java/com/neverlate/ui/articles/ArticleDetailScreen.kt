@@ -22,29 +22,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.articles.Article
-import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
 /**
- * Stateful wrapper: obtains [ArticleDetailViewModel] (via [AppViewModelFactory], passing the
- * [articleId] that came from the navigation route) and forwards its state to the stateless
- * [ArticleDetailScreen].
+ * Stateful wrapper: obtains [ArticleDetailViewModel] via `hiltViewModel()` (feature 13d) — Hilt
+ * reads the `articleId` navigation argument off the current `NavBackStackEntry`'s
+ * `SavedStateHandle` on its own (see [ArticleDetailViewModel]'s KDoc), so this Route no longer
+ * needs an `articleId`/`articleRepository` parameter of its own to build the ViewModel by hand —
+ * and forwards its state to the stateless [ArticleDetailScreen].
  */
 @Composable
 fun ArticleDetailRoute(
-    articleRepository: ArticleRepository,
-    articleId: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ArticleDetailViewModel = viewModel(
-        factory = AppViewModelFactory(articleRepository = articleRepository, articleId = articleId),
-    ),
+    viewModel: ArticleDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     ArticleDetailScreen(uiState = uiState, onBack = onBack, modifier = modifier)

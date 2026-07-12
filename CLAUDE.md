@@ -41,6 +41,8 @@ never-late/
 │     │  ├─ AndroidManifest.xml
 │     │  ├─ java/com/neverlate/
 │     │  │  ├─ MainActivity.kt        # Single Activity, hosts the Compose UI
+│     │  │  ├─ NeverLateApplication.kt # @HiltAndroidApp (feature 13d, Hilt's root component)
+│     │  │  ├─ di/                    # Hilt modules (feature 13d) — see below
 │     │  │  └─ ui/theme/              # Compose theme: Color / Theme / Type
 │     │  └─ res/                      # strings, themes, launcher icon
 │     ├─ test/                        # Local JVM unit tests
@@ -60,7 +62,8 @@ never-late/
 
 As the app grows, feature code lives under `app/src/main/java/com/neverlate/` in packages such as
 `ui/screens`, `ui/<feature>`, `data` (DataStore/Room), and `domain`. Current feature packages of
-note: `ui/widget` (feature 05, home-screen widget), `ui/notification` (feature 06, lock-screen
+note: `di` (feature 13d, Hilt modules — `DatabaseModule`/`NetworkModule`/`StorageModule`/
+`RepositoryModule` + `Qualifiers.kt` — see the Hilt paragraph below), `ui/widget` (feature 05, home-screen widget), `ui/notification` (feature 06, lock-screen
 notification + foreground service; feature 09 also adds the reminder scheduler + receivers here),
 `ui/settings` (feature 07, Settings screen + light/dark/system theme preference persisted via the
 shared `user_prefs` DataStore and applied in `NeverLateTheme`; feature 09 adds the reminders on/off
@@ -262,6 +265,35 @@ folds in a cross-cutting **accessibility pass** (`docs/conceptos-pendientes.md` 
 `contentDescription`s on the new bar's icons, and `Modifier.minimumInteractiveComponentSize()` on
 `ui/components/MessageState`'s action `Button` (Material 3's default 40dp button height is below the
 48dp touch-target guideline). **No backend, contract, DB-version, permission, or dependency change.**
+
+**Dependency injection with Hilt** (feature 13d, a behaviour-preserving refactor, not a product
+feature): retires the manual DI used since feature 02 — the `ui/navigation/AppViewModelFactory`
+`ViewModelProvider.Factory` (deleted) and the object-construction block that used to fill
+`MainActivity.onCreate` (building `NeverLateDatabase`, the token storage, the network clients,
+`SyncEngine`, and the `TaskRepository` decorator chain by hand) — with **Hilt**. `NeverLateApplication`
+(`@HiltAndroidApp`) is the new `Application` class, registered via `android:name` in the manifest;
+`MainActivity` is `@AndroidEntryPoint` and now only `@Inject`s the three things it still touches
+directly (`UserPreferencesRepository`, the assembled `TaskRepository`, and the concrete
+`AuthRepositoryImpl`, for the guest-mode `onAuthenticated` hook) — every imperative startup side
+effect (notification channel, the two periodic `WorkManager` jobs, the lock-screen notification
+refresh) still runs there unchanged, only the *construction* moved out. The new `di/` package holds
+`SingletonComponent`-scoped modules: `DatabaseModule` (`NeverLateDatabase` + DAOs), `NetworkModule`
+(the three Retrofit factories + `SyncEngine`), `StorageModule` (`TokenStorage`, `UserPreferencesRepository`),
+and `RepositoryModule` — the crux of the migration — which provides `AuthRepository`, `ArticleRepository`,
+`ReminderScheduler`, and, disambiguated with the qualifiers in `di/Qualifiers.kt` (`@RoomRepo`/
+`@OutboxRepo`/`@ReminderRepo`), the exact same **four-layer `TaskRepository` decorator chain** in the
+exact same order as before: `TaskSurfacesRefreshingRepository` (unqualified, what the app injects) ->
+`ReminderSchedulingRepository` -> `OutboxTaskRepository` -> `RoomTaskRepository`. All nine `ViewModel`s
+are now `@HiltViewModel` with an `@Inject constructor`, obtained via `hiltViewModel()` in every
+`*Route` composable; `ArticleDetailViewModel`/`TaskEditViewModel` read their `articleId`/`taskId`
+navigation argument from an injected `SavedStateHandle` instead of a factory parameter (a missing
+`articleId` still throws — a missing `taskId` is still a valid "create new task" signal). New
+dependencies, both in the version catalog: `com.google.dagger:hilt-android`/`hilt-compiler` (the
+latter via **KSP**, alongside Room's, no `kapt`) and `androidx.hilt:hilt-navigation-compose` — both
+pinned below their newest release (Hilt `2.58`, not `2.59+`; `hilt-navigation-compose` `1.2.0`, not
+`1.3.0+`) because newer releases of each require **AGP 9**, and this project is still on AGP 8.13.2;
+revisit both pins whenever the project upgrades AGP. No backend, contract, DB-version, permission,
+or UI/behavioural change of any kind.
 
 ## API Contract
 

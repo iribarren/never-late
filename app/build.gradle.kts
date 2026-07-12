@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt.android)
 }
 
 // Dev-environment fix (bugfix/backend-url-dispositivo-fisico): makes the backend base URL
@@ -140,6 +141,15 @@ dependencies {
     // auth token lives — see com.neverlate.data.auth.TokenStorage for why it must not be the
     // plaintext DataStore used for theme/reminder preferences.
     implementation(libs.androidx.security.crypto)
+
+    // Dependency injection (feature 13d): Hilt replaces the manual AppViewModelFactory/MainActivity
+    // wiring with a generated object graph. hilt-compiler runs through KSP (see the version catalog
+    // comment on `hilt`), the same annotation-processing pipeline Room already uses, rather than
+    // adding a second one (kapt) alongside it. hilt-navigation-compose is the small extra artifact
+    // that adds hiltViewModel() for Compose + Navigation.
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))
