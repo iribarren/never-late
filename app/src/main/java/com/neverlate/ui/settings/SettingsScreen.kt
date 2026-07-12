@@ -48,27 +48,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.ThemeMode
-import com.neverlate.data.UserPreferencesRepository
-import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthState
-import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
-import com.neverlate.ui.notification.ReminderScheduler
 import com.neverlate.ui.theme.NeverLateTheme
 
 /**
- * Stateful wrapper: obtains [SettingsViewModel] (via [AppViewModelFactory]) and forwards its
- * state to the stateless [SettingsScreen], following the same route/screen split used across the
- * app (see [com.neverlate.ui.onboarding.OnboardingRoute]). [taskRepository]/[reminderScheduler]
- * are only needed by [SettingsViewModel]'s reminders on/off switch — see its KDoc.
- * [authRepository] (feature 11) backs the logout action. [onSignInClick] (feature 13) is plain
- * navigation — not a [SettingsViewModel] action, since it has no auth side effect of its own —
- * wired by [com.neverlate.ui.navigation.AppNavHost] to the Login destination it added inside
+ * Stateful wrapper: obtains [SettingsViewModel] via `hiltViewModel()` (feature 13d) and forwards
+ * its state to the stateless [SettingsScreen], following the same route/screen split used across
+ * the app (see [com.neverlate.ui.onboarding.OnboardingRoute]). Hilt resolves all four of
+ * [SettingsViewModel]'s dependencies on its own now, so this Route only ever needs navigation
+ * callbacks, never a repository parameter. [onSignInClick] (feature 13) is plain navigation — not
+ * a [SettingsViewModel] action, since it has no auth side effect of its own — wired by
+ * [com.neverlate.ui.navigation.AppNavHost] to the Login destination it added inside
  * `MainAppNavHost`.
  *
  * [onBack] is `null` when Settings is reached as a top-level bottom-bar tab (feature 18) — there
@@ -76,21 +71,10 @@ import com.neverlate.ui.theme.NeverLateTheme
  */
 @Composable
 fun SettingsRoute(
-    repository: UserPreferencesRepository,
-    taskRepository: TaskRepository,
-    reminderScheduler: ReminderScheduler,
-    authRepository: AuthRepository,
     onBack: (() -> Unit)? = null,
     onSignInClick: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = viewModel(
-        factory = AppViewModelFactory(
-            userPreferencesRepository = repository,
-            taskRepository = taskRepository,
-            reminderScheduler = reminderScheduler,
-            authRepository = authRepository,
-        ),
-    ),
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     SettingsScreen(

@@ -25,19 +25,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.auth.AuthErrorType
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
 /**
- * Stateful wrapper: obtains [LoginViewModel] (via [AppViewModelFactory]) and forwards its state to
- * the stateless [LoginScreen], following the same route/screen split used across the app (see
- * [com.neverlate.ui.onboarding.OnboardingRoute]).
+ * Stateful wrapper: obtains [LoginViewModel] via `hiltViewModel()` (feature 13d) and forwards its
+ * state to the stateless [LoginScreen], following the same route/screen split used across the app
+ * (see [com.neverlate.ui.onboarding.OnboardingRoute]).
  *
  * There is no `onLoggedIn` callback: [com.neverlate.ui.navigation.AppNavHost] reacts to
  * [AuthRepository]'s own `authState` directly (see [LoginViewModel]'s KDoc), so a successful login
@@ -52,11 +51,10 @@ import com.neverlate.ui.theme.NeverLateTheme
  */
 @Composable
 fun LoginRoute(
-    authRepository: AuthRepository,
     onRegisterClick: () -> Unit,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    viewModel: LoginViewModel = viewModel(factory = AppViewModelFactory(authRepository = authRepository)),
+    viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LoginScreen(

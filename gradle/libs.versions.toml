@@ -43,6 +43,17 @@ robolectric = "4.16.1"
 # separately from Paging itself but pinned to the same `room` version ref above, since it must
 # match the Room release it plugs into.
 paging = "3.5.0"
+# Feature 13d: Hilt, the project's dependency-injection container (see `di/` package). KSP support
+# has been stable since Hilt 2.48, so — like Room above — Hilt's annotation processor runs through
+# KSP here too, one single annotation-processing pipeline, no kapt needed. Pinned to 2.58 (not the
+# newest release) because Hilt 2.59 made its Gradle plugin require AGP 9 — this project is still on
+# AGP 8.13.2 (see `agp` above), and upgrading AGP is out of scope for this DI-only refactor.
+hilt = "2.58"
+# androidx.hilt is versioned separately from com.google.dagger:hilt-android itself: it only adds
+# the `hiltViewModel()` Compose/Navigation integration on top of the core container. Pinned to
+# 1.2.0 (not the newest release) for the same AGP-8-compatibility reason as `hilt` above — 1.3.0+
+# pulls in a newer androidx.lifecycle that itself requires AGP 9.1+/compileSdk 37.
+hiltNavigationCompose = "1.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -89,6 +100,9 @@ retrofit-kotlinx-serialization-converter = { group = "com.jakewharton.retrofit",
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -96,3 +110,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }

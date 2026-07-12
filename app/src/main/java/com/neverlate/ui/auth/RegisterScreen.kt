@@ -24,25 +24,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.theme.NeverLateTheme
 
 /**
- * Stateful wrapper — same pattern as [LoginRoute]. Also no `onRegistered` callback, for the same
- * reason: a successful registration flips [AuthRepository]'s `authState` to `LoggedIn`, which
+ * Stateful wrapper — same pattern as [LoginRoute]: obtains [RegisterViewModel] via
+ * `hiltViewModel()` (feature 13d). Also no `onRegistered` callback, for the same reason: a
+ * successful registration flips [AuthRepository]'s `authState` to `LoggedIn`, which
  * [com.neverlate.ui.navigation.AppNavHost] reacts to directly.
  */
 @Composable
 fun RegisterRoute(
-    authRepository: AuthRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: RegisterViewModel = viewModel(factory = AppViewModelFactory(authRepository = authRepository)),
+    viewModel: RegisterViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     RegisterScreen(

@@ -69,13 +69,12 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.neverlate.R
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
-import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.data.tasks.formatRemaining
@@ -89,7 +88,6 @@ import com.neverlate.domain.tasks.urgencyLevelFor
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.components.brandedTopAppBarColors
-import com.neverlate.ui.navigation.AppViewModelFactory
 import com.neverlate.ui.notification.RequestNotificationPermissionEffect
 import com.neverlate.ui.theme.NeverLateExtras
 import com.neverlate.ui.theme.NeverLateTheme
@@ -107,9 +105,9 @@ import java.text.NumberFormat
 const val TASK_CREATED_RESULT_KEY = "taskCreated"
 
 /**
- * Stateful wrapper: obtains [TasksViewModel] (via [AppViewModelFactory]) and forwards its state
- * to the stateless [TasksScreen], following the same route/screen split used for Articles (see
- * [com.neverlate.ui.articles.ArticlesRoute]).
+ * Stateful wrapper: obtains [TasksViewModel] via `hiltViewModel()` (feature 13d) and forwards its
+ * state to the stateless [TasksScreen], following the same route/screen split used for Articles
+ * (see [com.neverlate.ui.articles.ArticlesRoute]).
  *
  * [taskCreatedHandle] (feature 17, US-3) is Tasks' own [SavedStateHandle], collected as a
  * one-shot event to show a "task created" [androidx.compose.material3.Snackbar] exactly once:
@@ -124,13 +122,12 @@ const val TASK_CREATED_RESULT_KEY = "taskCreated"
  */
 @Composable
 fun TasksRoute(
-    taskRepository: TaskRepository,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
     onStatsClick: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    viewModel: TasksViewModel = viewModel(factory = AppViewModelFactory(taskRepository = taskRepository)),
+    viewModel: TasksViewModel = hiltViewModel(),
     taskCreatedHandle: SavedStateHandle? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

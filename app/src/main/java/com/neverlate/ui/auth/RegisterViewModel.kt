@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.neverlate.data.auth.AuthErrorType
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthResult
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,8 +24,11 @@ data class RegisterUiState(
 /**
  * Backs the Register screen (US-1). Same "no explicit navigation on success" design as
  * [LoginViewModel] — see its KDoc.
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor`, obtained via `hiltViewModel()`.
  */
-class RegisterViewModel(private val repository: AuthRepository) : ViewModel() {
+@HiltViewModel
+class RegisterViewModel @Inject constructor(private val repository: AuthRepository) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()

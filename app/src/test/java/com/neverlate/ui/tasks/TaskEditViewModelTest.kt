@@ -1,5 +1,6 @@
 package com.neverlate.ui.tasks
 
+import androidx.lifecycle.SavedStateHandle
 import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
@@ -67,6 +68,16 @@ private class FakeTaskRepositoryForEdit(initialTasks: List<Task> = emptyList()) 
     override suspend fun pauseTimer(id: Long) = error("not used by TaskEditViewModel")
 }
 
+/**
+ * Feature 13d: [TaskEditViewModel] now reads its nullable `taskId` navigation argument from a
+ * [SavedStateHandle] instead of a plain constructor parameter. A null [taskId] builds an **empty**
+ * handle — no `"taskId"` entry at all — the same shape the create-only `Routes.TASK_EDIT`
+ * destination's back stack entry has (see `AppNavHost`), so `get<Long>("taskId")` naturally
+ * returns null, exactly like the retired `taskId = null` factory parameter did.
+ */
+private fun savedStateHandleFor(taskId: Long?) =
+    if (taskId == null) SavedStateHandle() else SavedStateHandle(mapOf("taskId" to taskId))
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskEditViewModelTest {
 
@@ -86,7 +97,7 @@ class TaskEditViewModelTest {
 
     @Test
     fun `create mode starts with a blank form`() {
-        val viewModel = TaskEditViewModel(FakeTaskRepositoryForEdit(), taskId = null)
+        val viewModel = TaskEditViewModel(FakeTaskRepositoryForEdit(), savedStateHandleFor(null))
 
         val state = viewModel.uiState.value
         assertEquals("", state.title)
@@ -107,7 +118,7 @@ class TaskEditViewModelTest {
             deadline = deadlineMillis,
         )
         val repository = FakeTaskRepositoryForEdit(listOf(existing))
-        val viewModel = TaskEditViewModel(repository, taskId = existing.id)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(existing.id))
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -120,7 +131,7 @@ class TaskEditViewModelTest {
     @Test
     fun `save with valid input persists the task and marks the form saved`() {
         val repository = FakeTaskRepositoryForEdit()
-        val viewModel = TaskEditViewModel(repository, taskId = null)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(null))
 
         viewModel.onTitleChange("Llamar al dentista")
         viewModel.onDurationMinutesChange("15")
@@ -138,7 +149,7 @@ class TaskEditViewModelTest {
     @Test
     fun `create mode defaults priority to NONE and persists a chosen priority`() {
         val repository = FakeTaskRepositoryForEdit()
-        val viewModel = TaskEditViewModel(repository, taskId = null)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(null))
 
         assertEquals(Priority.NONE, viewModel.uiState.value.priority)
 
@@ -160,7 +171,7 @@ class TaskEditViewModelTest {
             priority = Priority.MEDIUM,
         )
         val repository = FakeTaskRepositoryForEdit(listOf(existing))
-        val viewModel = TaskEditViewModel(repository, taskId = existing.id)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(existing.id))
 
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -170,7 +181,7 @@ class TaskEditViewModelTest {
     @Test
     fun `save with a blank title is blocked and shows a validation error`() {
         val repository = FakeTaskRepositoryForEdit()
-        val viewModel = TaskEditViewModel(repository, taskId = null)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(null))
 
         viewModel.onDurationMinutesChange("15")
         viewModel.save()
@@ -184,7 +195,7 @@ class TaskEditViewModelTest {
     @Test
     fun `save without duration or deadline is blocked`() {
         val repository = FakeTaskRepositoryForEdit()
-        val viewModel = TaskEditViewModel(repository, taskId = null)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(null))
 
         viewModel.onTitleChange("Tarea sin tiempo")
         viewModel.save()
@@ -197,7 +208,7 @@ class TaskEditViewModelTest {
     @Test
     fun `editing an invalid field first clears the previous validation error`() {
         val repository = FakeTaskRepositoryForEdit()
-        val viewModel = TaskEditViewModel(repository, taskId = null)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(null))
         viewModel.save() // blank title -> sets validationError
         assertEquals(TaskValidationError.BLANK_TITLE, viewModel.uiState.value.validationError)
 
@@ -210,7 +221,7 @@ class TaskEditViewModelTest {
     fun `deleteTask removes the task being edited`() {
         val existing = Task(id = 9, title = "Tarea a borrar", estimatedDurationMillis = 10 * 60_000L)
         val repository = FakeTaskRepositoryForEdit(listOf(existing))
-        val viewModel = TaskEditViewModel(repository, taskId = existing.id)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(existing.id))
         testDispatcher.scheduler.advanceUntilIdle()
 
         viewModel.deleteTask()
@@ -223,7 +234,7 @@ class TaskEditViewModelTest {
     @Test
     fun `deleteTask in create mode is a no-op`() {
         val repository = FakeTaskRepositoryForEdit()
-        val viewModel = TaskEditViewModel(repository, taskId = null)
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(null))
 
         viewModel.deleteTask()
         testDispatcher.scheduler.advanceUntilIdle()

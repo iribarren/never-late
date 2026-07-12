@@ -3,6 +3,8 @@ package com.neverlate.ui.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neverlate.data.UserPreferencesRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,8 +30,16 @@ data class OnboardingUiState(
  *
  * State flows out to the UI via [uiState]; user intent flows back in through [onNameChange] and
  * [save] (unidirectional data flow).
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor` replaces the manual
+ * `AppViewModelFactory` — Hilt resolves [repository] from `di/StorageModule.kt` on its own, and
+ * [com.neverlate.ui.onboarding.OnboardingRoute] obtains this ViewModel via `hiltViewModel()`
+ * instead of `viewModel(factory = ...)`.
  */
-class OnboardingViewModel(private val repository: UserPreferencesRepository) : ViewModel() {
+@HiltViewModel
+class OnboardingViewModel @Inject constructor(
+    private val repository: UserPreferencesRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()

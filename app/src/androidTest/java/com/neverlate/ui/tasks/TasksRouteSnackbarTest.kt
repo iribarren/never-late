@@ -20,12 +20,17 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * A minimal in-memory [TaskRepository]: [TasksRoute] needs one to construct its [TasksViewModel]
- * via [com.neverlate.ui.navigation.AppViewModelFactory], but this test only exercises the
- * "task created" snackbar plumbing (US-3), not task CRUD — an empty, static list is enough, same
- * spirit as the other fakes under `com.neverlate.ui.notification`/`com.neverlate.ui.tasks` test
- * sources (not reused directly here since those live in the `test` source set, unreachable from
- * `androidTest`).
+ * A minimal in-memory [TaskRepository]: [TasksRoute] needs a [TasksViewModel] built from one, but
+ * this test only exercises the "task created" snackbar plumbing (US-3), not task CRUD — an empty,
+ * static list is enough, same spirit as the other fakes under
+ * `com.neverlate.ui.notification`/`com.neverlate.ui.tasks` test sources (not reused directly here
+ * since those live in the `test` source set, unreachable from `androidTest`).
+ *
+ * Feature 13d: [TasksRoute] no longer takes a `taskRepository` parameter (Hilt injects
+ * [TasksViewModel] via `hiltViewModel()` in production) — this test constructs [TasksViewModel]
+ * directly instead, passing it through the Route's `viewModel` parameter. `@HiltViewModel`'s
+ * `@Inject constructor` is still a perfectly ordinary public constructor, so this needs no Hilt
+ * test infrastructure (`HiltAndroidRule`/`HiltTestApplication`) at all.
  */
 private class NoopTaskRepository : TaskRepository {
     override fun observeTasks(): Flow<List<Task>> = flowOf(emptyList())
@@ -68,7 +73,7 @@ class TasksRouteSnackbarTest {
             NeverLateTheme {
                 key(remountKey.value) {
                     TasksRoute(
-                        taskRepository = NoopTaskRepository(),
+                        viewModel = TasksViewModel(NoopTaskRepository()),
                         onAddTaskClick = {},
                         onTaskClick = {},
                         onBack = {},
@@ -111,7 +116,7 @@ class TasksRouteSnackbarTest {
         composeTestRule.setContent {
             NeverLateTheme {
                 TasksRoute(
-                    taskRepository = NoopTaskRepository(),
+                    viewModel = TasksViewModel(NoopTaskRepository()),
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onBack = {},

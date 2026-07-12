@@ -12,6 +12,8 @@ import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.domain.tasks.TaskSortField
 import com.neverlate.domain.tasks.isEmpty
 import com.neverlate.domain.tasks.shapedBy
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -70,9 +72,13 @@ sealed interface TasksUiState {
  * fondo" lesson (`tutorial/04b-buscador-tareas.md`). The list-shaping logic itself
  * ([com.neverlate.domain.tasks.shapedBy], feature 03b) is unchanged; only the plumbing that feeds
  * it changed.
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor`, obtained via `hiltViewModel()` instead of
+ * the retired `AppViewModelFactory`.
  */
+@HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class TasksViewModel(private val repository: TaskRepository) : ViewModel() {
+class TasksViewModel @Inject constructor(private val repository: TaskRepository) : ViewModel() {
 
     /**
      * Feature 04b: the search field's raw text, as its **own** [MutableStateFlow] — deliberately

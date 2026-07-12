@@ -1,5 +1,6 @@
 package com.neverlate.ui.tasks
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neverlate.data.tasks.Priority
@@ -9,11 +10,16 @@ import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.TaskValidationError
 import com.neverlate.data.tasks.formatDeadlineForInput
 import com.neverlate.data.tasks.validateTaskForm
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+/** [SavedStateHandle] key for the `taskId` navigation argument — see `AppNavHost`'s `Routes.TASK_EDIT`. */
+private const val ARG_TASK_ID = "taskId"
 
 /** The create/edit form's current field values and validation state. */
 data class TaskEditUiState(
@@ -34,11 +40,21 @@ data class TaskEditUiState(
  * [com.neverlate.ui.articles.ArticleDetailViewModel]'s `articleId`, with one difference: here
  * null is a *meaningful* value, not a missing one — null means "create a new task", while any
  * other id means "load and edit the task with that id".
+ *
+ * Feature 13d: [taskId] now arrives via [SavedStateHandle] instead of a plain constructor
+ * parameter built by the retired `AppViewModelFactory`. Unlike [com.neverlate.ui.articles.ArticleDetailViewModel]'s
+ * `articleId`, a missing value here must **not** throw: the create-only `Routes.TASK_EDIT`
+ * composable declares no `{taskId}` argument at all (see `AppNavHost`), so its `SavedStateHandle`
+ * genuinely has no `taskId` entry — `savedStateHandle["taskId"]` simply returns null in that case,
+ * which is exactly the "create a new task" signal this class already relied on.
  */
-class TaskEditViewModel(
+@HiltViewModel
+class TaskEditViewModel @Inject constructor(
     private val repository: TaskRepository,
-    private val taskId: Long?,
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    private val taskId: Long? = savedStateHandle.get<Long>(ARG_TASK_ID)
 
     private val _uiState = MutableStateFlow(TaskEditUiState())
     val uiState: StateFlow<TaskEditUiState> = _uiState.asStateFlow()

@@ -9,6 +9,8 @@ import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.notification.ReminderScheduler
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,8 +55,14 @@ data class SettingsUiState(
  * [AuthRepository]'s own `authState` flipping and swaps graphs on its own (US-2). Signing *in* from
  * here, on the other hand, is plain navigation to the Login/Register destinations added inside
  * `MainAppNavHost` — see [com.neverlate.ui.settings.SettingsScreen]'s `onSignInClick`.
+ *
+ * Feature 13d: `@HiltViewModel` + `@Inject constructor` — Hilt resolves all four dependencies from
+ * `di/` on its own (`repository`/`authRepository` from `StorageModule`/`RepositoryModule`,
+ * `taskRepository` the assembled decorator chain, `reminderScheduler` bound to
+ * [com.neverlate.ui.notification.AlarmManagerReminderScheduler]), obtained via `hiltViewModel()`.
  */
-class SettingsViewModel(
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
     private val repository: UserPreferencesRepository,
     private val taskRepository: TaskRepository,
     private val reminderScheduler: ReminderScheduler,
