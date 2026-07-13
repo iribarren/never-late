@@ -5,10 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.data.auth.AuthRepositoryImpl
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.navigation.AppNavHost
@@ -48,6 +51,13 @@ import javax.inject.Inject
  * (feature 11) is injected as its **concrete** type, not the [com.neverlate.data.auth.AuthRepository]
  * interface every ViewModel sees, because only this class needs its `onAuthenticated` hook below —
  * see [AuthRepositoryImpl.onAuthenticated]'s KDoc.
+ *
+ * Feature 18b adds [articleRepository]: the expanded-width two-pane Articles screen
+ * ([com.neverlate.ui.articles.ArticlesListDetailPane]) loads its selected article directly from
+ * the repository instead of through a `hiltViewModel()`-obtained
+ * [com.neverlate.ui.articles.ArticleDetailViewModel] — that ViewModel reads its `articleId` from a
+ * navigation-backed `SavedStateHandle`, which fits a *pushed* route but not an in-pane selection
+ * with no navigation event of its own (see that pane's KDoc).
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -61,6 +71,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authRepositoryImpl: AuthRepositoryImpl
 
+    @Inject
+    lateinit var articleRepository: ArticleRepository
+
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -110,12 +124,21 @@ class MainActivity : ComponentActivity() {
             // You (feature 16).
             val dynamicColor = userPreferences?.dynamicColor ?: false
 
+            // Feature 18b: compact/medium/expanded, recalculated by the framework itself whenever
+            // the window is resized/rotated (calculateWindowSizeClass is @Composable, unlike a
+            // one-shot Activity-level read) — threaded down as a plain value, never re-derived
+            // further down the tree, so every adaptive decision (bar vs rail, one vs two Articles
+            // panes, the Tasks/Settings max-width constraint) agrees on the same reading.
+            val windowSizeClass = calculateWindowSizeClass(this)
+
             NeverLateTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 AppNavHost(
                     authRepository = authRepositoryImpl,
                     repository = userPreferencesRepository,
                     taskRepository = taskRepository,
+                    articleRepository = articleRepository,
                     openTasksOnStart = openTasksOnStart,
+                    widthSizeClass = windowSizeClass.widthSizeClass,
                 )
             }
         }

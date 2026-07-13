@@ -82,7 +82,8 @@ collector, reusing `shapedBy` unchanged; no new file/package/dependency); and fe
 (feature 04c, the statistics screen: pure-`StateFlow` `StatsViewModel` + stateless `StatsScreen`/`StatsRoute`,
 reached via a stats `IconButton` in the Tasks top bar as a secondary route — bottom bar hidden), and
 `ui/components` (feature 17, reusable UI building blocks — currently `MessageState`, the shared empty/error
-state used by the Tasks, Articles, and Stats screens).
+state used by the Tasks, Articles, and Stats screens; feature 18b adds `ReadableWidthContainer`, the
+max-640dp centered width constraint applied to single-pane Tasks/Settings on large windows).
 
 **Task completion + statistics** (feature 04c, the *testing* lesson): `Task` gains a real
 `completedAt: Long?` (epoch millis; `null` = pending) that **syncs** end-to-end — added to the `TaskDto`
@@ -294,6 +295,33 @@ pinned below their newest release (Hilt `2.58`, not `2.59+`; `hilt-navigation-co
 `1.3.0+`) because newer releases of each require **AGP 9**, and this project is still on AGP 8.13.2;
 revisit both pins whenever the project upgrades AGP. No backend, contract, DB-version, permission,
 or UI/behavioural change of any kind.
+
+**Adaptive layouts for large screens** (feature 18b, the *adaptive* half feature 18 left out — closes
+`docs/conceptos-pendientes.md` §7's tablet/adaptive item): makes the app **width-aware** via
+**`WindowSizeClass`** (compact/medium/expanded), as a presentation layer **over the unchanged feature-18
+graph** — a phone user sees no change. `MainActivity` computes `calculateWindowSizeClass(this)` once and
+threads `widthSizeClass` down through `AppNavHost` → `MainAppNavHost` (the auth gate ignores it). Inside
+`MainAppNavHost` (never `AppNavHost` — the guest-mode `Guest`/`LoggedIn` `when` arms stay untouched) the
+layout branches: **compact** keeps the bottom `NavigationBar`; **medium/expanded** swap to a leading-edge
+`NavigationRail` (`MainNavigationRail`, reusing the same `bottomNavItems`, the same reactive back-stack
+selected-tab derivation, and the same tab-switch idiom — now factored into a shared
+`NavHostController.navigateToTopLevelRoute` extension). The nav graph itself is extracted into one private
+`MainNavGraph` shared by both branches (the core teaching point: an adaptive layer above **one** graph,
+never a duplicated graph); chrome stays route-gated by `TOP_LEVEL_ROUTES`. **Articles** gets a two-pane
+**list-detail** at expanded width via **`ListDetailPaneScaffold`** (`ui/articles/ArticlesListDetailPane`):
+list left (the unchanged `ArticlesRoute` + full Paging 3 pipeline), detail right, tap updates the right
+pane in place, `MessageState` placeholder when nothing selected — compact/medium keep the single-pane push
+`ArticleDetail` route. The right pane reuses the **rendering** (`ArticleDetailBody`, extracted from
+`ArticleDetailScreen`) but loads via `articleRepository.getArticleById` directly rather than
+`ArticleDetailViewModel`/`hiltViewModel()` (no back-stack `SavedStateHandle` for an in-pane selection);
+`MainActivity` therefore also `@Inject`s `ArticleRepository`, threaded through to the pane. Tasks/Settings
+get only the rail + a max-640dp `ReadableWidthContainer` (two-pane for them is deferred). All feature-18
+a11y is preserved (≥48dp targets, content descriptions, large-font reflow). New dependencies in the
+version catalog: `androidx.compose.material3:material3-window-size-class` (BOM-managed, no explicit
+version; aliased `material3-windowsizeclass` since Gradle rejects an alias ending in `class`) and
+`androidx.compose.material3.adaptive:{adaptive,adaptive-layout,adaptive-navigation}` pinned to **`1.0.0`**
+(not the newer line) for the same AGP-8.13.2 reason as the Hilt pins — revisit on a Compose BOM upgrade.
+No backend, contract, DB-version, or permission change.
 
 ## API Contract
 

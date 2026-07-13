@@ -157,6 +157,15 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    // Feature 18b: WindowSizeClass (compact/medium/expanded), obtained once in MainActivity and
+    // threaded down through AppNavHost — see the version catalog comment (BOM-managed, no version).
+    implementation(libs.androidx.material3.windowsizeclass)
+    // Feature 18b: the two-pane list-detail scaffold for the expanded-width Articles screen (see
+    // ArticlesListDetailPane) — versioned independently of the BOM above, see the version catalog's
+    // `composeMaterial3Adaptive` pin comment for why 1.0.0, not the newest release.
+    implementation(libs.androidx.compose.material3.adaptive)
+    implementation(libs.androidx.compose.material3.adaptive.layout)
+    implementation(libs.androidx.compose.material3.adaptive.navigation)
     // Only Icons.Filled.Pause (used for the task countdown's pause button) lives outside the
     // small default icon set bundled with material3/material-icons-core, hence this extra
     // dependency: it is versioned by the Compose BOM above, same as androidx.material3.

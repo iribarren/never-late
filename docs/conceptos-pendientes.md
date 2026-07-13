@@ -51,12 +51,12 @@ posición final en la secuencia.
 | **13c** ★ | Paginación (Paging 3) | 10/11 (red + Room) | Lista de artículos paginada desde el backend | ✅ hecho en **feature 13c** |
 | **13d** ★ | Inyección de dependencias (Hilt) | 02–11 (DI manual acumulada) | Migrar la DI manual (repos, ViewModels) a Hilt | ✅ hecho en **feature 13d** |
 | — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
-| **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ⬜ pendiente |
+| **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ✅ hecho en **feature 18b** |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
-**Pendientes: 4** (03b, 10b, 18b, 21). **Ya hechas por sus propias features:** 04b
+**Pendientes: 3** (03b, 10b, 21). **Ya hechas por sus propias features:** 04b
 (corrutinas/`Flow`), 04c (testing), 07b (arquitectura nombrada), 13b (migraciones de Room), 13c
-(paginación) y 13d (Hilt). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
+(paginación), 13d (Hilt) y 18b (layouts adaptables). **Ya cubiertas por 14–20: 4** (side-effects, animaciones, theming
 dinámico y el repaso de accesibilidad; ver detalle abajo). El slot **21** es el último de este roadmap;
 cualquier feature futura no listada aquí se numeraría a partir de 22.
 
@@ -217,9 +217,10 @@ aplicó esos roles a los componentes (top bars, chips, FAB).
 **Pendiente — Coil → lección 10b.** **Imagen de cabecera por artículo** traída de la API con Coil.
 **Ubicación:** **10b** (tras la red de la 10).
 
-**Pendiente — layouts adaptables → lección 18b.** La mitad de "adaptativo/tablet" que la 18 no
-abordó: layout que reflows en pantallas grandes (list-detail, `WindowSizeClass`). **Ubicación:**
-**18b**, continuando el repaso de la 18.
+✅ **Layouts adaptables: ya hecho** en la **feature 18b** (`18b-layouts-adaptables`), la mitad de
+"adaptativo/tablet" que la 18 no abordó: `WindowSizeClass`, `NavigationBar` ↔ `NavigationRail` según el
+ancho, Artículos en dos paneles (`ListDetailPaneScaffold`) en expanded, y `ReadableWidthContainer` para
+Tareas/Ajustes — todo sobre el mismo grafo, sin regresión de la accesibilidad de la 18.
 
 ### 8. Build y release → lección **21**
 

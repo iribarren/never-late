@@ -57,6 +57,9 @@
          from articles_error (a failed *first* load, with nothing cached to show instead). -->
     <string name="articles_append_error">Couldn\'t load more articles.</string>
     <string name="articles_loading_more_content_description">Loading more articles…</string>
+    <!-- Feature 18b: shown in the right pane of the expanded-width two-pane Articles screen
+         (ArticlesListDetailPane) before the user has tapped any row in the list pane. -->
+    <string name="articles_select_placeholder">Select an article to read it here.</string>
 
     <!-- Tasks list screen -->
     <string name="tasks_title">Tasks</string>

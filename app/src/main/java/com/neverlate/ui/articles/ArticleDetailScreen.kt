@@ -70,14 +70,24 @@ fun ArticleDetailScreen(
             )
         },
     ) { innerPadding ->
-        when (uiState) {
-            is ArticleDetailUiState.Loading -> Unit
-            is ArticleDetailUiState.NotFound -> NotFoundMessage(modifier = Modifier.padding(innerPadding))
-            is ArticleDetailUiState.Content -> ArticleBody(
-                article = uiState.article,
-                modifier = Modifier.padding(innerPadding),
-            )
-        }
+        ArticleDetailBody(uiState = uiState, modifier = Modifier.padding(innerPadding))
+    }
+}
+
+/**
+ * The content-only half of [ArticleDetailScreen] — no [Scaffold]/`TopAppBar`/back arrow, just the
+ * `when` over [ArticleDetailUiState] that used to live directly inside [ArticleDetailScreen]'s
+ * content slot. Split out (feature 18b) so the expanded-width two-pane Articles' right pane
+ * ([ArticlesListDetailPane]) can reuse the exact same rendering without also getting a second top
+ * bar/back arrow nested inside the list-detail scaffold's detail pane — see that pane's KDoc for
+ * why it has no chrome of its own.
+ */
+@Composable
+fun ArticleDetailBody(uiState: ArticleDetailUiState, modifier: Modifier = Modifier) {
+    when (uiState) {
+        is ArticleDetailUiState.Loading -> Unit
+        is ArticleDetailUiState.NotFound -> NotFoundMessage(modifier = modifier)
+        is ArticleDetailUiState.Content -> ArticleBody(article = uiState.article, modifier = modifier)
     }
 }
 

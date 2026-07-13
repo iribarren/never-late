@@ -70,7 +70,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 16 | [identidad-visual](16-identidad-visual.md) | Theming Material 3: roles de color, tipografía, `dynamicColor` | ✅ |
 | 17 | [estados-animaciones](17-estados-animaciones.md) | Estados vacíos, animaciones, side-effects (`LaunchedEffect`, `derivedStateOf`) | ✅ |
 | 18 | [navegacion-accesibilidad](18-navegacion-accesibilidad.md) | `NavigationBar`, sincronía con back stack, accesibilidad | ✅ |
-| 18b | [layouts-adaptables](18b-layouts-adaptables.md) | Layouts adaptables / tablet (`WindowSizeClass`, list-detail) | 🚧 |
+| 18b | [layouts-adaptables](18b-layouts-adaptables.md) | Layouts adaptables / tablet (`WindowSizeClass`, list-detail) | ✅ |
 | 19 | [barra-progreso-tareas](19-barra-progreso-tareas.md) | `LinearProgressIndicator` determinado, `animateFloatAsState` | ✅ |
 | 20 | [cromo-marca](20-cromo-marca.md) | Roles de color aplicados a componentes: top bars, chips, FAB | ✅ |
 
