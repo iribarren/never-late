@@ -5,15 +5,16 @@
 > para introducir cada uno de forma didáctica y su **número definitivo** ya asignado en la secuencia de
 > tutoriales.
 >
-> **Qué NO es:** un compromiso de implementar todo ya. Es un mapa de ideas para decidir qué enseñar a
-> continuación. **No implementes nada de aquí sin arrancar el flujo normal** — cuando se elija una
-> feature, se sigue: spec → aprobación → rama → implementación → lección. Ver el
-> [flujo de nueva feature](../CLAUDE.md) y los prompts en [`docs/prompts/`](prompts/).
+> **Qué NO es:** un compromiso de implementar todo ya, **ni el roadmap de producto**. Es el backlog
+> de la **pista de tutorial**, que desde la feature 20 es **opcional**: cada feature decide si lleva
+> lección o no (ver *Tutorial Track (optional)* en el [`CLAUDE.md`](../CLAUDE.md)). Los huecos ⬜ de
+> abajo son oportunidades de enseñar algo, no deuda pendiente. **No implementes nada de aquí sin
+> arrancar el flujo normal** — cuando se elija una feature, se sigue: pregunta del tutorial → spec →
+> aprobación → rama → implementación → (lección, si procede). Los prompts están en
+> [`docs/prompts/`](prompts/).
 
-La app es un **tutorial progresivo**: cada lección introduce conceptos nuevos, de lo básico a lo
-avanzado, reutilizando lo anterior (ver la *Tutorial Methodology* en el `CLAUDE.md`). Por eso cada
-concepto de abajo lleva un **número de lección ya fijado**: solo puede colocarse **después** de las
-lecciones que introducen sus prerrequisitos.
+Cada concepto de abajo lleva un **número de lección ya fijado**: si alguna vez se escribe, solo puede
+colocarse **después** de las lecciones que introducen sus prerrequisitos.
 
 ## El orden ya está bloqueado (léeme primero)
 
@@ -243,10 +244,15 @@ producción".
 
 ## Cómo usar este documento
 
+Esto aplica **solo cuando se quiere hacer avanzar la pista de tutorial**. Una feature de producto
+normal no pasa por aquí: arranca directamente con `/feature` y responde **no** a la pregunta del
+tutorial.
+
 1. Elegir el **siguiente slot pendiente** (⬜) según lo que toque enseñar. Su número ya está fijado —
    no hay que decidir dónde encaja ni renumerar nada.
 2. Coger el prompt ya preparado en [`docs/prompts/`](prompts/) (`NN-*.md`, mismo número que el slot) y
-   arrancar el **flujo de nueva feature** del `CLAUDE.md` (spec con `project-manager-docs` → aprobación
-   → rama `feature/<nombre>` → implementación → **lección Spanish** `tutorial/NN-*.md`).
+   arrancar el **flujo de nueva feature** del `CLAUDE.md`, respondiendo **sí (lección NN)** a la
+   pregunta del tutorial (spec con `project-manager-docs` → aprobación → rama `feature/<nombre>` →
+   implementación → **lección en español** `tutorial/NN-*.md`).
 3. Rellenar el **stub** `tutorial/NN-*.md` (hoy un placeholder 🚧) con la lección real, y marcar la fila
    como ✅ en la tabla de arriba y en [`tutorial/README.md`](../tutorial/README.md).

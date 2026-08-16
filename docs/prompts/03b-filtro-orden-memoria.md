@@ -1,6 +1,6 @@
 # Feature 03b (extra) — Filtro y ordenación de la lista en memoria (fundamentos de Kotlin)
 
-Lee `CLAUDE.md` (**Tutorial Methodology** + **Mandatory Workflow**) y las lecciones previas (en
+Lee `CLAUDE.md` (**Tutorial Track (optional)** + **Mandatory Workflow**) y las lecciones previas (en
 especial la 03: lista y detalle de artículos, `data class`, `sealed`; y la 02: `ViewModel` +
 `StateFlow`). Implementa **"filtrar y ordenar la lista en memoria"** siguiendo el flujo `/feature`.
 

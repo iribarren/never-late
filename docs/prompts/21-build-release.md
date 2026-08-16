@@ -1,6 +1,6 @@
 # Feature 21 (extra) — Build de release: variants, R8 y firma (a producción)
 
-Lee `CLAUDE.md` (**Tutorial Methodology** + **Mandatory Workflow** + **API Contract**) y las lecciones
+Lee `CLAUDE.md` (**Tutorial Track (optional)** + **Mandatory Workflow** + **API Contract**) y las lecciones
 previas (en especial la 11: backend local por HTTP cleartext y el aviso de **HTTPS pendiente**; la 12:
 refresh token, credencial de más valor cruzando la red; y la 12b: keystore/backup). Implementa
 **"preparar una build `release` firmada, minificada y sobre HTTPS"** siguiendo el flujo `/feature`.

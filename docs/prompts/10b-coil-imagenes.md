@@ -1,6 +1,6 @@
 # Feature 10b (extra) — Imagen de cabecera por artículo con Coil
 
-Lee `CLAUDE.md` (**Tutorial Methodology** + **Mandatory Workflow** + **API Contract**) y las
+Lee `CLAUDE.md` (**Tutorial Track (optional)** + **Mandatory Workflow** + **API Contract**) y las
 lecciones previas (en especial la 10: artículos desde la API, Retrofit/OkHttp, `ArticleDto` ↔
 `Article`, caché en Room; y la 03: pantalla de detalle de artículo). Implementa **"imagen de cabecera
 por artículo cargada desde la API"** siguiendo el flujo `/feature`.
