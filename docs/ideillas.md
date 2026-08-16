@@ -1,6 +1,6 @@
 # Ideillas
 
-## desacoplar la parte de tutorial
+## ✅ desacoplar la parte de tutorial — HECHO (rama `feature/tutorial-opcional`)
 
 Este proyecto ha servido para ir creando tutorial de programación movil cada vez que se añadia una nueva feature. A partir de ahora la parte de tutorial del proyecto debe pasar a ser opcional, debes preguntarme en cada feature si quiero que se añada un tutorial o no, ya que habrá desarrollos que sean cambios de funcionalidad que no expliquen nada nuevo. El foco del desarrollo debe pasar a que la app sea un producto empresarial completo. Analiza la configuracion de Claude para reflejar este cambio y analiza también que partes de la configuración pueden ser redundantes o se podrían optimizar.
 

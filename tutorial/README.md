@@ -1,8 +1,15 @@
 # Tutorial *Never Late Again* — orden de lectura
 
-Este proyecto es un **tutorial progresivo** de Kotlin + Android (Jetpack Compose): cada lección
-implementa una feature real de la app e introduce conceptos nuevos, de lo básico a lo avanzado,
-reutilizando lo anterior (ver *Tutorial Methodology* en [`../CLAUDE.md`](../CLAUDE.md)).
+Este es un **tutorial progresivo** de Kotlin + Android (Jetpack Compose): cada lección implementa una
+feature real de la app e introduce conceptos nuevos, de lo básico a lo avanzado, reutilizando lo
+anterior.
+
+> **El tutorial es ahora una pista opcional.** El foco del proyecto es el producto: a partir de la
+> feature 20, cada nueva feature **decide caso por caso** si lleva lección (muchas son cambios de
+> funcionalidad que no enseñan nada nuevo). Las lecciones 01–20 se escribieron cuando la lección era
+> obligatoria; siguen siendo válidas y el orden de lectura no cambia. Los huecos 🚧 de más abajo
+> siguen disponibles, pero ya **no son compromisos** de las próximas features.
+> Ver *Tutorial Track (optional)* en [`../CLAUDE.md`](../CLAUDE.md).
 
 Esta es la **secuencia de lectura definitiva por curva de aprendizaje**. Es el índice reader-facing;
 el backlog con prerrequisitos y features propuestas vive en

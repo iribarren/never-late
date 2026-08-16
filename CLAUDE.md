@@ -7,18 +7,21 @@
 Native **Android** app (Kotlin + Jetpack Compose) that helps people with ADD/ADHD manage their
 time and the tasks they need to get done.
 
-This is also a **teaching project**: the app is built as a progressive tutorial to learn Kotlin
-and Android development. Each new feature must introduce new concepts, from the basics up. See
-**Tutorial Methodology** below — it is binding for every feature.
+**The product comes first.** The goal is a complete, shippable commercial-grade app: correct,
+secure, accessible, localized and maintainable. What "done" means is defined in **Definition of
+Done** below.
 
-The app is **client + backend** as of feature 11: the Android app is an **offline-first client** of a
-small **Kotlin/Ktor + Postgres backend** that owns user accounts and tasks. Data is still cached and
-fully usable on-device (Room), but the backend is the source of truth for synced data. The backend
-runs locally via `docker compose` for the tutorial (cloud hosting is out of scope). Earlier features
-(01–10) were local-only; that history is preserved in the tutorial lessons. **As of feature 13 an
-account is optional** (guest mode): the app is fully usable with no login, and guest tasks are merged
-into the account on sign-in — so the backend owns *synced* accounts/tasks, but a guest's tasks live
-only on-device until they choose to sign in.
+The app is **client + backend**: the Android app is an **offline-first client** of a small
+**Kotlin/Ktor + Postgres backend** that owns user accounts and tasks. Data is cached and fully usable
+on-device (Room), but the backend is the source of truth for synced data. The backend runs locally
+via `docker compose` (cloud hosting is not set up yet). **An account is optional** (guest mode): the
+app is fully usable with no login, and guest tasks are merged into the account on sign-in — so the
+backend owns *synced* accounts/tasks, but a guest's tasks live only on-device until they choose to
+sign in.
+
+The project also carries an **optional tutorial track** (`tutorial/`, Spanish lessons). Features
+01–20 were each documented as a lesson; from now on a lesson is **decided per feature, not assumed**
+— see **Tutorial Track (optional)** below.
 
 ## Structure
 
@@ -41,287 +44,58 @@ never-late/
 │     │  ├─ AndroidManifest.xml
 │     │  ├─ java/com/neverlate/
 │     │  │  ├─ MainActivity.kt        # Single Activity, hosts the Compose UI
-│     │  │  ├─ NeverLateApplication.kt # @HiltAndroidApp (feature 13d, Hilt's root component)
-│     │  │  ├─ di/                    # Hilt modules (feature 13d) — see below
+│     │  │  ├─ NeverLateApplication.kt # @HiltAndroidApp — Hilt's root component
+│     │  │  ├─ di/                    # Hilt modules — see the module map below
 │     │  │  └─ ui/theme/              # Compose theme: Color / Theme / Type
 │     │  └─ res/                      # strings, themes, launcher icon
 │     ├─ test/                        # Local JVM unit tests
 │     └─ androidTest/                 # Instrumented / Compose UI tests
-├─ backend/                     # Kotlin + Ktor + Postgres service (feature 11) — its own Gradle build
+├─ backend/                     # Kotlin + Ktor + Postgres service — its own Gradle build
 │  ├─ build.gradle.kts          # Backend module config + dependencies (separate from the app)
 │  ├─ docker-compose.yml        # Backend + Postgres for local dev
 │  ├─ README.md                 # Run + smoke instructions (does NOT re-list endpoints; see contract)
 │  └─ src/                      # Ktor app: auth (JWT), tasks REST, persistence
-├─ tutorial/                    # Spanish lessons, one per feature (see Tutorial Methodology)
+├─ tutorial/                    # Spanish lessons — OPTIONAL track (see Tutorial Track below)
 └─ docs/
-   ├─ api/                      # API contract — source of truth for client + server (feature 11)
-   ├─ prompts/                  # Ready-to-paste prompts to start each feature in a new session
+   ├─ api/                      # API contract — source of truth for client + server
+   ├─ arquitectura.md           # Architecture decision log, feature by feature (the "why")
+   ├─ mockups/                  # Master visual mockup + slice tracking table
    ├─ specs/                    # Feature specs (project-manager-docs)
-   └─ articles-api/             # Article catalog content (feature 10; now the backend seed source, feature 13c)
+   ├─ prompts/                  # Ready-to-paste session starters — tutorial-track backlog only
+   ├─ conceptos-pendientes.md   # Tutorial-track backlog (learning concepts), NOT the product roadmap
+   └─ articles-api/             # Article catalog content (now the backend seed source)
 ```
 
-As the app grows, feature code lives under `app/src/main/java/com/neverlate/` in packages such as
-`ui/screens`, `ui/<feature>`, `data` (DataStore/Room), and `domain`. Current feature packages of
-note: `di` (feature 13d, Hilt modules — `DatabaseModule`/`NetworkModule`/`StorageModule`/
-`RepositoryModule` + `Qualifiers.kt` — see the Hilt paragraph below), `ui/widget` (feature 05, home-screen widget), `ui/notification` (feature 06, lock-screen
-notification + foreground service; feature 09 also adds the reminder scheduler + receivers here),
-`ui/settings` (feature 07, Settings screen + light/dark/system theme preference persisted via the
-shared `user_prefs` DataStore and applied in `NeverLateTheme`; feature 09 adds the reminders on/off
-+ lead-time controls), `domain/tasks` (rules shared across surfaces, e.g. `pendingRowsFor`,
-feature 09's pure reminder-scheduling logic in `ReminderPlanning.kt`, feature 17's pure
-`urgencyLevelFor` countdown-urgency helper, feature 19's pure `deadlineProgressFor` helper —
-the `0f..1f` elapsed-time fraction behind each task card's progress bar — and feature 03b's pure
-in-memory list shaping in `TaskListShaping.kt` (`filteredBy`/`sortedBy`/`groupedByUrgency`/`shapedBy`
-behind the Tasks screen's filter/sort/group-by-urgency controls, `nullsLast` deadline ordering, no
-new Room/network source; feature 04b then made the search **reactive** — `TasksViewModel` moved the
-query into its own `StateFlow` and feeds it through a `debounce` + `combine` + `stateIn` pipeline
-(`SharingStarted.WhileSubscribed`), with the auto-pause side effect split into its own `onEach`
-collector, reusing `shapedBy` unchanged; no new file/package/dependency); and feature 04c's pure
-`weeklyStatsFor` in `TaskStats.kt` — `WeeklyTaskStats(completedThisWeek, onTimePercent, dueSoon)` over
-`(tasks, now, zone)`, ISO-week + 24h-due-soon constants, keyed on the new `Task.completedAt`), `ui/stats`
-(feature 04c, the statistics screen: pure-`StateFlow` `StatsViewModel` + stateless `StatsScreen`/`StatsRoute`,
-reached via a stats `IconButton` in the Tasks top bar as a secondary route — bottom bar hidden), and
-`ui/components` (feature 17, reusable UI building blocks — currently `MessageState`, the shared empty/error
-state used by the Tasks, Articles, and Stats screens; feature 18b adds `ReadableWidthContainer`, the
-max-640dp centered width constraint applied to single-pane Tasks/Settings on large windows).
+### Current module map (`app/src/main/java/com/neverlate/`)
 
-**Task completion + statistics** (feature 04c, the *testing* lesson): `Task` gains a real
-`completedAt: Long?` (epoch millis; `null` = pending) that **syncs** end-to-end — added to the `TaskDto`
-wire shape in `docs/api/contract.md` (no new endpoint; reuses `/tasks` CRUD + `?since=` pull, PATCH via the
-existing `PatchValue` omitted-vs-null mechanism) and the Postgres `tasks.completed_at` column, and rides the
-existing last-write-wins-by-`updatedAt` reconcile with no logic change. A per-row `Checkbox` on the Tasks
-list marks a task done (strikethrough, sorts last, no countdown/urgency) through the normal outbox/transaction
-save path. This bumps `NeverLateDatabase` **3 → 4** via the project's **first real additive `Migration(3,4)`**
-(`ALTER TABLE tasks ADD COLUMN completedAt INTEGER`, data-preserving — the destructive fallback would wipe
-guest-mode tasks that live only on-device). No new permission or dependency.
+What each package holds **today**. For *why* it looks like this — the decision behind each piece —
+see [`docs/arquitectura.md`](docs/arquitectura.md).
 
-**Task priority + real Room migration** (feature 13b, the *migrations* lesson): `Task` gains a
-`priority: Priority` **enum** (`NONE`/`LOW`/`MEDIUM`/`HIGH`, `data/tasks/Priority.kt`) — the first column of a
-type Room can't store natively, so it's persisted through a **`@TypeConverter`** added to the existing
-`Converters` (stores `Enum.name` as TEXT, tolerant fallback to `NONE`). It **syncs** end-to-end like
-`completedAt` (added to `TaskDto`/`docs/api/contract.md` + the Postgres `tasks.priority` column, riding the
-existing LWW reconcile; client/server both coerce absent/unknown → `NONE`). This bumps `NeverLateDatabase`
-**4 → 5** via a hand-written **`MIGRATION_4_5`** (`ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT
-'NONE'`) — the project's first `NOT NULL … DEFAULT` migration (`AutoMigration` is taught by contrast, not
-shipped). The feature flips `exportSchema = true` + adds the `room.schemaLocation` KSP arg, commits the
-exported `app/schemas/…/{4,5}.json` (the `4.json` baseline was generated one-off since v4 shipped with export
-off), and adds the **`androidx.room:room-testing`** dependency for a `MigrationTestHelper` test that proves
-4 → 5 data survival (`app/src/androidTest/.../MigrationTest.kt`). UI: a `FilterChip` priority selector on the
-Task Edit screen + a small token-colored dot on the task card (`ui/tasks/PriorityUi.kt`, no mockup slice —
-net-new). No new permission.
+| Package | Contents |
+|---|---|
+| `di/` | Hilt modules: `DatabaseModule`, `NetworkModule`, `StorageModule`, `RepositoryModule` + `Qualifiers.kt`. `RepositoryModule` assembles the four-layer `TaskRepository` decorator chain — order matters: `TaskSurfacesRefreshingRepository` (unqualified, what the app injects) → `ReminderSchedulingRepository` → `OutboxTaskRepository` → `RoomTaskRepository`. |
+| `domain/tasks/` | Pure, JVM-testable rules shared across surfaces: `pendingRowsFor`, `ReminderPlanning.kt` (reminder scheduling), `urgencyLevelFor` (countdown urgency), `deadlineProgressFor` (progress-bar fraction), `TaskListShaping.kt` (`filteredBy`/`sortedBy`/`groupedByUrgency`/`shapedBy`), `TaskStats.kt` (`weeklyStatsFor` → `WeeklyTaskStats`). |
+| `domain/sync/` | Pure reconciliation logic for the sync engine (last-write-wins by `updatedAt`, delete wins over edit). JVM-testable, no Android deps. |
+| `data/tasks/` | Room entities/DAOs for `Task` (incl. `completedAt`, `priority` enum via `@TypeConverter`, sync metadata `serverId`/`updatedAt`/`syncState`/`deleted`), the `task_outbox`, and `TaskTiming.kt` (locale-aware formatting). |
+| `data/articles/` | Retrofit `ArticlesApi` + `ArticleDto` (wire shape, mapped by `toDomain()`), Room `ArticleEntity`/`ArticleDao`, `article_remote_keys`, `ArticlesRemoteMediator` (Paging 3), `CachingArticleRepository` (Room = single source of truth). |
+| `data/auth/`, `data/sync/` | `EncryptedTokenStorage` (Keystore-backed, access + refresh token), `AuthInterceptor` (Bearer), `TokenAuthenticator` (single-flight `401` refresh), `SyncEngine` (push outbox / pull `?since=`), `AuthRepositoryImpl`. |
+| `ui/navigation/` | `AppNavHost` (auth gate: `Guest`/`LoggedIn` are **separate `when` arms** — do not merge them, guest adoption depends on the recomposition) and `MainAppNavHost` (bottom `NavigationBar` on compact, `NavigationRail` on medium/expanded, both over one shared `MainNavGraph`). |
+| `ui/tasks/`, `ui/articles/`, `ui/settings/`, `ui/stats/` | The screens. Tasks/Articles/Settings are peer top-level destinations; Article Detail, Task Edit, Stats and Login/Register are secondary routes (no bottom bar). `ArticlesListDetailPane` gives Articles a two-pane layout at expanded width. |
+| `ui/components/` | Shared UI building blocks: `MessageState` (empty/error/loading state used by Tasks, Articles, Stats), `ReadableWidthContainer` (max-640dp centered constraint on large windows). |
+| `ui/notification/` | Lock-screen notification + foreground service, plus the reminder scheduler, `ReminderReceiver`, `BootReceiver`/`BootRescheduleWorker`. Two notification channels: silent `tasks_pending`, alerting `task_reminders`. |
+| `ui/widget/` | Home-screen widget. |
+| `ui/theme/` | `Color`/`Theme`/`Type` — Material 3 tokens plus `NeverLateExtras` (urgency colors). Theme preference (light/dark/system) is persisted in the shared `user_prefs` DataStore. |
 
-**Reminders** (feature 09): schedules a one-shot *alerting* local notification a configurable lead
-time before a task's `deadline`, firing even with the app closed, and reschedules after reboot. Pure
-scheduling logic (`reminderTimeFor`, `isReminderInFuture`, `remindersToSchedule`) lives in
-`domain/tasks/ReminderPlanning.kt`; the Android shells live in `ui/notification`:
-`AlarmManagerReminderScheduler` (exact `setExactAndAllowWhileIdle`, graceful fallback to inexact when
-`canScheduleExactAlarms()` is false), `ReminderReceiver` (posts the notification, `exported=false`),
-`ReminderNotificationHelper` (a **second**, alerting `IMPORTANCE_HIGH` channel `task_reminders`,
-distinct from feature 06's silent `tasks_pending`), `BootReceiver` + `BootRescheduleWorker`
-(reschedule on `BOOT_COMPLETED`, delegated to WorkManager), and `ReminderSchedulingRepository` (a
-second `TaskRepository` decorator, composed with `TaskSurfacesRefreshingRepository` in `MainActivity`,
-that (re)schedules/cancels a task's alarm on save/delete). Reminder prefs (`remindersEnabled`,
-`reminderLeadMinutes`) are stored in the same `user_prefs` DataStore.
+Persistence at a glance: **`NeverLateDatabase` is at version 6**, `exportSchema = true`, schemas
+committed under `app/schemas/`. Migrations from v3 onward are **additive and tested**
+(`MigrationTestHelper`) — never destructive, because guest-mode tasks live only on-device.
+User preferences (theme, reminders on/off + lead time, onboarding) live in the `user_prefs`
+DataStore; **tokens never do** — they live in the Keystore-backed encrypted store.
 
-**Localization** (feature 08, i18n): all user-facing text lives in string resources.
-`res/values/strings.xml` is the Spanish base/fallback; `res/values-en/strings.xml` is the English
-variant (selected by device language). Counts use `<plurals>` (`getQuantityString` /
-`pluralStringResource`); numbers/dates are formatted per device `Locale` via `NumberFormat` /
-`java.time` `DateTimeFormatter` (see `data/tasks/TaskTiming.kt`, where display formatting is
-locale-aware and the deadline input round-trip is pinned to `Locale.ROOT`). `java.time` on
-`minSdk = 24` is enabled by **core library desugaring** (`isCoreLibraryDesugaringEnabled` +
-`coreLibraryDesugaring(libs.desugar.jdk.libs)`).
-
-**Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime
-permission on Android 13+, requested from Compose), plus `FOREGROUND_SERVICE` /
-`FOREGROUND_SERVICE_SPECIAL_USE` for the notification's foreground service
-(`TasksNotificationService`, `foregroundServiceType="specialUse"`). Feature 09 adds
-`SCHEDULE_EXACT_ALARM` (exact alarms on API 31+, checked at runtime via `canScheduleExactAlarms()`
-with graceful fallback to inexact; `USE_EXACT_ALARM` is deliberately **not** declared) and
-`RECEIVE_BOOT_COMPLETED` (reschedule reminders after reboot), plus two `<receiver>`s: `ReminderReceiver`
-(`exported="false"`) and `BootReceiver` (`exported="true"`, `BOOT_COMPLETED` filter). Feature 10 adds
-`INTERNET` (a normal permission, no runtime request) for the articles API. Feature 11 adds
-`ACCESS_NETWORK_STATE` (also a normal permission, no runtime request) for the sync engine's
-connectivity-aware WorkManager job. A later bugfix adds Auto Backup rules
-(`android:dataExtractionRules="@xml/data_extraction_rules"` + `android:fullBackupContent="@xml/backup_rules"`)
-that **exclude the Keystore-sealed `auth_secure_prefs` file** from cloud backup/device transfer: its
-hardware-bound key can't follow it, so a restored copy only throws `AEADBadTagException` on launch —
-`EncryptedTokenStorage` now also recovers from that by clearing and recreating the store (see
-`tutorial/12b-keystore-recuperacion.md`).
-
-**Articles from a remote API** (feature 10): replaces feature 03's bundled `assets/articles.json`
-with a real network fetch. `data/articles/` gains `ArticlesApi` + `ArticlesNetwork` (Retrofit +
-OkHttp, `HttpLoggingInterceptor` gated to debug builds via `BuildConfig.DEBUG`, deserializing with
-the existing `kotlinx.serialization` through a Retrofit converter), `ArticleDto` (the wire shape,
-deliberately different from the `Article` domain model — `article_id`/`content`, no `summary` —
-mapped by `ArticleDto.toDomain()`), and `ArticleEntity` + `ArticleDao` (the Room cache). The remote
-source is a static JSON file at `docs/articles-api/articles.json`, served over HTTPS via GitHub
-raw once pushed to `master`. `CachingArticleRepository` implements `ArticleRepository` with Room as
-the **single source of truth** (`getArticles()`/`getArticleById()` always read the cache) and adds
-an additive `refresh(): RefreshResult` that the ViewModels use for a *stale-while-revalidate*
-strategy (show the cache immediately, then update it from the network) plus pull-to-refresh and a
-retry action on failure. `ArticleEntity` lives in the same `NeverLateDatabase` as `Task`, which
-bumps `version` 1 → 2 — per that database's existing `fallbackToDestructiveMigration` policy, this
-wipes tasks on devices that already have data, accepted pre-release the same way earlier schema
-changes were.
-
-**Paginated articles with Paging 3** (feature 13c, the *pagination* lesson): the Articles list stops
-fetching the whole catalog at once and loads it **page by page on scroll** via **Jetpack Paging 3**,
-Room as the cache/single-source-of-truth behind a **`RemoteMediator`**. Articles also move from the
-feature-10 static GitHub-raw JSON to a **real backend endpoint** — `GET /articles?page=&size=`, the
-backend's **first and only public (unauthenticated) route** (guest mode, feature 13, requires articles
-with no account; registered **outside** the `authenticate("auth-jwt")` block, serving a global
-read-only catalog seeded at startup from `backend/src/main/resources/seed/articles.json`). Client shells
-extend `data/articles/`: `ArticlesApi` gains `@Query` `page`/`size` returning `ArticlesPageDto`
-(`items`/`page`/`size`/`total`, contract §7); `ArticleDao.pagingSource()` (Room-generated
-`PagingSource`); a new `article_remote_keys` table (`ArticleRemoteKeys` + DAO) and an
-`ArticleEntity.remoteOrder` column for stable cross-page ordering; `ArticlesRemoteMediator`
-(REFRESH/APPEND/PREPEND, single-transaction writes, `endOfPaginationReached = items.size < size`,
-reusing `ArticleDto.toDomain()`); and `CachingArticleRepository.articlesPager(): Flow<PagingData<Article>>`.
-The old whole-list `getArticles()`/`refresh()`/`RefreshResult` + `ArticlesUiState` SWR loop is
-**removed** — `ArticlesScreen` now uses `collectAsLazyPagingItems()` + `loadState` (pull-to-refresh
-spinner, bottom append spinner, inline append-retry, full-screen `MessageState` for refresh-error/empty),
-and `getArticleById` is kept for Article Detail. This bumps `NeverLateDatabase` **5 → 6** via an additive
-`MIGRATION_5_6` (new table + `remoteOrder INTEGER NOT NULL DEFAULT 0`; additive because the shared DB
-holds guest-only tasks), with a committed `6.json` and a `MigrationTestHelper` test. New dependency:
-`androidx.paging` (runtime + compose) + `androidx.room:room-paging` in the version catalog. No new
-permission.
-
-**Remote DB + offline-first sync** (feature 11): the app gains a real backend (`backend/`, Kotlin +
-Ktor + Postgres) that owns accounts and tasks; the Android app becomes an **offline-first client**.
-Basic email/password **auth** issues a stateless **JWT** (no refresh in v1 — **superseded by feature
-12** below), attached to every task call via an OkHttp interceptor and stored in **Keystore-backed
-encrypted storage** (not the plaintext `user_prefs` DataStore). Room stays the **local single source of truth**; each mutation writes the
-task row **and** a `task_outbox` change row in the same transaction. A sync engine does **push** (replay
-the outbox — idempotent creates keyed by `clientRef`, tombstones for deletes) and **pull**
-(`GET /tasks?since=`), reconciling with **last-write-wins by `updatedAt`** (delete wins over edit); the
-pure reconciliation lives in `domain/sync/` (JVM-testable, like `ReminderPlanning.kt`). Tasks gain sync
-metadata (`serverId`, `updatedAt`, `syncState`, `deleted`), bumping `NeverLateDatabase` **2 → 3**
-(destructive migration per project precedent — the cache repopulates from the backend after login). The
-`TaskRepository` seam is preserved: sync/auth enter behind it. See **API Contract** below.
-
-The local dev backend is plaintext HTTP (`http://10.0.2.2:8080`), which `targetSdk 36` blocks by
-default; a **debug-build-only** network security config (`app/src/debug/res/xml/network_security_config.xml`,
-wired via `app/src/debug/AndroidManifest.xml`) scopes the cleartext exception to `10.0.2.2`/`localhost`
-only — release builds get no exception at all. **Before any real deployment, the backend must be served
-over HTTPS** and this debug-only exception must not be widened or copied into the release manifest.
-This warning applies **doubly** after feature 12, since a refresh token is a longer-lived, higher-value
-credential crossing the wire.
-
-**Refresh token + silent session renewal** (feature 12): the single long-lived JWT of feature 11 is
-split into a **short-lived access token** (stateless JWT, ~15 min) + a **long-lived refresh token**
-(~30 days, opaque, server-stateful). On a `401` the client now **renews first** and only falls back to
-login if renewal fails. Client shells live in `data/sync`/`data/auth`: a new OkHttp **`Authenticator`**
-(`TokenAuthenticator`, distinct from feature 11's Bearer `AuthInterceptor`) intercepts the `401`,
-performs a **single-flight** refresh (a `synchronized` guard so a burst of concurrent `401`s triggers
-exactly one `POST /auth/refresh`), atomically swaps both tokens in `EncryptedTokenStorage`
-(`saveTokens`), and retries the original request; the refresh call goes through a **bare** OkHttp client
-(no authenticator/interceptor) to avoid recursion. Both tokens live in the same Keystore-backed store;
-logout best-effort-revokes the refresh server-side then clears local state unconditionally. The backend
-gains **auth state** (its first): a hashed-at-rest `refresh_tokens` table (`RefreshTokenRepository` +
-Postgres/InMemory impls, `RefreshTokenCrypto` for `SecureRandom` token + SHA-256 hash) with **rotation**
-on every use, **revocation** on logout, and **reuse detection** scoped to a token **family/lineage**
-(`revokeFamily`), closing a TOCTOU race via an atomic `markConsumedIfUnconsumed`. Access/refresh
-lifetimes are env-configurable (`ACCESS_TOKEN_EXPIRY_MINUTES`, `REFRESH_TOKEN_EXPIRY_DAYS` in `Config`).
-No new permissions, modules, or dependencies. See **API Contract** below.
-
-**Guest mode + merge on sign-in** (feature 13): removes feature 11's **mandatory** auth gate — the app
-is fully usable with **no account** (local-only CRUD against Room, sync inactive). `AuthState` gains a
-third face, **`Guest`** (alongside `LoggedOut`/`LoggedIn`): `Guest` is the cold-start default when no
-token is stored (`readInitialAuthState`), while `LoggedOut` is now **reserved for the involuntary case**
-(a failed feature-12 refresh → the login gate). A guest task is already the sync engine's "orphan" shape
-(`serverId == null`, a `CREATE` outbox row keyed by a stable `clientRef`), and `SyncEngine.syncNow()`
-already early-returns while tokenless — so **adoption on sign-in is simply the deferred `push` finally
-running**: it reuses the outbox + `clientRef` idempotency + last-write-wins from feature 11 to merge
-guest tasks into the account with no loss and no duplicates, then a full pull brings the account's other
-tasks down. The adoption trigger is **doubly wired**: `AppNavHost` keeps `Guest`/`LoggedIn` as
-**separate `when` arms** (both render `MainAppNavHost`) so a `Guest → LoggedIn` transition recomposes a
-fresh `LaunchedEffect { refreshFromServer() }` — *do not merge those arms* — **plus** an explicit
-`AuthRepositoryImpl.onAuthenticated` hook (wired in `MainActivity` to `refreshFromServer`). `logout()`
-(user-initiated, from Settings) now **wipes** tasks/outbox/cursor and lands in `Guest`; it shares its
-`clearLocalSession()` internals with `notifyUnauthorized()`, which lands in `LoggedOut` — the wipe is
-mandatory either way to avoid re-adopting/duplicating tasks or leaking them across accounts on the next
-sign-in. Login/register are reachable from **Settings** while `Guest` (an optional entry, not a gate).
-Product decisions (in the spec): **silent** merge, **wipe-on-logout**, single write path, **no** content
-de-duplication. **No backend, contract, DB-version, permission, or dependency change** — adoption uses
-the existing idempotent `POST /tasks`.
-
-**Bottom navigation bar + accessibility review** (feature 18): retires the `HomeScreen` hub —
-**Tasks/Articles/Settings** are now peer top-level destinations reached via a persistent Material 3
-`NavigationBar`, not rows on a Home screen. **Tasks is the landing destination** (onboarded users and
-the widget's `openTasksOnStart` both resolve there; Home's route/strings/`HomeViewModel` are removed).
-The `Scaffold`/`NavigationBar` live **inside `MainAppNavHost`** (`ui/navigation/AppNavHost.kt`), never in
-`AuthGateNavHost`, so the bar never shows on the login gate; feature 13's separate `Guest`/`LoggedIn`
-`when` arms are untouched. The bar's **visibility is route-gated**: shown only while the current
-destination is one of the three top-level routes, hidden on Article Detail/Task Edit/Login/Register-
-from-Settings, which render full-height instead. The selected tab is derived reactively from
-`navController.currentBackStackEntryAsState()`/`destination.hierarchy` (never a separate `remember`ed
-index), and tab taps use the standard `popUpTo(graph.findStartDestination().id) { saveState = true }` +
-`launchSingleTop` + `restoreState` idiom. `TasksScreen`/`ArticlesScreen`/`SettingsScreen` (and their
-`*Route` wrappers) now take a **nullable** `onBack: (() -> Unit)? = null` — `null` (no back arrow) when
-reached as a bottom-bar tab, a real callback when reached as a secondary screen. Settings' logout
-button now opens an `AlertDialog` confirmation (mirroring `TasksScreen`'s `DeleteTaskDialog`) before
-calling `SettingsViewModel.logout()`, since feature 13 made logout wipe local tasks. The feature also
-folds in a cross-cutting **accessibility pass** (`docs/conceptos-pendientes.md` §7): coherent
-`contentDescription`s on the new bar's icons, and `Modifier.minimumInteractiveComponentSize()` on
-`ui/components/MessageState`'s action `Button` (Material 3's default 40dp button height is below the
-48dp touch-target guideline). **No backend, contract, DB-version, permission, or dependency change.**
-
-**Dependency injection with Hilt** (feature 13d, a behaviour-preserving refactor, not a product
-feature): retires the manual DI used since feature 02 — the `ui/navigation/AppViewModelFactory`
-`ViewModelProvider.Factory` (deleted) and the object-construction block that used to fill
-`MainActivity.onCreate` (building `NeverLateDatabase`, the token storage, the network clients,
-`SyncEngine`, and the `TaskRepository` decorator chain by hand) — with **Hilt**. `NeverLateApplication`
-(`@HiltAndroidApp`) is the new `Application` class, registered via `android:name` in the manifest;
-`MainActivity` is `@AndroidEntryPoint` and now only `@Inject`s the three things it still touches
-directly (`UserPreferencesRepository`, the assembled `TaskRepository`, and the concrete
-`AuthRepositoryImpl`, for the guest-mode `onAuthenticated` hook) — every imperative startup side
-effect (notification channel, the two periodic `WorkManager` jobs, the lock-screen notification
-refresh) still runs there unchanged, only the *construction* moved out. The new `di/` package holds
-`SingletonComponent`-scoped modules: `DatabaseModule` (`NeverLateDatabase` + DAOs), `NetworkModule`
-(the three Retrofit factories + `SyncEngine`), `StorageModule` (`TokenStorage`, `UserPreferencesRepository`),
-and `RepositoryModule` — the crux of the migration — which provides `AuthRepository`, `ArticleRepository`,
-`ReminderScheduler`, and, disambiguated with the qualifiers in `di/Qualifiers.kt` (`@RoomRepo`/
-`@OutboxRepo`/`@ReminderRepo`), the exact same **four-layer `TaskRepository` decorator chain** in the
-exact same order as before: `TaskSurfacesRefreshingRepository` (unqualified, what the app injects) ->
-`ReminderSchedulingRepository` -> `OutboxTaskRepository` -> `RoomTaskRepository`. All nine `ViewModel`s
-are now `@HiltViewModel` with an `@Inject constructor`, obtained via `hiltViewModel()` in every
-`*Route` composable; `ArticleDetailViewModel`/`TaskEditViewModel` read their `articleId`/`taskId`
-navigation argument from an injected `SavedStateHandle` instead of a factory parameter (a missing
-`articleId` still throws — a missing `taskId` is still a valid "create new task" signal). New
-dependencies, both in the version catalog: `com.google.dagger:hilt-android`/`hilt-compiler` (the
-latter via **KSP**, alongside Room's, no `kapt`) and `androidx.hilt:hilt-navigation-compose` — both
-pinned below their newest release (Hilt `2.58`, not `2.59+`; `hilt-navigation-compose` `1.2.0`, not
-`1.3.0+`) because newer releases of each require **AGP 9**, and this project is still on AGP 8.13.2;
-revisit both pins whenever the project upgrades AGP. No backend, contract, DB-version, permission,
-or UI/behavioural change of any kind.
-
-**Adaptive layouts for large screens** (feature 18b, the *adaptive* half feature 18 left out — closes
-`docs/conceptos-pendientes.md` §7's tablet/adaptive item): makes the app **width-aware** via
-**`WindowSizeClass`** (compact/medium/expanded), as a presentation layer **over the unchanged feature-18
-graph** — a phone user sees no change. `MainActivity` computes `calculateWindowSizeClass(this)` once and
-threads `widthSizeClass` down through `AppNavHost` → `MainAppNavHost` (the auth gate ignores it). Inside
-`MainAppNavHost` (never `AppNavHost` — the guest-mode `Guest`/`LoggedIn` `when` arms stay untouched) the
-layout branches: **compact** keeps the bottom `NavigationBar`; **medium/expanded** swap to a leading-edge
-`NavigationRail` (`MainNavigationRail`, reusing the same `bottomNavItems`, the same reactive back-stack
-selected-tab derivation, and the same tab-switch idiom — now factored into a shared
-`NavHostController.navigateToTopLevelRoute` extension). The nav graph itself is extracted into one private
-`MainNavGraph` shared by both branches (the core teaching point: an adaptive layer above **one** graph,
-never a duplicated graph); chrome stays route-gated by `TOP_LEVEL_ROUTES`. **Articles** gets a two-pane
-**list-detail** at expanded width via **`ListDetailPaneScaffold`** (`ui/articles/ArticlesListDetailPane`):
-list left (the unchanged `ArticlesRoute` + full Paging 3 pipeline), detail right, tap updates the right
-pane in place, `MessageState` placeholder when nothing selected — compact/medium keep the single-pane push
-`ArticleDetail` route. The right pane reuses the **rendering** (`ArticleDetailBody`, extracted from
-`ArticleDetailScreen`) but loads via `articleRepository.getArticleById` directly rather than
-`ArticleDetailViewModel`/`hiltViewModel()` (no back-stack `SavedStateHandle` for an in-pane selection);
-`MainActivity` therefore also `@Inject`s `ArticleRepository`, threaded through to the pane. Tasks/Settings
-get only the rail + a max-640dp `ReadableWidthContainer` (two-pane for them is deferred). All feature-18
-a11y is preserved (≥48dp targets, content descriptions, large-font reflow). New dependencies in the
-version catalog: `androidx.compose.material3:material3-window-size-class` (BOM-managed, no explicit
-version; aliased `material3-windowsizeclass` since Gradle rejects an alias ending in `class`) and
-`androidx.compose.material3.adaptive:{adaptive,adaptive-layout,adaptive-navigation}` pinned to **`1.0.0`**
-(not the newer line) for the same AGP-8.13.2 reason as the Hilt pins — revisit on a Compose BOM upgrade.
-No backend, contract, DB-version, or permission change.
+Security note that outlives its feature: the local dev backend is plaintext HTTP, allowed only by a
+**debug-build-only** network security config (`app/src/debug/res/xml/network_security_config.xml`)
+scoped to `10.0.2.2`/`localhost`. **Before any real deployment the backend must be served over
+HTTPS**; never widen this exception or copy it into the release manifest.
 
 ## API Contract
 
@@ -332,8 +106,8 @@ it, and do not re-document endpoints elsewhere (the backend `README.md` points t
 than re-listing routes).
 
 - **Contract:** [`docs/api/contract.md`](docs/api/contract.md) — endpoints (`/auth/register`,
-  `/auth/login`, `/auth/refresh` + `/auth/logout` (feature 12), `/tasks` CRUD + `GET ?since=` for pull,
-  and the public paginated `GET /articles?page=&size=` (feature 13c, §7 — the only unauthenticated route)),
+  `/auth/login`, `/auth/refresh` + `/auth/logout`, `/tasks` CRUD + `GET ?since=` for pull,
+  and the public paginated `GET /articles?page=&size=` (§7 — the only unauthenticated route)),
   the `TaskDto` wire shape (deliberately distinct from the Room `Task` entity), the JSON error envelope,
   auth (Bearer access token + refresh-token rotation/revocation/reuse, §2.1), and sync
   semantics.
@@ -370,7 +144,7 @@ the Run button.
 |--------|-----------|
 | Android emulator | `~/Android/Sdk/emulator/emulator -avd Nexus_5X_API_29_x86 &` then `adb wait-for-device` |
 
-### Backend (feature 11)
+### Backend
 
 The backend is a separate Gradle project under `backend/` with its own `docker compose` (backend +
 Postgres). Secrets (JWT signing key, DB credentials) come from **environment variables** — never
@@ -428,9 +202,11 @@ Rebuild/reinstall after changing `local.properties` (Gradle only re-reads it on 
 
 - All code (variables, functions, comments, resource ids) MUST be in English. Tutorial lessons
   in `tutorial/` are written in **Spanish**.
-- Persist data on-device; there is no backend yet. If/when a backend is added, sensitive logic
-  and data ownership move there (and the API Contract section is reintroduced).
-- Security is an MVP requirement, not a stretch goal.
+- **Room is the local source of truth; the backend is the authority for synced data.** Every screen
+  reads from Room and works offline; mutations go through the outbox and are reconciled by the sync
+  engine. Sensitive logic (ownership checks, validation, authority over `id`/`updatedAt`) lives on
+  the **server** — the client is untrusted.
+- Security is a shipping requirement, not a stretch goal.
 - Kotlin/Compose conventions:
   - UI is Jetpack Compose (Material 3). No XML layouts.
   - Screen state is exposed via `ViewModel` + `StateFlow`; Composables stay stateless where
@@ -439,29 +215,67 @@ Rebuild/reinstall after changing `local.properties` (Gradle only re-reads it on 
     versions in `build.gradle.kts`.
   - Use the Gradle wrapper (`./gradlew`), never a system-wide `gradle`.
 
-## Tutorial Methodology (binding for every feature)
+## Definition of Done
 
-This project is a progressive Kotlin/Android tutorial. For **every** feature added:
+The product bar. A feature is done when **all** of these hold — this list replaced the tutorial
+lesson as the criterion for "finished".
 
-1. **Teach something new.** Each feature must introduce new, progressively harder concepts
-   (start basic, build up). Reuse and reference concepts from earlier lessons.
-2. **Ship a Spanish lesson.** Add `tutorial/NN-topic.md` (Spanish) that explains the new
-   concepts and walks through the code that was written. Number it after the previous lesson.
-   This lesson is part of the mandatory **Documentation Update** — a feature is not done without
-   it (`/doc-check` covers it).
-3. **Keep the code exemplary.** Code is didactic material: clear names, small functions, comments
-   where a concept is first introduced (in English, per conventions).
+- **Tests pass.** Pure logic (`domain/`) has JVM unit tests; UI/DB behaviour that can only be proven
+  on a device has an instrumented test. `./gradlew :app:testDebugUnitTest` is green before committing.
+- **Migrations are additive and tested.** Any Room schema change bumps the version, ships a
+  hand-written `Migration`, commits the exported `app/schemas/N.json`, and proves data survival with a
+  `MigrationTestHelper` test. **Never** fall back to a destructive migration: guest-mode tasks exist
+  only on-device and would be lost.
+- **The contract is updated first.** Any change to request/response shapes, status codes or auth
+  updates `docs/api/contract.md` in the same change, with client and server reconciled to it.
+- **Security holds.** No secrets in tracked files (`local.properties` is git-ignored); the cleartext
+  network exception stays **debug-only**; validation and ownership checks live on the server.
+- **Accessibility and i18n hold.** Touch targets ≥ 48dp, meaningful `contentDescription`s, layout
+  reflows at the largest font scale; all user-facing text in `strings.xml` with the Spanish base and
+  the English `values-en` variant kept in sync (counts via `<plurals>`, dates/numbers per `Locale`).
+- **Every state is designed.** Each screen covers loading, empty and error — reuse
+  `ui/components/MessageState` instead of inventing per-screen states.
+- **The visual ACs pass.** The spec's visual acceptance criteria are verified and
+  `docs/mockups/README.md` reflects what shipped (see **Design in the Workflow**).
+- **Docs match reality.** See **Documentation Update** below.
 
-The roadmap of upcoming features and their target concepts lives in the plan and in
-`docs/prompts/`. Each future feature is started from a **fresh session** by pasting its prompt
-from `docs/prompts/NN-*.md`.
+Known production gaps, each to be taken as its own spec'd feature — do not improvise them inside an
+unrelated change: **CI** (there is no `.github/` yet: build + unit tests on every PR),
+**signed release + versioning**, and **crash reporting / observability**.
 
-The **definitive lesson order** (including reserved, not-yet-written slots) is locked in
-`docs/conceptos-pendientes.md` (the backlog with prerequisites) and mirrored in `tutorial/README.md`
-(the reader-facing index). New lessons are **interleaved with letter suffixes** (the existing `12b`
-pattern — e.g. `03b`, `13d`) so shipped lessons are **never renumbered**: the `feature NN` number is
-coupled 1:1 to hundreds of code comments, tests and git history. When a reserved slot is implemented,
-fill its `tutorial/NN-*.md` placeholder and flip its status to ✅ in both files.
+## Tutorial Track (optional)
+
+The repo doubles as a Spanish Kotlin/Android tutorial (`tutorial/`, features 01–20). **This is now an
+optional track, decided per feature — not an obligation.** Plenty of work is product change that
+teaches nothing new, and those features ship with no lesson.
+
+**Ask, don't assume.** When starting a feature, ask the user whether it carries a lesson **before**
+writing the spec, using an `AskUserQuestion` dialog (not prose) with these options:
+
+- **Sí, con lección** — the feature introduces concepts worth teaching.
+- **No** — product change only.
+- **Decidir al final** — revisit after implementation, before committing.
+
+Record the answer in the spec as a `Tutorial:` field. The spec's approval then covers it, and
+`/doc-check` audits the lesson **only if the spec asked for one**.
+
+**If the feature carries a lesson**, the existing rules apply unchanged:
+
+- Write it in **Spanish** as `tutorial/NN-topic.md`, explaining the new concepts and walking through
+  the code that was written.
+- **Never renumber a shipped lesson** — the `feature NN` number is coupled 1:1 to hundreds of code
+  comments, tests and git history. Interleave with letter suffixes instead (`03b`, `13d`).
+- Flip its status to ✅ in **both** `docs/conceptos-pendientes.md` and `tutorial/README.md`.
+
+**If it does not**, no lesson is written, no number is reserved, and the feature simply stays out of
+the tutorial track. Everything else in **Documentation Update** still applies.
+
+`docs/conceptos-pendientes.md` and `docs/prompts/` are the **backlog of the tutorial track** (Kotlin
+concepts still unexplained, with a ready-to-paste session starter each) — they are *not* the product
+roadmap, and their pending slots (03b, 10b, 21) are opportunities, not commitments.
+
+Independently of any lesson, **keep the code exemplary**: clear names, small functions, and a comment
+in English where a non-obvious concept first appears.
 
 ## Execution Policy
 
@@ -480,22 +294,26 @@ fill its `tutorial/NN-*.md` placeholder and flip its status to ✅ in both files
 
 When the user requests a new feature or enhancement, ALWAYS follow this sequence:
 
-1. **Specification first**: Delegate to the `project-manager-docs` agent to define the feature. The
+1. **Ask about the tutorial**: Before anything else, ask the user via `AskUserQuestion` whether this
+   feature carries a Spanish lesson (*sí / no / decidir al final*). See **Tutorial Track (optional)**.
+2. **Specification first**: Delegate to the `project-manager-docs` agent to define the feature. The
    spec is saved in `docs/specs/YYYY-MM-DD-feature-name.md`. Must include: Overview, User Stories,
-   Acceptance Criteria, **Visual & UX Design**, Out of Scope, Dependencies. See **Design in the
-   Workflow** below for what the Visual & UX Design section must contain.
-2. **User approval**: Present the spec. Do NOT proceed until the user explicitly approves — approval
-   covers **both behaviour and look** (the Visual & UX Design section is part of what is signed off).
-3. **Create feature branch**: `feature/<short-name>` from `master`.
-4. **Implement**: Use the appropriate agent(s) (`mobile-engineer` for app code). Implement to the
+   Acceptance Criteria, **Visual & UX Design**, Out of Scope, Dependencies, Risks, and the
+   **`Tutorial:`** field carrying the answer from step 1. See **Design in the Workflow** below for
+   what the Visual & UX Design section must contain.
+3. **User approval**: Present the spec. Do NOT proceed until the user explicitly approves — approval
+   covers **behaviour, look and the tutorial decision** (all three are part of what is signed off).
+4. **Create feature branch**: `feature/<short-name>` from `master`.
+5. **Implement**: Use the appropriate agent(s) (`mobile-engineer` for app code). Implement to the
    spec's **visual acceptance criteria**, not just its behavioural ones.
-5. **Test**: Use `qa-engineer` to create/update tests.
-6. **Design review**: Verify the built UI against the feature's **visual acceptance criteria** and
+6. **Test**: Use `qa-engineer` to create/update tests. Meet the **Definition of Done**.
+7. **Design review**: Verify the built UI against the feature's **visual acceptance criteria** and
    its slice of the master mockup, and update the mockup tracking (`docs/mockups/README.md`) to mark
    what this feature delivered vs. what stays pending. See **Design in the Workflow** below.
-7. **Tutorial lesson**: Add the Spanish `tutorial/NN-*.md` for the feature (see Tutorial
-   Methodology) — required before committing.
-8. **Commit on the feature branch**: Never directly on `master`.
+8. **Tutorial lesson — only if the spec says so**: if the spec's `Tutorial:` field asked for one (or
+   was *decidir al final* and the user now says yes), add the Spanish `tutorial/NN-*.md` before
+   committing. Otherwise skip this step entirely.
+9. **Commit on the feature branch**: Never directly on `master`.
 
 ### Bug Fix Workflow
 
@@ -503,8 +321,11 @@ When the user reports a bug:
 
 1. **Diagnose**: Understand the bug.
 2. **Create bugfix branch**: `bugfix/<short-name>` from `master`.
-3. **Fix and test**.
+3. **Fix and test**. Add a regression test that fails before the fix.
 4. **Commit on the bugfix branch**.
+
+Bug fixes carry **no tutorial lesson** by default and the question is not asked — write one only if
+the user explicitly asks (as happened once with `tutorial/12b-keystore-recuperacion.md`).
 
 ### Branch Rules
 
@@ -526,13 +347,21 @@ When the user reports a bug:
 Every PR that changes observable behaviour MUST update the relevant documentation in the same
 branch. Check each item that applies (run `/doc-check` to audit this against your diff):
 
-- **New feature?** → Add its Spanish tutorial lesson in `tutorial/NN-*.md` (Tutorial Methodology).
+- **Request/response shape, status code or auth changed?** → `docs/api/contract.md`, with client and
+  server reconciled to it.
 - **Visible UI change?** → Update the mockup tracking (`docs/mockups/README.md`): mark the slice this
   feature delivered and anything still pending (see **Design in the Workflow**).
+- **New dependency?** → Add it to the version catalog `gradle/libs.versions.toml` — never a hardcoded
+  version in a `build.gradle.kts`.
+- **New permission / manifest change?** → Reflect it in this `CLAUDE.md`.
+- **Room schema changed?** → Version bumped, additive migration + exported `app/schemas/N.json` +
+  `MigrationTestHelper` test (see **Definition of Done**).
 - **Setup/commands/SDK/versions changed?** → Update this `CLAUDE.md` (Structure / Development).
-- **New dependency?** → Add it to the version catalog `gradle/libs.versions.toml`.
-- **New permission / manifest change?** → Reflect it here and in the relevant lesson.
-- **New sub-project/module?** → Add it to the Structure section above.
+- **New sub-project/module or architectural decision worth remembering?** → Structure section above,
+  and add the decision to `docs/arquitectura.md`.
+- **Did the spec ask for a tutorial lesson?** → Add `tutorial/NN-*.md` and flip its status in
+  `tutorial/README.md` + `docs/conceptos-pendientes.md`. **If the spec said no, skip this — it is not
+  a missing item.**
 
 ## Design in the Workflow
 
@@ -570,9 +399,9 @@ screens:
   bar uses the brand container color", "touch targets ≥ 48dp", "layout reflows at the largest font
   scale"). These are part of *done*, verified in the Design review step.
 - Reuses the app's **theme tokens and existing components** rather than inventing one-off styling —
-  the same "extend, don't duplicate" rule the tutorial applies to logic applies to UI.
+  the same "extend, don't duplicate" rule that applies to logic applies to UI.
 
-### Design review (gate, before the tutorial lesson)
+### Design review (gate, before commit)
 
 After implementation + tests, verify the built UI against the spec's **visual acceptance criteria** and
 the feature's mockup slice (`/verify` or `/run` to see it in the real app where practical), then update

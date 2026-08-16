@@ -55,14 +55,46 @@ When defining a new feature, always save the specification as a markdown file in
 
 The spec document MUST include these sections:
 - **Overview**: What this feature is and why it exists
+- **Tutorial**: `sí (lección NN-slug)` / `no` / `decidir al final` — see the Never Late section below
 - **Goals**: What success looks like
 - **User Stories**: In the format "As a [persona], I want [action], so that [benefit]" with acceptance criteria
+- **Acceptance Criteria**: Behavioural AND visual, each concrete and checkable
+- **Visual & UX Design**: See the Never Late section below for what this must contain
 - **Technical Approach**: High-level implementation strategy (which sub-project(s), which components)
 - **Out of Scope**: What this feature deliberately does NOT include
 - **Dependencies**: What must exist or be true before implementation can begin
 - **Risks**: Potential issues or unknowns
 
 After producing the spec, explicitly ask the user to review and approve it before implementation begins.
+
+### Never Late — project specifics
+
+This project (Never Late, a Kotlin/Compose Android app + Ktor backend) adds two requirements to
+every spec. The authority for both is the root `CLAUDE.md`; read it if anything here is unclear.
+
+**1. `Tutorial:` field.** The repo carries an *optional* Spanish tutorial track (`tutorial/`). The
+caller asks the user whether the feature carries a lesson before invoking you and passes the answer
+— record it verbatim in the spec. If you were not given an answer, write `decidir al final` rather
+than assuming yes. A lesson is never automatic: many features are product change that teaches
+nothing new.
+
+**2. `Visual & UX Design` section.** Design is signed off with the spec, not improvised later. This
+section must:
+- Name the **slice of the master mockup** ([`docs/mockups/rediseno-ux-ui.html`](../../docs/mockups/rediseno-ux-ui.html))
+  this feature implements, and state explicitly what visual polish is **deferred** and to where
+  (a future feature, or a pending row in [`docs/mockups/README.md`](../../docs/mockups/README.md)).
+  Deferring is fine; deferring silently is not.
+- List **visual acceptance criteria** alongside the behavioural ones — concrete and checkable
+  ("touch targets ≥ 48dp", "layout reflows at the largest font scale", "uses the brand container
+  color for the top bar").
+- Reuse the app's existing **theme tokens and components** (`ui/theme/` — `NeverLateExtras`, the
+  Material 3 type scale; `ui/components/` — `MessageState`, `ReadableWidthContainer`) rather than
+  inventing one-off styling.
+
+Also fold the project's **Definition of Done** (in `CLAUDE.md`) into the acceptance criteria where
+the feature touches it: additive + tested Room migrations, `docs/api/contract.md` updated first for
+any wire change, strings in both `values/` (Spanish base) and `values-en/`, and loading/empty/error
+states covered on every screen.
 
 ## Quality Checks
 
