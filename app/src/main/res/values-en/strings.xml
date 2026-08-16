@@ -149,6 +149,22 @@
     <string name="widget_pending_tasks_title">Pending tasks</string>
     <string name="widget_pending_tasks_empty">You have no pending tasks.</string>
     <string name="widget_pending_tasks_description">Shows your pending tasks and the time left on each.</string>
+    <!-- Feature 05b: priority marker glyphs, a repetition-count cue (not just color) leading a
+         row's title. String resources rather than literals so a locale that reads "!!!"
+         differently can change them without touching Kotlin. -->
+    <string name="widget_priority_marker_low">!</string>
+    <string name="widget_priority_marker_medium">!!</string>
+    <string name="widget_priority_marker_high">!!!</string>
+    <!-- Feature 05b: sample task titles shown in the widget-picker preview (res/layout/widget_preview.xml,
+         res/drawable/widget_preview_image.xml) — illustrative only, never read from a real task. -->
+    <string name="widget_preview_task_first">Send report</string>
+    <string name="widget_preview_task_second">Prepare meeting</string>
+    <!-- Sample countdowns for that same preview. Resources rather than literals for the same reason
+         as the titles: the live widget builds these through formatRemainingLabel, whose unit
+         abbreviations are themselves localizable (feature 20b), so a locale that abbreviates
+         minutes differently must be able to fix the preview without touching XML in values/. -->
+    <string name="widget_preview_remaining_first">4m</string>
+    <string name="widget_preview_remaining_second">48m</string>
 
     <!-- Lock-screen notification (feature 06) -->
     <string name="notification_channel_name">Pending tasks</string>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Feature 05b (D5): hand-authored vector preview, used on API 24-30 (and by tooling/store
+    surfaces) via android:previewImage (res/xml/pending_tasks_widget_info.xml). A vector rather
+    than a captured PNG screenshot because this repo has no emulator-in-CI to produce one, and a
+    vector is a reviewable text file in git. Mirrors res/layout/widget_preview.xml's composition —
+    rounded background, header band, two rows with a priority marker and an urgency-colored
+    countdown — using bars rather than real glyphs (a vector drawable cannot lay out localizable
+    text). Colors are literal copies of the LIGHT values in ui/theme/Color.kt, for the same reason
+    res/values/colors.xml's widget_preview_* set is: this is a fixed thumbnail, not a live render.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="110dp"
+    android:viewportWidth="250"
+    android:viewportHeight="110">
+
+    <!-- Rounded card background (surface). -->
+    <path
+        android:fillColor="#FFFBF8FD"
+        android:pathData="M16,0 L234,0 A16,16 0 0 1 250,16 L250,94 A16,16 0 0 1 234,110
+                           L16,110 A16,16 0 0 1 0,94 L0,16 A16,16 0 0 1 16,0 Z" />
+
+    <!-- Header band: rounded top corners, square bottom corners (primaryContainer). -->
+    <path
+        android:fillColor="#FFDDE1FF"
+        android:pathData="M16,0 L234,0 A16,16 0 0 1 250,16 L250,30 L0,30 L0,16 A16,16 0 0 1 16,0 Z" />
+
+    <!-- Header title bar (onPrimaryContainer). -->
+    <path
+        android:fillColor="#FF001355"
+        android:pathData="M16,11 h110 v8 h-110 Z" />
+
+    <!-- Row 1: priority marker "!!!" (primary). -->
+    <path
+        android:fillColor="#FF3052D2"
+        android:pathData="M16,41 h3 v16 h-3 Z M22,41 h3 v16 h-3 Z M28,41 h3 v16 h-3 Z" />
+    <!-- Row 1: title bar (onSurface). -->
+    <path
+        android:fillColor="#FF1B1B1F"
+        android:pathData="M40,46 h100 v6 h-100 Z" />
+    <!-- Row 1: urgency-colored countdown, bold/thick (error = Urgent/Overdue). -->
+    <path
+        android:fillColor="#FFBA1A1A"
+        android:pathData="M205,44 h30 v10 h-30 Z" />
+
+    <!-- Divider (outlineVariant). -->
+    <path
+        android:fillColor="#FFC6C5D0"
+        android:pathData="M16,64 h218 v1 h-218 Z" />
+
+    <!-- Row 2: priority marker "!!" (tertiary). -->
+    <path
+        android:fillColor="#FF76546E"
+        android:pathData="M16,73 h3 v16 h-3 Z M22,73 h3 v16 h-3 Z" />
+    <!-- Row 2: title bar (onSurface). -->
+    <path
+        android:fillColor="#FF1B1B1F"
+        android:pathData="M40,78 h90 v6 h-90 Z" />
+    <!-- Row 2: urgency-colored countdown, regular weight (soon). -->
+    <path
+        android:fillColor="#FF9A5B00"
+        android:pathData="M205,77 h30 v8 h-30 Z" />
+</vector>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Feature 05b (D5): static preview shown in the widget picker on API 31+ via
+    android:previewLayout (res/xml/pending_tasks_widget_info.xml). This is plain Android View XML,
+    not Compose/Glance — a deliberate, bounded exception to CLAUDE.md's "no XML layouts" rule
+    (see docs/arquitectura.md): previewLayout is launcher metadata inflated by the system's widget
+    picker, and cannot be a composable by construction. It mimics PendingTasksWidget.kt's real
+    composition (header band + rows with a priority marker and an urgency-colored countdown) but is
+    otherwise inert — no data, no clicks. Every user-visible string here is a resource, sample
+    countdowns included: the live widget builds those through formatRemainingLabel, whose unit
+    abbreviations are localizable (feature 20b), so hardcoding "4m" here would be the one place a
+    locale could not correct. The urgent row is bold and the soon row is weight 500, mirroring the
+    real widget's Bold/Medium split (see PendingTasksWidget.kt) — this layout is API 31+ only, so
+    android:textFontWeight is safe.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:backgroundTint="@color/widget_preview_background">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_header_background"
+        android:backgroundTint="@color/widget_preview_primary_container"
+        android:padding="12dp"
+        android:text="@string/widget_pending_tasks_title"
+        android:textColor="@color/widget_preview_on_primary_container"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_priority_marker_high"
+            android:textColor="@color/widget_preview_primary"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="@string/widget_preview_task_first"
+            android:textColor="@color/widget_preview_on_surface" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_preview_remaining_first"
+            android:textColor="@color/widget_preview_error"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginHorizontal="12dp"
+        android:background="@color/widget_preview_outline_variant" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_priority_marker_medium"
+            android:textColor="@color/widget_preview_tertiary"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="@string/widget_preview_task_second"
+            android:textColor="@color/widget_preview_on_surface" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_preview_remaining_second"
+            android:textColor="@color/widget_preview_soon"
+            android:textFontWeight="500" />
+    </LinearLayout>
+</LinearLayout>

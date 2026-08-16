@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Feature 05b (D5): colors for the static widget-picker preview
+        (res/layout/widget_preview.xml, API 31+ only, via android:previewLayout). Plain Android
+        View XML has no Glance composition to read GlanceTheme.colors from — see WidgetColors.kt's
+        KDoc for why the two worlds cannot share a CompositionLocal — so unlike the live widget
+        (which always resolves colors from Theme.kt at runtime, D1) the preview cannot react to
+        theme changes. These are literal copies of the LIGHT values in ui/theme/Color.kt (the
+        single source of truth for all of them), used here only because the preview is a fixed
+        thumbnail rather than a live render: it does not need to track system dark mode the way the
+        actual widget does, so there is deliberately no values-night variant.
+    -->
+    <color name="widget_preview_background">#FFFBF8FD</color>
+    <color name="widget_preview_primary_container">#FFDDE1FF</color>
+    <color name="widget_preview_on_primary_container">#FF001355</color>
+    <color name="widget_preview_on_surface">#FF1B1B1F</color>
+    <color name="widget_preview_primary">#FF3052D2</color>
+    <color name="widget_preview_tertiary">#FF76546E</color>
+    <color name="widget_preview_error">#FFBA1A1A</color>
+    <color name="widget_preview_soon">#FF9A5B00</color>
+    <color name="widget_preview_outline_variant">#FFC6C5D0</color>
+</resources>

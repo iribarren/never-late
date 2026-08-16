@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Feature 05b (D4): shape only. The rounded rect this drawable describes is applied to the
+    widget's root Column via
+    GlanceModifier.background(ImageProvider(R.drawable.widget_background),
+        colorFilter = ColorFilter.tint(GlanceTheme.colors.background))
+    in PendingTasksWidget.kt — the white <solid> below is only a placeholder for the tint to
+    replace at runtime; the actual color always comes from the app's theme (Theme.kt), never from
+    this file, so there is no hex duplication and no light/dark variant needed here.
+
+    One path on every API level (24-36): no cornerRadius() (API 31+ only) and no
+    Build.VERSION.SDK_INT branch — see widget_corner_radius in res/values/dimens.xml
+    (res/values-v31/dimens.xml overrides it to the platform radius on API 31+).
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="@dimen/widget_corner_radius" />
+    <solid android:color="@android:color/white" />
+</shape>

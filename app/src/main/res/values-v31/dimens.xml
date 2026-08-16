@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Feature 05b (D4): on API 31+, the widget's corner radius matches the launcher's own
+         platform widget radius rather than the fixed 16dp guess in the base values/dimens.xml —
+         the same "one drawable path, one dimen name, resource-qualified per API" strategy that
+         keeps PendingTasksWidget.kt free of any Build.VERSION.SDK_INT branch. -->
+    <dimen name="widget_corner_radius">@android:dimen/system_app_widget_background_radius</dimen>
+</resources>

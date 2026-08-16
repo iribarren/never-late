@@ -27,6 +27,49 @@ save path. This bumps `NeverLateDatabase` **3 → 4** via the project's **first 
 (`ALTER TABLE tasks ADD COLUMN completedAt INTEGER`, data-preserving — the destructive fallback would wipe
 guest-mode tasks that live only on-device). No new permission or dependency.
 
+## Feature 05b — Widget visual refresh (theming Glance)
+
+**The widget adopts the app's identity** (feature 05b, revisiting the feature-05 widget): the four
+hardcoded light-mode hex values left over from the Android Studio purple template are deleted and the
+widget now resolves every color from the app's **own** `LightColorScheme`/`DarkColorScheme`. The central
+decision is *why that needs a bridge at all*: `MaterialTheme.colorScheme` and `NeverLateExtras.colors`
+are read off a `CompositionLocal` that only exists inside a Material 3 composition — the widget's is a
+`GlanceTheme` composition instead, a different tree that Glance's `RemoteViews` translator understands —
+so `colorForUrgency` and `Priority.indicatorColor()` are **not callable** from `provideGlance`. Same
+color, two worlds. The chosen bridge is **`androidx.glance:glance-material3`** (version catalog, riding
+the existing `glance` version ref — no new pin) with
+`GlanceTheme(colors = ColorProviders(light = LightColorScheme, dark = DarkColorScheme))`; `Theme.kt`'s
+two schemes go `private` → `internal` for that single second consumer. The alternative (a local file of
+hand-written `ColorProvider(day, night)` pairs) was rejected because it avoids duplicate *hex values*
+but still duplicates the *role→color mapping* `Theme.kt` already owns. Both mechanisms end up used, each
+where it belongs: the bridge for everything Material 3 has a role for, and hand-written day/night pairs
+in `ui/widget/WidgetColors.kt` for the three roles it doesn't carry across — the extended urgency colors
+`calm`/`soon` (which are not in `ColorScheme` at all, by design) and `outlineVariant` (a real M3 role
+that Glance's `ColorProviders` simply doesn't expose — it has only `outline`). `WidgetColors.kt` holds
+the two mapping twins (`urgencyColorProvider`, `Priority.glanceIndicatorColor()`) with cross-referencing
+KDoc, since a mapping duplicated across two worlds can silently drift. **Material You is deliberately
+not used** in the widget (`GlanceTheme()` with no arguments would enable it): the widget always uses the
+brand palette, matching the app's `dynamicColor = false` default, and following the in-app `ThemeMode`
+preference would mean reading `user_prefs` from `provideGlance` — behaviour, deferred. **Rounded corners
+without an API branch:** `GlanceModifier.cornerRadius` is API 31+ while `minSdk` is 24, so the shape comes
+from a drawable (`widget_background.xml`, `widget_header_background.xml`, `<solid>` white) and the color
+from the theme via `background(ImageProvider, colorFilter = ColorFilter.tint(...))` — one code path on
+every level, with `values-v31` swapping the 16dp radius for the platform's own
+`system_app_widget_background_radius`. An `SDK_INT >= 31` branch was rejected precisely because it would
+leave the square rectangle on API 24–30, the devices the fix exists for. **Documented convention
+exception:** `previewLayout` requires a real XML layout (`res/layout/widget_preview.xml`), which the
+project otherwise bans — it is launcher metadata inflated by the system's widget picker and cannot be a
+composable by construction; `previewImage` (a hand-authored vector) covers API 24–30 and tooling.
+`PendingTaskRow` gains `priority` (default `Priority.NONE`, so no existing caller or test changes); the
+lock-screen notification shares that type and simply **ignores** the field — its `InboxStyle` lines are
+already system-truncated, and the row's rule (`pendingRowsFor`) owns *what is pending*, not what each
+surface renders. Deliberately **not** in this feature: migrating the widget to Hilt (it still builds its
+repository by hand in `provideGlance` — an architecture change, not a visual one), a per-row progress bar
+(no vertical budget at `minHeight = 110dp` with 5 rows, and no 1s ticker in a widget that refreshes every
+~15 min, so a stale bar would misinform more than stale text), and `SizeMode.Responsive`. No backend,
+contract, DB-version or permission change; the only manifest-side change is the two preview attributes in
+`res/xml/pending_tasks_widget_info.xml`.
+
 ## Feature 08 — Localization
 
 **Localization** (feature 08, i18n): all user-facing text lives in string resources.
