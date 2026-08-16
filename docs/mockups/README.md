@@ -17,7 +17,7 @@ Update this table in the **Design review** step of every feature that touches UI
 | Native date/time picker (replaces free-text deadline) | 14 · selector de fecha | ✅ | Shipped as the platform picker. |
 | Settings as icon+title cards (theme / reminders / account) | 15 · iconos secciones | ✅ | `SettingsSectionCard` (icon + title + divider). |
 | Brand palette + type scale + Material You toggle | 16 · identidad visual | ✅ | `ui/theme/` (`NeverLateExtras`, type scale, dynamic-color switch). |
-| Urgency-colored countdown (calm / soon / late) | 17 · estados y animaciones | ✅ | Color-only cue via `urgencyLevelFor` + `NeverLateExtras`. |
+| Urgency-colored countdown (calm / soon / late) | 17 · estados y animaciones | ✅ | Color-only cue via `urgencyLevelFor` + `NeverLateExtras`. Feature 20b: countdown text is now the compact `2h 38m` / `1d 12h 10m` format (no seconds), shared by card/widget/notification via `formatRemainingLabel`. |
 | Reusable empty/error states + list animations | 17 · estados y animaciones | ✅ | `MessageState`, `Modifier.animateItem()`. |
 | Bottom navigation bar (Tasks / Articles / Settings) | 18 · navegación y accesibilidad | ✅ | `MainBottomBar`, route-gated visibility. |
 | Accessibility pass (content descriptions, ≥48dp, dynamic font) | 18 · navegación y accesibilidad | 🟡 | Bar + `MessageState` covered; feature 20 continued it (container/on-container pairing, decorative chip); ongoing per screen. |

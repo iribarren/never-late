@@ -25,6 +25,7 @@ import com.neverlate.MainActivity
 import com.neverlate.R
 import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.RoomTaskRepository
+import com.neverlate.ui.components.formatRemainingLabel
 import kotlinx.coroutines.flow.first
 
 /** Background/text colors kept local and simple — see the feature spec's "no advanced theming". */
@@ -92,7 +93,7 @@ private fun PendingTasksWidgetContent(model: PendingTasksWidgetModel, context: C
 
             is PendingTasksWidgetModel.Content -> {
                 for (row in model.rows) {
-                    PendingTaskRowContent(row)
+                    PendingTaskRowContent(row, context)
                 }
             }
         }
@@ -100,7 +101,11 @@ private fun PendingTasksWidgetContent(model: PendingTasksWidgetModel, context: C
 }
 
 @Composable
-private fun PendingTaskRowContent(row: PendingTaskRow) {
+private fun PendingTaskRowContent(row: PendingTaskRow, context: Context) {
+    // Feature 20b: derived from the raw millis rather than a pre-baked flag — this is also the
+    // fix for the bug where this row froze at "00:00" instead of showing "Tiempo agotado" like
+    // the card and notification.
+    val isTimedOut = row.remainingMillis == 0L
     Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(
             text = row.title,
@@ -108,11 +113,11 @@ private fun PendingTaskRowContent(row: PendingTaskRow) {
             style = TextStyle(color = WidgetTextColor),
         )
         Text(
-            text = row.remaining,
-            // A timed-out task (remaining == 0) is called out in red rather than blending in with
-            // the rest — it is the row most likely to need attention right now.
+            text = formatRemainingLabel(context, row.remainingMillis),
+            // A timed-out task is called out in red rather than blending in with the rest — it is
+            // the row most likely to need attention right now.
             style = TextStyle(
-                color = if (row.isTimedOut) WidgetTimedOutColor else WidgetTitleColor,
+                color = if (isTimedOut) WidgetTimedOutColor else WidgetTitleColor,
                 fontWeight = FontWeight.Bold,
             ),
         )

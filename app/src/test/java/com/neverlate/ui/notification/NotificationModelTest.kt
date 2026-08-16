@@ -31,7 +31,7 @@ class NotificationModelTest {
 
         assertTrue(model is TasksNotificationModel.Content)
         model as TasksNotificationModel.Content
-        assertEquals(listOf(PendingTaskRow(title = "Leer", remaining = "05:00", isTimedOut = false)), model.rows)
+        assertEquals(listOf(PendingTaskRow(title = "Leer", remainingMillis = 5 * 60_000L)), model.rows)
         assertEquals(1, model.totalPendingCount)
         assertEquals("Leer", model.mostUrgent.title)
     }
@@ -49,7 +49,9 @@ class NotificationModelTest {
     }
 
     @Test
-    fun `a timed-out task sorts first with zero remaining and isTimedOut true`() {
+    fun `a timed-out task sorts first with zero remainingMillis`() {
+        // isTimedOut no longer exists on PendingTaskRow (feature 20b) — it is trivially
+        // remainingMillis == 0L, derived where needed instead of duplicated on the row.
         val timedOut = Task(title = "Vencida", timerEndsAt = -1_000L)
         val active = Task(title = "Activa", estimatedDurationMillis = 5 * 60_000L)
 
@@ -57,8 +59,8 @@ class NotificationModelTest {
 
         assertEquals(
             listOf(
-                PendingTaskRow(title = "Vencida", remaining = "00:00", isTimedOut = true),
-                PendingTaskRow(title = "Activa", remaining = "05:00", isTimedOut = false),
+                PendingTaskRow(title = "Vencida", remainingMillis = 0L),
+                PendingTaskRow(title = "Activa", remainingMillis = 5 * 60_000L),
             ),
             model.rows,
         )

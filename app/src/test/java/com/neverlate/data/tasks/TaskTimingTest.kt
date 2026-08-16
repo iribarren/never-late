@@ -86,29 +86,10 @@ class TaskTimingTest {
         assertEquals(0L, computeRemainingMillis(task, now = 1_000_000L))
     }
 
-    // formatRemaining ---------------------------------------------------------------------------
-
-    @Test
-    fun `formatRemaining renders zero as 00_00`() {
-        assertEquals("00:00", formatRemaining(0L))
-    }
-
-    @Test
-    fun `formatRemaining renders under an hour as mm_ss`() {
-        assertEquals("00:05", formatRemaining(5_000L))
-        assertEquals("01:05", formatRemaining(65_000L))
-        assertEquals("59:59", formatRemaining(59 * 60_000L + 59_000L))
-    }
-
-    @Test
-    fun `formatRemaining switches to h_mm_ss at exactly one hour`() {
-        assertEquals("1:00:00", formatRemaining(3_600_000L))
-    }
-
-    @Test
-    fun `formatRemaining renders more than an hour as h_mm_ss`() {
-        assertEquals("1:01:01", formatRemaining(3_600_000L + 61_000L))
-    }
+    // formatRemaining was removed (feature 20b — compact-remaining-time): remaining-time text is no
+    // longer produced in this data-layer file at all. Its former "what does the label look like"
+    // concerns now live in the pure classifier (see RemainingTimeTest) and its localized rendering
+    // (see RemainingTimeLabelTest), both in domain/ui where a Context/no-Context split belongs.
 
     // durationParts -----------------------------------------------------------------------------
     // Pure split into (hours, minutes); the localized "1 h 30 min" label is assembled in the UI

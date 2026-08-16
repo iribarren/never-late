@@ -15,14 +15,16 @@ class PendingTasksWidgetStateTest {
     }
 
     @Test
-    fun `single task produces Content with its title, formatted remaining time and not timed out`() {
+    fun `single task produces Content with its title and raw remainingMillis`() {
+        // Feature 20b: the row carries raw millis, not a pre-formatted string — turning it into
+        // text is PendingTaskRowContent's job via formatRemainingLabel, not this pure mapper's.
         val task = Task(title = "Leer", estimatedDurationMillis = 5 * 60_000L)
 
         val model = toWidgetModel(tasks = listOf(task), now = 0L)
 
         assertTrue(model is PendingTasksWidgetModel.Content)
         val rows = (model as PendingTasksWidgetModel.Content).rows
-        assertEquals(listOf(PendingTaskRow(title = "Leer", remaining = "05:00", isTimedOut = false)), rows)
+        assertEquals(listOf(PendingTaskRow(title = "Leer", remainingMillis = 5 * 60_000L)), rows)
     }
 
     @Test
@@ -38,9 +40,11 @@ class PendingTasksWidgetStateTest {
     }
 
     @Test
-    fun `a timed-out task sorts first with zero remaining and isTimedOut true`() {
+    fun `a timed-out task sorts first with zero remainingMillis`() {
         // Mirrors TaskTimingTest's "running task past its end instant clamps to zero": a
         // timerEndsAt already behind now, coerced to 0 remaining rather than a negative value.
+        // isTimedOut no longer exists on the row (feature 20b) — it is derived as
+        // remainingMillis == 0L where needed, so the assertion here is on the raw value.
         val timedOut = Task(title = "Vencida", timerEndsAt = -1_000L)
         val active = Task(title = "Activa", estimatedDurationMillis = 5 * 60_000L)
 
@@ -48,8 +52,8 @@ class PendingTasksWidgetStateTest {
 
         assertEquals(
             listOf(
-                PendingTaskRow(title = "Vencida", remaining = "00:00", isTimedOut = true),
-                PendingTaskRow(title = "Activa", remaining = "05:00", isTimedOut = false),
+                PendingTaskRow(title = "Vencida", remainingMillis = 0L),
+                PendingTaskRow(title = "Activa", remainingMillis = 5 * 60_000L),
             ),
             model.rows,
         )
@@ -70,11 +74,14 @@ class PendingTasksWidgetStateTest {
     }
 
     @Test
-    fun `the h_mm_ss format boundary shows through in a widget row`() {
+    fun `an exact one-hour duration task carries the raw millis value, unrounded`() {
+        // Guards against a lossy pass-through in this layer specifically (e.g. an accidental
+        // re-introduction of formatting or rounding here) — the shape/label decisions themselves
+        // are the classifier's job and are covered exhaustively by RemainingTimeTest.
         val task = Task(title = "Larga", estimatedDurationMillis = 3_600_000L) // exactly one hour
 
         val model = toWidgetModel(tasks = listOf(task), now = 0L) as PendingTasksWidgetModel.Content
 
-        assertEquals("1:00:00", model.rows.single().remaining)
+        assertEquals(3_600_000L, model.rows.single().remainingMillis)
     }
 }
