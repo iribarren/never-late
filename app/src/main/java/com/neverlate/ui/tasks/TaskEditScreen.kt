@@ -97,7 +97,8 @@ fun TaskEditRoute(
         uiState = uiState,
         isEditing = taskId != null,
         onTitleChange = viewModel::onTitleChange,
-        onDurationChange = viewModel::onDurationMinutesChange,
+        onDurationHoursChange = viewModel::onDurationHoursChange,
+        onDurationMinutesChange = viewModel::onDurationMinutesChange,
         onDeadlineChange = viewModel::onDeadlineTextChange,
         onPriorityChange = viewModel::onPriorityChange,
         onSaveClick = viewModel::save,
@@ -117,7 +118,8 @@ fun TaskEditScreen(
     uiState: TaskEditUiState,
     isEditing: Boolean,
     onTitleChange: (String) -> Unit,
-    onDurationChange: (String) -> Unit,
+    onDurationHoursChange: (String) -> Unit,
+    onDurationMinutesChange: (String) -> Unit,
     onDeadlineChange: (String) -> Unit,
     onPriorityChange: (Priority) -> Unit,
     onSaveClick: () -> Unit,
@@ -194,15 +196,34 @@ fun TaskEditScreen(
                 label = { Text(stringResource(R.string.task_edit_title_label)) },
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
-                value = uiState.estimatedDurationMinutes,
-                onValueChange = onDurationChange,
-                label = { Text(stringResource(R.string.task_edit_duration_label)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            // Heading above the pair so "Horas"/"Minutos" read as one labelled group instead of
+            // two unrelated fields (spec's Visual & UX recommendation).
+            Text(
+                text = stringResource(R.string.task_edit_duration_label),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-            )
+            ) {
+                OutlinedTextField(
+                    value = uiState.durationHours,
+                    onValueChange = onDurationHoursChange,
+                    label = { Text(stringResource(R.string.task_edit_duration_hours_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedTextField(
+                    value = uiState.durationMinutes,
+                    onValueChange = onDurationMinutesChange,
+                    label = { Text(stringResource(R.string.task_edit_duration_minutes_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+            }
             OutlinedTextField(
                 value = deadlineDisplayText,
                 onValueChange = {}, // readOnly: the user picks a deadline, never types it
@@ -378,7 +399,8 @@ private fun TaskEditScreenCreatePreview() {
             uiState = TaskEditUiState(),
             isEditing = false,
             onTitleChange = {},
-            onDurationChange = {},
+            onDurationHoursChange = {},
+            onDurationMinutesChange = {},
             onDeadlineChange = {},
             onPriorityChange = {},
             onSaveClick = {},
@@ -395,12 +417,14 @@ private fun TaskEditScreenEditPreview() {
         TaskEditScreen(
             uiState = TaskEditUiState(
                 title = "Preparar la presentación",
-                estimatedDurationMinutes = "25",
+                durationHours = "",
+                durationMinutes = "25",
                 deadlineText = "24/12/2026 20:30",
             ),
             isEditing = true,
             onTitleChange = {},
-            onDurationChange = {},
+            onDurationHoursChange = {},
+            onDurationMinutesChange = {},
             onDeadlineChange = {},
             onPriorityChange = {},
             onSaveClick = {},
