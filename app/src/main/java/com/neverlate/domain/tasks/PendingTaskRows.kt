@@ -2,7 +2,6 @@ package com.neverlate.domain.tasks
 
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.computeRemainingMillis
-import com.neverlate.data.tasks.formatRemaining
 
 /**
  * How many rows a passive, read-only surface (the home-screen widget from feature 05, the
@@ -14,12 +13,19 @@ import com.neverlate.data.tasks.formatRemaining
 private const val MAX_PENDING_ROWS = 5
 
 /**
- * One "pending task" row: a task's title paired with its already-formatted countdown. This shape
- * is shared verbatim by [com.neverlate.ui.widget.PendingTasksWidgetModel] and
+ * One "pending task" row: a task's title paired with its raw remaining time. This shape is shared
+ * verbatim by [com.neverlate.ui.widget.PendingTasksWidgetModel] and
  * [com.neverlate.ui.notification.TasksNotificationModel] — see [pendingRowsFor]'s KDoc for why
  * this lives here instead of in either feature's own package.
+ *
+ * Carries [remainingMillis] rather than a pre-formatted string: turning it into text needs a
+ * `Context` (string resources, `NumberFormat`), which would pull an Android import into this
+ * plain-Kotlin domain type. Each surface renders it via
+ * [com.neverlate.ui.components.formatRemainingLabel] instead. There is no separate `isTimedOut`
+ * flag either — it is trivially `remainingMillis == 0L`, so callers derive it where needed rather
+ * than this type duplicating that state.
  */
-data class PendingTaskRow(val title: String, val remaining: String, val isTimedOut: Boolean)
+data class PendingTaskRow(val title: String, val remainingMillis: Long)
 
 /**
  * Single source of truth for "what counts as pending, in what order, capped to how many" —
@@ -41,9 +47,5 @@ fun pendingRowsFor(tasks: List<Task>, now: Long): List<PendingTaskRow> =
         .sortedBy { (_, remainingMillis) -> remainingMillis }
         .take(MAX_PENDING_ROWS)
         .map { (task, remainingMillis) ->
-            PendingTaskRow(
-                title = task.title,
-                remaining = formatRemaining(remainingMillis),
-                isTimedOut = remainingMillis == 0L,
-            )
+            PendingTaskRow(title = task.title, remainingMillis = remainingMillis)
         }

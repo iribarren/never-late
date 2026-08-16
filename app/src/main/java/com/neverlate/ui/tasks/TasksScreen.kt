@@ -62,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -77,7 +78,6 @@ import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
-import com.neverlate.data.tasks.formatRemaining
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskListCriteria
@@ -88,6 +88,7 @@ import com.neverlate.domain.tasks.urgencyLevelFor
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.components.brandedTopAppBarColors
+import com.neverlate.ui.components.formatRemainingLabel
 import com.neverlate.ui.notification.RequestNotificationPermissionEffect
 import com.neverlate.ui.theme.NeverLateExtras
 import com.neverlate.ui.theme.NeverLateTheme
@@ -691,12 +692,12 @@ private fun TaskRow(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     if (!isCompleted) {
+                        val context = LocalContext.current
                         Text(
-                            text = if (uiModel.isTimedOut) {
-                                stringResource(R.string.tasks_time_up)
-                            } else {
-                                formatRemaining(uiModel.remainingMillis)
-                            },
+                            // Feature 20b: the shared formatter owns both the compact "2h 38m"
+                            // text and the exact-zero "Tiempo agotado" branch, so this call site
+                            // no longer needs its own isTimedOut check.
+                            text = formatRemainingLabel(context, uiModel.remainingMillis),
                             style = MaterialTheme.typography.headlineSmall,
                             // Urgency cue, now told twice (feature 19 adds the bar below to the
                             // color this text already had since feature 17). Overdue never relies

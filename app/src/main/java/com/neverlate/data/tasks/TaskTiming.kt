@@ -54,27 +54,17 @@ fun computeRemainingMillis(task: Task, now: Long): Long {
     return raw.coerceAtLeast(0L)
 }
 
-/** Formats a countdown as `mm:ss`, switching to `h:mm:ss` once it reaches an hour. */
-fun formatRemaining(millis: Long): String {
-    val totalSeconds = millis / 1_000
-    val hours = totalSeconds / 3_600
-    val minutes = (totalSeconds % 3_600) / 60
-    val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
-    }
-}
-
 /**
- * Splits an estimated duration into whole hours and the leftover minutes, e.g. 90 min → (1, 30).
+ * Splits a millisecond duration into whole hours and the leftover minutes, e.g. 90 min → (1, 30).
+ * `hours` is unbounded (not capped at 24) — callers that need a days tier derive it themselves
+ * (`hours / 24`, `hours % 24`), see [com.neverlate.domain.tasks.remainingTimeFor].
  *
  * Kept as a pure, text-free helper so the *presentation* (unit labels, number formatting, word
  * order) lives in the UI layer with the string resources it needs — see how
- * [com.neverlate.ui.tasks.TaskRow] turns these numbers into a localized "1 h 30 min" label. That
- * separation is why this file can stay plain Kotlin (no Android `Context`) and unit-testable, and
- * why a translator can reorder units without touching code.
+ * [com.neverlate.ui.tasks.TaskRow] turns these numbers into a localized "1 h 30 min" estimated-
+ * duration label, and how [com.neverlate.domain.tasks.remainingTimeFor] reuses the same split for
+ * the remaining-time countdown. That separation is why this file can stay plain Kotlin (no Android
+ * `Context`) and unit-testable, and why a translator can reorder units without touching code.
  */
 fun durationParts(millis: Long): Pair<Long, Long> {
     val totalMinutes = millis / 60_000

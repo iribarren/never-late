@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.neverlate.MainActivity
 import com.neverlate.R
+import com.neverlate.ui.components.formatRemainingLabel
 
 /** Id of the one notification channel this feature ever posts to (API 26+, see [ensureChannel]). */
 const val TASKS_NOTIFICATION_CHANNEL_ID = "tasks_pending"
@@ -190,7 +191,11 @@ object TasksNotificationHelper {
         )
     }
 
-    /** A row's remaining-time label: [R.string.tasks_time_up] once timed out, its countdown otherwise. */
+    /**
+     * A row's remaining-time label — delegates to the shared
+     * [formatRemainingLabel], which already owns the exact-zero → [R.string.tasks_time_up]
+     * branch, so this helper no longer needs its own `isTimedOut` check.
+     */
     private fun remainingLabel(context: Context, row: com.neverlate.domain.tasks.PendingTaskRow): String =
-        if (row.isTimedOut) context.getString(R.string.tasks_time_up) else row.remaining
+        formatRemainingLabel(context, row.remainingMillis)
 }

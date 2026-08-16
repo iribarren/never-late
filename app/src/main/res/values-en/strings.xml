@@ -76,6 +76,17 @@
     <string name="tasks_start_content_description">Start countdown</string>
     <string name="tasks_pause_content_description">Pause countdown</string>
     <string name="tasks_time_up">Time\'s up</string>
+    <!-- Feature 20b: compact remaining-time countdown, assembled from locale-formatted numbers
+         (%1$s/%2$s/%3$s) so translators control the unit letters and word order instead of the
+         code concatenating them. Siblings of tasks_duration_* on purpose, not reused: a compact
+         counter ("38m") and a prose duration ("38 min") want different abbreviations, and one
+         should never change the other by accident. No <plurals> — abbreviated forms have no
+         singular/plural variation. -->
+    <string name="tasks_remaining_days_hours_minutes">%1$sd %2$sh %3$sm</string>
+    <string name="tasks_remaining_hours_minutes">%1$sh %2$sm</string>
+    <string name="tasks_remaining_hours">%1$sh</string>
+    <string name="tasks_remaining_minutes">%1$sm</string>
+    <string name="tasks_remaining_under_minute">&lt;1m</string>
     <!-- Feature 19: accessibility state description for the determinate progress bar, announced by
          screen readers alongside the bar's own built-in progress semantics. %1$s is a locale-formatted
          percentage (e.g. "45%"), not concatenated in code. -->
