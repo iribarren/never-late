@@ -111,7 +111,9 @@
     <string name="task_edit_title_create">Nueva tarea</string>
     <string name="task_edit_title_edit">Editar tarea</string>
     <string name="task_edit_title_label">Título</string>
-    <string name="task_edit_duration_label">Duración estimada (minutos)</string>
+    <string name="task_edit_duration_label">Duración estimada</string>
+    <string name="task_edit_duration_hours_label">Horas</string>
+    <string name="task_edit_duration_minutes_label">Minutos</string>
     <string name="task_edit_deadline_label">Fecha límite</string>
     <!-- Feature 14: native date/time picker for the deadline field. -->
     <string name="task_edit_deadline_pick_content_description">Elegir fecha y hora límite</string>
@@ -123,7 +125,7 @@
     <string name="task_edit_save_button">Guardar</string>
     <string name="task_edit_delete_button">Borrar tarea</string>
     <string name="tasks_error_blank_title">El título no puede estar vacío.</string>
-    <string name="tasks_error_invalid_duration">La duración debe ser un número de minutos mayor que 0.</string>
+    <string name="tasks_error_invalid_duration">Introduce horas y minutos válidos (la duración total debe ser mayor que 0).</string>
     <string name="tasks_error_invalid_deadline_format">La fecha límite debe tener el formato dd/MM/aaaa HH:mm.</string>
     <string name="tasks_error_missing_duration_or_deadline">Indica una duración estimada o una fecha límite.</string>
 

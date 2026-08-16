@@ -116,7 +116,9 @@
     <string name="task_edit_title_create">New task</string>
     <string name="task_edit_title_edit">Edit task</string>
     <string name="task_edit_title_label">Title</string>
-    <string name="task_edit_duration_label">Estimated duration (minutes)</string>
+    <string name="task_edit_duration_label">Estimated duration</string>
+    <string name="task_edit_duration_hours_label">Hours</string>
+    <string name="task_edit_duration_minutes_label">Minutes</string>
     <string name="task_edit_deadline_label">Deadline</string>
     <!-- Feature 14: native date/time picker for the deadline field. -->
     <string name="task_edit_deadline_pick_content_description">Pick deadline date and time</string>
@@ -128,7 +130,7 @@
     <string name="task_edit_save_button">Save</string>
     <string name="task_edit_delete_button">Delete task</string>
     <string name="tasks_error_blank_title">The title can\'t be empty.</string>
-    <string name="tasks_error_invalid_duration">The duration must be a number of minutes greater than 0.</string>
+    <string name="tasks_error_invalid_duration">Enter valid hours and minutes (the total duration must be greater than 0).</string>
     <string name="tasks_error_invalid_deadline_format">The deadline must use the format dd/MM/yyyy HH:mm.</string>
     <string name="tasks_error_missing_duration_or_deadline">Enter an estimated duration or a deadline.</string>
 

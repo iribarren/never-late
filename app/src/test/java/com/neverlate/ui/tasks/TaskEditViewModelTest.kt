@@ -101,14 +101,17 @@ class TaskEditViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals("", state.title)
-        assertEquals("", state.estimatedDurationMinutes)
+        assertEquals("", state.durationHours)
+        assertEquals("", state.durationMinutes)
         assertEquals("", state.deadlineText)
         assertNull(state.validationError)
         assertFalse(state.isSaved)
     }
 
     @Test
-    fun `edit mode preloads the existing task's fields`() {
+    fun `edit mode preloads a 90 minute duration as 1 hour and 30 minutes`() {
+        // US-2: the pre-fill goes through durationParts (90 min -> 1 h / 30 min), not a
+        // hand-rolled division, and neither part renders as "90".
         val deadlineText = "24/12/2026 20:30"
         val deadlineMillis = parseDeadline(deadlineText)!!
         val existing = Task(
@@ -124,8 +127,67 @@ class TaskEditViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals("Repasar apuntes", state.title)
-        assertEquals("90", state.estimatedDurationMinutes)
+        assertEquals("1", state.durationHours)
+        assertEquals("30", state.durationMinutes)
         assertEquals(deadlineText, state.deadlineText)
+    }
+
+    @Test
+    fun `edit mode preloads a 45 minute duration as empty hours and 45 minutes`() {
+        // A zero hours part renders as an empty string, not "0" (see TaskEditViewModel's init{}).
+        val existing = Task(
+            id = 12,
+            title = "Enviar correo",
+            estimatedDurationMillis = 45 * 60_000L,
+        )
+        val repository = FakeTaskRepositoryForEdit(listOf(existing))
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(existing.id))
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("", state.durationHours)
+        assertEquals("45", state.durationMinutes)
+    }
+
+    @Test
+    fun `edit mode preloads a task with no stored duration as both fields empty`() {
+        val deadlineText = "24/12/2026 20:30"
+        val deadlineMillis = parseDeadline(deadlineText)!!
+        val existing = Task(
+            id = 13,
+            title = "Tarea solo con fecha",
+            estimatedDurationMillis = null,
+            deadline = deadlineMillis,
+        )
+        val repository = FakeTaskRepositoryForEdit(listOf(existing))
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(existing.id))
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("", state.durationHours)
+        assertEquals("", state.durationMinutes)
+    }
+
+    @Test
+    fun `saving an edit without touching duration round-trips the same millis`() {
+        // Guards against split-then-recombine drift (durationParts divides by 60_000, save
+        // multiplies the total minutes back by 60_000) — see the spec's "Round-trip drift" risk.
+        val existing = Task(
+            id = 14,
+            title = "Repasar apuntes",
+            estimatedDurationMillis = 90 * 60_000L,
+        )
+        val repository = FakeTaskRepositoryForEdit(listOf(existing))
+        val viewModel = TaskEditViewModel(repository, savedStateHandleFor(existing.id))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.save()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val saved = repository.savedTasks.single()
+        assertEquals(existing.estimatedDurationMillis, saved.estimatedDurationMillis)
     }
 
     @Test

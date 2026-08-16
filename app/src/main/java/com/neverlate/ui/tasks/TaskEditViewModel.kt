@@ -8,6 +8,7 @@ import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskFormResult
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.TaskValidationError
+import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForInput
 import com.neverlate.data.tasks.validateTaskForm
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +25,8 @@ private const val ARG_TASK_ID = "taskId"
 /** The create/edit form's current field values and validation state. */
 data class TaskEditUiState(
     val title: String = "",
-    val estimatedDurationMinutes: String = "",
+    val durationHours: String = "",
+    val durationMinutes: String = "",
     val deadlineText: String = "",
     val priority: Priority = Priority.NONE,
     val validationError: TaskValidationError? = null,
@@ -70,11 +72,17 @@ class TaskEditViewModel @Inject constructor(
             viewModelScope.launch {
                 val task = repository.observeTask(id).first() ?: return@launch
                 editingTask = task
+                // Split the stored millis into (hours, minutes) via the shared TaskTiming helper
+                // (US-2) rather than hand-rolling the division here. A part of 0 renders as an
+                // empty field, not "0" — an untouched duration-only field reads cleaner that way,
+                // and 0 h 90 min normalizing on save still round-trips to the same millis.
+                val (hours, minutes) = task.estimatedDurationMillis
+                    ?.let(::durationParts)
+                    ?: (0L to 0L)
                 _uiState.value = TaskEditUiState(
                     title = task.title,
-                    estimatedDurationMinutes = task.estimatedDurationMillis
-                        ?.let { (it / 60_000L).toString() }
-                        .orEmpty(),
+                    durationHours = hours.takeIf { it != 0L }?.toString().orEmpty(),
+                    durationMinutes = minutes.takeIf { it != 0L }?.toString().orEmpty(),
                     deadlineText = task.deadline?.let(::formatDeadlineForInput).orEmpty(),
                     priority = task.priority,
                 )
@@ -86,8 +94,12 @@ class TaskEditViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(title = title, validationError = null)
     }
 
+    fun onDurationHoursChange(hours: String) {
+        _uiState.value = _uiState.value.copy(durationHours = hours, validationError = null)
+    }
+
     fun onDurationMinutesChange(minutes: String) {
-        _uiState.value = _uiState.value.copy(estimatedDurationMinutes = minutes, validationError = null)
+        _uiState.value = _uiState.value.copy(durationMinutes = minutes, validationError = null)
     }
 
     fun onDeadlineTextChange(text: String) {
@@ -101,7 +113,9 @@ class TaskEditViewModel @Inject constructor(
     /** Validates the form (see [validateTaskForm]) and, if valid, persists it through [repository]. */
     fun save() {
         val state = _uiState.value
-        when (val result = validateTaskForm(state.title, state.estimatedDurationMinutes, state.deadlineText)) {
+        when (
+            val result = validateTaskForm(state.title, state.durationHours, state.durationMinutes, state.deadlineText)
+        ) {
             is TaskFormResult.Invalid -> _uiState.value = state.copy(validationError = result.error)
             is TaskFormResult.Valid -> {
                 val task = (editingTask ?: Task(title = result.title)).copy(
