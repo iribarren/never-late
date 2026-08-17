@@ -1,6 +1,6 @@
 # Never Late Again — Workspace
 
-<!-- Installed by setup-claude.sh — project type: mobile · agents: project-manager-docs, qa-engineer, devops-security-engineer, mobile-engineer -->
+<!-- Installed by setup-claude.sh — project type: mobile · agents: project-manager-docs, android-engineer, devops-security-engineer, backend-engineer (+ qa-engineer, mobile-engineer: superseded by android-engineer for app work, kept for /test and architecture questions) -->
 
 ## Overview
 
@@ -119,7 +119,16 @@ than re-listing routes).
 
 ## Development
 
-- **JDK:** 21 (system) or the Android Studio bundled JBR at `~/android-studio/jbr`.
+- **JDK: 21 — and only 21.** Gradle 8.x cannot run on a JDK 25 and aborts with an inscrutable
+  `IllegalArgumentException: 25.0.3` before any build logic runs. Where the system JDK is newer than
+  21, pin the supported one **once**, machine-wide, in the untracked `~/.gradle/gradle.properties`:
+
+  ```properties
+  org.gradle.java.home=/home/aritz/android-studio/jbr   # the Android Studio bundled JBR, a JDK 21
+  ```
+
+  With that in place a plain `./gradlew` just works. Do **not** pass `JAVA_HOME=` per command: it is
+  easy to forget on one invocation and every change of value forks a new 2 GB daemon.
 - **Android SDK:** `~/Android/Sdk` (configured in `local.properties` via `sdk.dir`).
 - **SDK config:** `compileSdk = 36`, `targetSdk = 36`, `minSdk = 24`.
 - Extra SDK packages/licenses: `~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager`.
@@ -131,9 +140,13 @@ than re-listing routes).
 # Install the debug build on a running device/emulator
 ./gradlew :app:installDebug
 
-# Unit tests (JVM) and instrumented tests (needs a running emulator)
+# Unit tests (JVM) and instrumented tests (needs a running emulator).
+# Agents invoke these with a `timeout` prefix and no JAVA_HOME — see Build & test execution.
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:connectedDebugAndroidTest
+
+# A single test class — the scoped form agents use while iterating
+./gradlew :app:testDebugUnitTest --tests "com.neverlate.domain.tasks.TaskListShapingTest"
 
 # Launch the installed app
 adb shell am start -n com.neverlate/.MainActivity
@@ -223,7 +236,8 @@ The product bar. A feature is done when **all** of these hold — this list repl
 lesson as the criterion for "finished".
 
 - **Tests pass.** Pure logic (`domain/`) has JVM unit tests; UI/DB behaviour that can only be proven
-  on a device has an instrumented test. `./gradlew :app:testDebugUnitTest` is green before committing.
+  on a device has an instrumented test. `timeout 600 ./gradlew :app:testDebugUnitTest --console=plain`
+  is green before committing — run once, by the orchestrator (see **Build & test execution**).
 - **Migrations are additive and tested.** Any Room schema change bumps the version, ships a
   hand-written `Migration`, commits the exported `app/schemas/N.json`, and proves data survival with a
   `MigrationTestHelper` test. **Never** fall back to a destructive migration: guest-mode tasks exist
@@ -312,9 +326,14 @@ When the user requests a new feature or enhancement, ALWAYS follow this sequence
 3. **User approval**: Present the spec. Do NOT proceed until the user explicitly approves — approval
    covers **behaviour, look and the tutorial decision** (all three are part of what is signed off).
 4. **Create feature branch**: `feature/<short-name>` from `master`.
-5. **Implement**: Use the appropriate agent(s) (`mobile-engineer` for app code). Implement to the
-   spec's **visual acceptance criteria**, not just its behavioural ones.
-6. **Test**: Use `qa-engineer` to create/update tests. Meet the **Definition of Done**.
+5. **Implement and test**: Delegate to the `android-engineer` agent — **one** agent writes the app
+   code, writes its tests and runs them scoped. Do not split implementation and tests across two
+   agents: the handoff costs a full cold context and puts two actors on the same working tree.
+   Implement to the spec's **visual acceptance criteria**, not just its behavioural ones.
+6. **Gate**: Once the agent has handed back, the orchestrator runs the full suite **once**
+   (see **Build & test execution** below) and reviews the diff. That review is what replaces the
+   second pair of eyes the old two-agent split provided — do not skip it. Meet the
+   **Definition of Done**.
 7. **Design review**: Verify the built UI against the feature's **visual acceptance criteria** and
    its slice of the master mockup, and update the mockup tracking (`docs/mockups/README.md`) to mark
    what this feature delivered vs. what stays pending. See **Design in the Workflow** below.
@@ -322,6 +341,43 @@ When the user requests a new feature or enhancement, ALWAYS follow this sequence
    was *decidir al final* and the user now says yes), add the Spanish `tutorial/NN-*.md` before
    committing. Otherwise skip this step entirely.
 9. **Commit on the feature branch**: Never directly on `master`.
+
+### Build & test execution (who runs what)
+
+Binding for the orchestrator and for every subagent. These are not style preferences: each rule
+here exists because its absence produced a stuck run.
+
+- **One actor touches the tree at a time.** The orchestrator does not invoke Gradle or Git while a
+  subagent is live, and vice versa. `.gradle/*.lock` and `app/build/test-results/` are shared
+  resources — two concurrent invocations either block on the lock (which looks exactly like a hang)
+  or overwrite each other's results and produce failures that are not real.
+- **Never poll.** Background work notifies on completion by itself. No `jobs`, no repeated
+  `BashOutput` checks, no turn whose only content is "still waiting".
+- **Foreground, with an explicit `timeout N`.** That timeout is the only thing bounding a hang from
+  the outside. There is no reason to background a test run: the full unit suite takes **~15 s** warm
+  and the scoped runs are faster still, all far inside the tool's 10-minute foreground limit. If a
+  command ever does exceed that ceiling, launch it in the background **once** and let its completion
+  notification end the wait — never a poll, and never a second copy of the same command.
+- **One JDK, one daemon.** Invoke Gradle with no `JAVA_HOME=` prefix. Alternating between the
+  system JDK and the Android Studio JBR makes Gradle treat the running daemon as incompatible and
+  fork a fresh 2 GB one, throwing away every warm cache.
+- **The full suite runs exactly once**, by the orchestrator, as the gate before committing:
+
+  ```bash
+  timeout 600 ./gradlew :app:testDebugUnitTest --console=plain
+  ```
+
+  Subagents only ever run scoped, foreground runs filtered with `--tests`. Gradle itself will now
+  kill any single test task that runs longer than ten minutes (`app/build.gradle.kts`), so a hang
+  fails the build instead of stalling the session.
+- **A timeout is a blocker, not a retry.** If a command hits its `timeout`, report it and stop —
+  see **Execution Policy** above. Relaunching it blindly is how a session burns an hour.
+
+> **`android-engineer` supersedes the old pair.** Specs and session starters written before this
+> change (most of `docs/prompts/`) end with an `Agentes:` line naming `mobile-engineer` for the code
+> and `qa-engineer` for the tests. Read that as **`android-engineer` for both** — those two agents
+> are kept on disk (`qa-engineer` still backs `/test` for an independent pass, `mobile-engineer` for
+> mobile-architecture questions), but app work is no longer split between them.
 
 ### Bug Fix Workflow
 
@@ -412,6 +468,6 @@ screens:
 ### Design review (gate, before commit)
 
 After implementation + tests, verify the built UI against the spec's **visual acceptance criteria** and
-the feature's mockup slice (`/verify` or `/run` to see it in the real app where practical), then update
+the feature's mockup slice (`/run` to see it in the real app where practical), then update
 `docs/mockups/README.md`. A feature that touches UI is **not done** until its visual ACs pass and the
 tracking table reflects reality. Missing visual ACs are treated like a failing test, not a nice-to-have.

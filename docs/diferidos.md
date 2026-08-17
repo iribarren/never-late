@@ -1,4 +1,3 @@
-# Trabajo diferido — lo que el propio trabajo dejó pendiente
 
 > **Qué es esto:** el backlog extraído de las secciones *Out of Scope* y *Risks* de `docs/specs/`, de
 > las notas de [`mockups/README.md`](mockups/README.md) y de tres comentarios en código. Es **deuda
@@ -33,6 +32,11 @@ Cada fila tiene su prompt listo para pegar en una sesión nueva con `/feature` (
 | 8 | El orden, el agrupado y la búsqueda se pierden al cerrar la app (y al morir el proceso) | [`preferencias-lista-persistentes.md`](prompts/preferencias-lista-persistentes.md) | Papercut | S |
 | ~~9~~ | ~~El widget monta su repositorio a mano y hay dos mapeos de color gemelos que pueden desincronizarse~~ **Hecho** (`docs/specs/2026-08-17-widget-hilt-color-token.md`) | [`widget-hilt-y-token-color.md`](prompts/widget-hilt-y-token-color.md) | Arquitectura | M |
 | 10 | Un fallo en un móvil ajeno es invisible: no hay informe de errores de ningún tipo | [`informe-de-fallos.md`](prompts/informe-de-fallos.md) | Infra | L |
+| 11 | El JDK del sistema ya es 25 y **Gradle 8.13 no arranca con él**; hoy lo tapa un JDK pinchado a mano fuera del repo | [`actualizacion-agp9-gradle9-jdk25.md`](prompts/actualizacion-agp9-gradle9-jdk25.md) | Infra | L |
+
+> El **11** es el único que no sale de una sección *Out of Scope* ni de una nota en código: apareció
+> solo, cuando el JDK del sistema se actualizó por debajo del proyecto. Se anota aquí igualmente
+> porque es deuda de infraestructura y este es el backlog donde se mira.
 
 ## Dependencias de orden
 

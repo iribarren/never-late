@@ -7,16 +7,6 @@ tarjeta con `deadlineProgressFor`; y la 04c: completar una tarea con `toggleComp
 **"un widget que aprovecha el tamaño que le den y deja completar una tarea sin abrir la app"**
 siguiendo el flujo `/feature`.
 
-> **Depende de `tareas-completadas-widget-notificacion.md`: hazla después.** Ese bugfix quita de las
-> filas las tareas ya completadas, que hoy no solo ocupan sitio sino que se cuelan **las primeras y en
-> rojo**. Multiplicar filas y añadirles barras de progreso antes de arreglarlo es amplificar el fallo
-> justo en la feature que lo hace más visible.
-
-> **Si quieres las acciones por fila, `widget-hilt-y-token-color.md` va antes.** Leer desde
-> `provideGlance` es seguro con el repositorio que el widget monta a mano hoy; **escribir** no lo es —
-> ver la nota de reentrancia más abajo. Si no se hace antes, esta feature se limita a la parte visual
-> y declara las acciones fuera de alcance.
-
 ## Qué construir
 
 - El widget **responde al tamaño que le da el launcher** en vez de dibujar siempre lo mismo:

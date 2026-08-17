@@ -12,7 +12,11 @@ Follow the Mandatory Workflow for new features defined in CLAUDE.md:
 3. Present the spec to the user and wait for explicit approval before proceeding — approval covers
    behaviour, look, and the tutorial decision.
 4. After approval, create a `feature/<name>` branch from `master` in the appropriate repo(s)
-5. Proceed to implementation with the appropriate agent(s), then tests, then the design review.
-   Meet the **Definition of Done** in CLAUDE.md before committing.
+5. Delegate implementation **and its tests** to the `android-engineer` agent — a single agent owns
+   both, and runs its test passes scoped and in the foreground. Do not launch a second agent to
+   write the tests.
+6. When it hands back, run the full suite **once** yourself as the gate, review the diff, then do
+   the design review. See **Build & test execution** in CLAUDE.md for the exact commands and the
+   one-actor-at-a-time rule. Meet the **Definition of Done** before committing.
 
 Start by asking the tutorial question now.

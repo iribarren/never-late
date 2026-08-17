@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(./gradlew:*)",
+      "Bash(timeout:*)",
       "Bash(find:*)",
       "Bash(gh pr:*)",
       "Bash(git add:*)",
