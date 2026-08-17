@@ -197,3 +197,11 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+// Run unit tests (testDebugUnitTest) across a couple of forked JVMs instead of one, alongside
+// org.gradle.parallel/caching in gradle.properties. Kept conservative (not availableProcessors()):
+// each fork is its own JVM on top of the Gradle daemon's own heap, and dev machines here don't have
+// memory to spare for more.
+tasks.withType<Test> {
+    maxParallelForks = 2
+}
