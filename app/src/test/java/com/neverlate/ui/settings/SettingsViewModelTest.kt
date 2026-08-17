@@ -9,6 +9,7 @@ import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.Task
 import com.neverlate.ui.notification.FakeReminderScheduler
 import com.neverlate.ui.notification.FakeTaskRepository
+import com.neverlate.ui.notification.ReminderKind
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
@@ -240,7 +241,12 @@ class SettingsViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(false, repository.userPreferences.value.remindersEnabled)
-        assertEquals(listOf(1L, 2L), reminderScheduler.cancelledIds)
+        // Both alarm kinds must be cancelled per task, or turning reminders off would leave every
+        // time-up alarm still armed.
+        assertEquals(
+            setOf(1L to ReminderKind.LEAD_TIME, 1L to ReminderKind.TIME_UP, 2L to ReminderKind.LEAD_TIME, 2L to ReminderKind.TIME_UP),
+            reminderScheduler.cancelledCalls.map { it.taskId to it.kind }.toSet(),
+        )
     }
 
     @Test
@@ -267,7 +273,10 @@ class SettingsViewModelTest {
         viewModel.onRemindersEnabledChanged(false)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals(listOf(7L), reminderScheduler.cancelledIds)
+        assertEquals(
+            setOf(7L to ReminderKind.LEAD_TIME, 7L to ReminderKind.TIME_UP),
+            reminderScheduler.cancelledCalls.map { it.taskId to it.kind }.toSet(),
+        )
     }
 
     @Test

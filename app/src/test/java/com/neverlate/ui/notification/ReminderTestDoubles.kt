@@ -2,6 +2,7 @@ package com.neverlate.ui.notification
 
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
+import com.neverlate.data.tasks.computeRemainingMillis
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -17,8 +18,16 @@ import kotlinx.coroutines.flow.update
  * [com.neverlate.data.tasks.RoomTaskRepository], because
  * [ReminderSchedulingRepository.saveTask] specifically depends on getting back a real, non-zero
  * id for a task that has never been saved before — the reminder must be keyed by that id, not 0.
+ *
+ * [startTimer]/[pauseTimer] mirror [com.neverlate.data.tasks.RoomTaskRepository]'s real semantics
+ * (via [computeRemainingMillis]), not just record the call — the times-up-alert feature's
+ * decorator re-reads the task after these calls to reschedule its `TIME_UP` alarm, so a fake that
+ * only recorded the call would make that reschedule test vacuously pass against a stale task.
  */
-class FakeTaskRepository(initialTasks: List<Task> = emptyList()) : TaskRepository {
+class FakeTaskRepository(
+    initialTasks: List<Task> = emptyList(),
+    private val now: () -> Long = System::currentTimeMillis,
+) : TaskRepository {
 
     private val tasksFlow = MutableStateFlow(initialTasks)
 
@@ -56,17 +65,29 @@ class FakeTaskRepository(initialTasks: List<Task> = emptyList()) : TaskRepositor
 
     override suspend fun startTimer(id: Long) {
         startedIds += id
+        updateTask(id) { task ->
+            val remaining = computeRemainingMillis(task, now())
+            task.copy(timerEndsAt = now() + remaining, remainingMillis = null)
+        }
     }
 
     override suspend fun pauseTimer(id: Long) {
         pausedIds += id
+        updateTask(id) { task ->
+            val remaining = computeRemainingMillis(task, now())
+            task.copy(timerEndsAt = null, remainingMillis = remaining)
+        }
+    }
+
+    private fun updateTask(id: Long, transform: (Task) -> Task) {
+        tasksFlow.update { tasks -> tasks.map { if (it.id == id) transform(it) else it } }
     }
 }
 
 /**
  * In-memory [ReminderScheduler] fake shared by [ReminderSchedulingRepositoryTest] and
- * `com.neverlate.ui.settings.SettingsViewModelTest` — both need to assert which task ids were
- * scheduled/cancelled, and (for the decorator) in what *order*, without a real
+ * `com.neverlate.ui.settings.SettingsViewModelTest` — both need to assert which `(taskId, kind)`
+ * pairs were scheduled/cancelled, and (for the decorator) in what *order*, without a real
  * [android.app.AlarmManager], which needs an Android runtime to even instantiate.
  */
 class FakeReminderScheduler : ReminderScheduler {
@@ -76,22 +97,34 @@ class FakeReminderScheduler : ReminderScheduler {
      *  [ReminderSchedulingRepository]'s "always cancel first" contract); [cancelledIds] and
      *  [scheduledCalls] are convenience views filtered by call type. */
     sealed class Call {
-        data class Scheduled(val taskId: Long, val triggerAtMillis: Long) : Call()
-        data class Cancelled(val taskId: Long) : Call()
+        abstract val taskId: Long
+        abstract val kind: ReminderKind
+
+        data class Scheduled(
+            override val taskId: Long,
+            override val kind: ReminderKind,
+            val triggerAtMillis: Long,
+        ) : Call()
+
+        data class Cancelled(override val taskId: Long, override val kind: ReminderKind) : Call()
     }
 
     val calls = mutableListOf<Call>()
 
-    override fun schedule(taskId: Long, triggerAtMillis: Long) {
-        calls += Call.Scheduled(taskId, triggerAtMillis)
+    override fun schedule(taskId: Long, kind: ReminderKind, triggerAtMillis: Long) {
+        calls += Call.Scheduled(taskId, kind, triggerAtMillis)
     }
 
-    override fun cancel(taskId: Long) {
-        calls += Call.Cancelled(taskId)
+    override fun cancel(taskId: Long, kind: ReminderKind) {
+        calls += Call.Cancelled(taskId, kind)
     }
 
-    /** Every task id [cancel] was called with, in call order. */
-    val cancelledIds: List<Long> get() = calls.filterIsInstance<Call.Cancelled>().map { it.taskId }
+    /** Every `(taskId, kind)` pair [cancel] was called with, in call order. */
+    val cancelledCalls: List<Call.Cancelled> get() = calls.filterIsInstance<Call.Cancelled>()
+
+    /** Every task id [cancel] was called with (either kind), in call order — a convenience view for
+     *  tests that only care about which tasks were touched, not which kind. */
+    val cancelledIds: List<Long> get() = cancelledCalls.map { it.taskId }
 
     /** Every [Call.Scheduled] call, in call order. */
     val scheduledCalls: List<Call.Scheduled> get() = calls.filterIsInstance<Call.Scheduled>()

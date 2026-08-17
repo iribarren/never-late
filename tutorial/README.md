@@ -50,6 +50,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 07b | [arquitectura](07b-arquitectura.md) | Poner nombre al patrón: UDF / MVVM / capas (transversal) | ✅ |
 | 08 | [i18n](08-i18n.md) | Internacionalización, `plurals`, fechas locale-aware, desugaring | ✅ |
 | 09 | [recordatorios](09-recordatorios.md) | Alarmas antes del plazo, permiso de alarma exacta, reboot | ✅ |
+| 09b | [segunda-alarma](09b-segunda-alarma.md) | Identidad de `PendingIntent` (por qué dos alarmas se pisan bajo `FLAG_UPDATE_CURRENT`), alarmas ancladas a estado mutable, y dónde engancha la reprogramación | ✅ |
 
 ## Bloque 3 — Red, backend y sincronización
 

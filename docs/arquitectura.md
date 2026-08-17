@@ -358,6 +358,69 @@ vocabulary, and the widget is the minor of the two consumers.
 
 No backend, contract, DB-version, or permission change; no new Gradle dependency.
 
+## Feature `times-up-alert` — Real alert when a task's time runs out
+
+**Closes feature 09's biggest remaining gap** (`docs/specs/2026-08-17-times-up-alert.md`): a task's
+countdown reaching zero produced no sound, no vibration, and no notification unless the Tasks screen
+happened to be composed — and a duration-only task (no `deadline`) got no alarm, ever. This feature adds
+a second one-shot alarm per task, `ReminderKind.TIME_UP`, fired at the wall-clock instant a task actually
+runs out of time, reusing feature 09's alerting `task_reminders` channel and `AlarmManager`/
+`ReminderReceiver`/`ReminderNotificationHelper`/`BootRescheduleWorker` machinery as-is.
+
+**D1 — the `PendingIntent` identity bug, fixed before anything else could be built on it.** Feature 09's
+`requestCodeFor(taskId) = taskId.toInt()` was shared, unmodified, by the alarm `PendingIntent` and the
+notification id — one task, one `Int`. A second alarm kind built the same way (same request code, same
+absent `Intent` action) would be `filterEquals`-identical to the first, so `AlarmManager`'s
+`FLAG_UPDATE_CURRENT` would silently *replace* the lead-time reminder with the time-up one instead of
+adding a second, independent alarm — no crash, no log, one alarm quietly gone. Fixed two independent ways
+at once (belt and braces): a new `ui/notification/ReminderKind.kt` enum (`LEAD_TIME`/`TIME_UP`, each
+carrying a `slot` and a distinct `Intent.action`), `requestCodeFor(taskId, kind) = taskId.toInt() * 2 +
+kind.slot` (the single-arg overload is **deleted**, not defaulted, so the compiler forces every call site
+to choose), and `intent.action = kind.action` set on the alarm `Intent` itself. The scheme threads through
+all five places that must agree on one task+kind's identity: `AlarmManagerReminderScheduler`
+(`schedule`/`cancel` now take a `ReminderKind`), `ReminderNotificationHelper.notificationIdFor` (base
+offset `10_000 + requestCodeFor(...)`, closing a latent collision with `TASKS_NOTIFICATION_ID` = 1001),
+`ReminderSchedulingRepository`, `SettingsViewModel`'s cancel-all-reminders loop, and
+`BootRescheduleWorker`. Missing any one of them is exactly the failure mode US-5's tests target: alarms
+that work until a reboot, or that survive turning reminders off.
+
+**D3 — one alarm slot per task, not two.** A task can have both a running timer and a deadline, so two
+"time is up" instants can exist; the decision is `min(timerEndsAt, deadline)` over whichever is non-null
+(`domain/tasks/TimeUpPlanning.kt`'s `timeUpInstantFor`). This is usually a no-op — `startTimer` sets
+`timerEndsAt = now + computeRemainingMillis(...)`, which for a never-started deadline task *is* the
+deadline — and only diverges when a deadline task was paused and resumed, pushing `timerEndsAt` past the
+deadline; the deadline is the earlier, truer commitment there (the same rule `TaskTiming.kt`'s countdown
+already applies).
+
+**D9 — `startTimer`/`pauseTimer` stop being pass-throughs, and this also fixes an existing bug.**
+`ReminderSchedulingRepository` previously forwarded these two methods to its delegate with no reminder
+consequence at all — the "easy-to-forget part of the feature: it has no UI surface", per the spec. Both
+now re-read the task after the delegate's write and reschedule `TIME_UP` (cancel first, then schedule only
+if warranted). The same "cancel first, then maybe schedule" rule was extended, for **both** kinds, to
+require `completedAt == null && !deleted` — which fixes a pre-existing bug where a completed-but-not-yet-
+due task still received its lead-time reminder.
+
+**D8 — a delivery-time guard, not just a scheduling-time one.** `ReminderReceiver` re-reads the task fresh
+and drops the notification if it is gone, deleted, completed, or (for `TIME_UP` only) stale —
+`computeRemainingMillis(task, now) > 60_000`, meaning the alarm belongs to a superseded plan (timer
+restarted, deadline pushed back). This is the safety net for the window between scheduling and firing that
+cancellation at write time cannot close (process killed before the cancel runs, etc.).
+
+**D10 — the reschedule worker also runs on cold start.** `BootRescheduleWorker` previously only followed
+`BOOT_COMPLETED`; installing this feature's update would otherwise arm no `TIME_UP` alarms until each task
+was next edited or the phone rebooted. `NeverLateApplication.onCreate` now enqueues the same worker
+unconditionally (idempotent via `FLAG_UPDATE_CURRENT` + stable request codes; past-due tasks are dropped
+by the never-retroactive future-check, same as boot). The class is **not** renamed — `BootRescheduleWorker`
+is named in the shipped `tutorial/09-*.md` lesson — only its KDoc changed to state boot and cold-start are
+both triggers. One caveat this enqueue call had to account for: plenty of JVM/Robolectric unit tests
+instantiate `NeverLateApplication` (via the manifest's `android:name`) without WorkManager's own
+ContentProvider ever having run, so `WorkManager.getInstance()` throws `IllegalStateException` in that
+environment; the enqueue call is wrapped in a narrow `try/catch` for exactly that one failure mode rather
+than making every unrelated test carry WorkManager test-init boilerplate.
+
+No backend, contract, DB-version, or permission change; no new Gradle dependency; no new notification
+channel (D11) or string resource — reuses feature 09's `task_reminders` channel and `tasks_time_up`.
+
 ---
 
 ## Transversal — Permisos y manifest

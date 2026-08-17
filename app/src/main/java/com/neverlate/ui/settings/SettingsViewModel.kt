@@ -8,6 +8,7 @@ import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
+import com.neverlate.ui.notification.ReminderKind
 import com.neverlate.ui.notification.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -113,7 +114,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             repository.saveRemindersEnabled(enabled)
             if (!enabled) {
-                taskRepository.observeTasks().first().forEach { task -> reminderScheduler.cancel(task.id) }
+                taskRepository.observeTasks().first().forEach { task ->
+                    // Both alarm kinds must be cancelled, or turning reminders off would leave
+                    // every time-up alarm still armed (times-up-alert feature, §8).
+                    reminderScheduler.cancel(task.id, ReminderKind.LEAD_TIME)
+                    reminderScheduler.cancel(task.id, ReminderKind.TIME_UP)
+                }
             }
         }
     }
