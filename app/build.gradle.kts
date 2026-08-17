@@ -1,4 +1,5 @@
 import java.io.FileInputStream
+import java.time.Duration
 import java.util.Properties
 
 plugins {
@@ -204,4 +205,20 @@ dependencies {
 // memory to spare for more.
 tasks.withType<Test> {
     maxParallelForks = 2
+
+    // A hung test used to block the build forever: nothing killed it. The usual culprits here are a
+    // fire-and-forget coroutine still alive on Dispatchers.IO and a MockWebServer whose port is
+    // still held. Gradle's own task timeout turns that indefinite hang into a bounded, readable
+    // failure. Generous on purpose — the whole suite runs in well under a minute warm, so ten
+    // minutes only ever fires on a genuine hang.
+    // Note: `Duration` must be imported at the top of this file — inside the Kotlin DSL, a bare
+    // `java.` prefix resolves to Gradle's `java` extension, not the JDK package.
+    timeout.set(Duration.ofMinutes(10))
+
+    // Only report what needs acting on. The default already stays quiet on success; being explicit
+    // keeps the output short for whoever (or whatever) reads it.
+    testLogging {
+        events("failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }

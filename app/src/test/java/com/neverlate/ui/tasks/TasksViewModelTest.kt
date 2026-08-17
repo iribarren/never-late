@@ -294,6 +294,15 @@ class TasksViewModelTest {
                 "(${teaTask.estimatedDurationMillis}) right after starting",
             abs(teaTask.estimatedDurationMillis!! - uiTask.remainingMillis) < 2_000L,
         )
+
+        // Stop the ticker before leaving the test body. While a task is running the ticker
+        // reschedules its own delay(1000) forever (see setUp), and runTest drains the scheduler
+        // once the body returns - so a test that ends with a task still running never terminates.
+        // It hangs in *virtual* time, which is why runTest's own wall-clock timeout cannot break
+        // it either: the loop never suspends in real time. Every other timer test here already
+        // pauses or runs the countdown out; this one used to be the exception.
+        viewModel.pauseTimer(teaTask.id)
+        runCurrent()
     }
 
     @Test
@@ -728,6 +737,12 @@ class TasksViewModelTest {
             "the running task's state must survive every reduceMotion flip unchanged",
             finalTask.task.isRunning,
         )
+
+        // Pause only once the assertions above have run: they need the task still running, but the
+        // test body must not *end* with it running or runTest's final drain never terminates. Same
+        // reason as in `startTimer marks the task running...` above.
+        viewModel.pauseTimer(teaTask.id)
+        runCurrent()
     }
 
     // `persisted-list-preferences`: durable arrangement, no-flicker restoration --------------------

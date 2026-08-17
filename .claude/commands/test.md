@@ -7,7 +7,13 @@ by the `check-tests` Stop hook.
    (`git diff` and `git diff --staged`) to determine which code needs coverage.
 2. Delegate to the `qa-engineer` agent to create or update tests that cover the new/changed
    behaviour — happy path, edge cases, and error handling.
-3. Run the test suite and report the results. If tests fail, report the failure output; do not
-   claim success unless the suite is green.
+3. Run the suite once, in the foreground, and report the real counters:
+
+   ```bash
+   timeout 600 ./gradlew :app:testDebugUnitTest --console=plain
+   ```
+
+   Do not run it while the subagent is still working — see **Build & test execution** in CLAUDE.md.
+   If tests fail, report the failure output; do not claim success unless the suite is green.
 
 Start by determining the scope of the change now.
