@@ -27,6 +27,15 @@ import kotlinx.coroutines.flow.Flow
  * itself, or nesting a second decorator for the notification on top of a widget-only one — keeps
  * this concern in exactly one spot and keeps the feature 04 `ViewModel`s unaware that either a
  * widget or a notification exists at all.
+ *
+ * **This layer must never be the widget's own [TaskRepository].** `PendingTasksWidget.provideGlance`
+ * resolves its repository through [com.neverlate.di.WidgetEntryPoint], which is intentionally
+ * scoped to the inner [com.neverlate.di.ReminderRepo] layer instead of this one: reading through
+ * this decorator is harmless today (the widget only reads), but a future write from the widget
+ * (row actions, `widget-adaptable-progreso.md`) would reenter [refreshSurfaces] — write ->
+ * `refreshSurfaces()` -> `PendingTasksWidget().updateAll` -> `provideGlance` -> write -> ... — since
+ * this class is precisely the one that calls `updateAll`. See [com.neverlate.di.WidgetEntryPoint]'s
+ * KDoc for the full reasoning (D2 of `docs/specs/2026-08-17-widget-hilt-color-token.md`).
  */
 class TaskSurfacesRefreshingRepository(
     private val delegate: TaskRepository,

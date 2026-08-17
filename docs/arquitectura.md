@@ -308,6 +308,58 @@ No backend, contract, DB-version, or permission change.
 
 ---
 
+## Feature `widget-hilt-color-token` — Widget joins Hilt, urgency/priority → color mapping unified
+
+**Closes two debts feature 05b wrote down in its own code** (`docs/specs/2026-08-17-widget-hilt-color-token.md`):
+the widget built its own `TaskRepository` by hand, and the urgency/priority → color decision was
+duplicated across Compose and Glance. Behaviour-preserving refactor, **zero visual change** — see the
+updated 05b row in `docs/mockups/README.md`.
+
+**D1/D2 — how and what the widget injects.** `PendingTasksWidget.provideGlance` can't get an
+`@Inject` field (a `GlanceAppWidget` is never constructed by Hilt — it's built directly by
+`PendingTasksWidgetReceiver`, `TaskSurfacesRefreshingRepository`, and `TaskSurfacesRefreshWorker`, none
+of which Hilt intercepts), so `app/src/main/java/com/neverlate/di/WidgetEntryPoint.kt` is a new
+`@EntryPoint @InstallIn(SingletonComponent::class)` interface, resolved from inside `provideGlance` via
+`EntryPointAccessors.fromApplication(context.applicationContext, ...)`. That resolution point matters:
+because it happens *inside* the widget's own composition function rather than at construction time, all
+three call sites keep constructing `PendingTasksWidget()` exactly as before. The rejected alternative was
+`@HiltWorker`/`HiltWorkerFactory` — it would add `androidx.hilt:hilt-work` to the catalog, make
+`NeverLateApplication` a `Configuration.Provider`, and disable WorkManager's default initializer, all to
+fix the *workers*, not the widget, which is the actual problem here.
+
+The entry point deliberately exposes the **`@ReminderRepo`** layer of the `TaskRepository` decorator
+chain (`RepositoryModule`'s `RoomRepo -> OutboxRepo -> ReminderRepo -> unqualified`), not the unqualified
+binding. The unqualified binding *is* `TaskSurfacesRefreshingRepository`, whose `refreshSurfaces()` calls
+`PendingTasksWidget().updateAll(context)` after every write — reading through it today is harmless
+(`observeTasks()` passes through unchanged), but a future write from the widget (row actions,
+`widget-adaptable-progreso.md`) would reenter itself: write -> `refreshSurfaces()` -> `updateAll` ->
+`provideGlance` -> write -> ... `@ReminderRepo` is the outermost layer that does not loop back into the
+widget, so it is a structural lock against that cascade, not a convention someone has to remember. Full
+reasoning lives in `WidgetEntryPoint`'s KDoc; the entry point is intentionally reusable (not yet reused)
+by the other five hand-wired consumers (`TaskSurfacesRefreshWorker`, `BootRescheduleWorker`, `SyncWorker`,
+`TasksNotificationService`, `ReminderReceiver`) — migrating them is out of scope here.
+
+**D3 — the shared mapping is a role name, never a `Color`/`ColorProvider`.** Feature 05b's boundary
+(Compose reads `MaterialTheme.colorScheme`/`NeverLateExtras`; Glance reads `GlanceTheme.colors` + its own
+hand-written day/night pairs, because a Material 3 `CompositionLocal` doesn't exist inside a Glance
+composition) was correct and had to survive. What was duplicated wasn't the color, it was the *decision*
+of which role an `UrgencyLevel`/`Priority` maps to — kept in sync only by a KDoc warning in
+`WidgetColors.kt`. `domain/tasks/ColorRole.kt` extracts that decision once: `enum class ColorRole { Calm,
+Soon, Error, Primary, Secondary, Tertiary }` plus two pure, JVM-testable functions,
+`urgencyColorRole(UrgencyLevel): ColorRole` (four levels onto **three** roles — `Urgent`/`Overdue` share
+`Error`, unchanged from before) and `priorityColorRole(Priority): ColorRole?` (`null` for `NONE`, no
+marker). The four call sites (`colorForUrgency`, `Priority.indicatorColor()`, `urgencyColorProvider`,
+`Priority.glanceIndicatorColor()`) become thin resolvers that only translate role -> color in their own
+world; none of them repeats the `when`. The hand-written day/night pairs in `WidgetColors.kt`
+(`CalmColor`/`SoonColor`/`dividerColor`) are **not** part of this duplication and are untouched — they
+exist because `glance-material3`'s bridge simply doesn't carry `calm`/`soon`/`outlineVariant`. Placed in
+`domain/tasks/` (next to `Urgency.kt`), not `ui/theme/` or `ui/widget/`: the decision is tasks-domain
+vocabulary, and the widget is the minor of the two consumers.
+
+No backend, contract, DB-version, or permission change; no new Gradle dependency.
+
+---
+
 ## Transversal — Permisos y manifest
 
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime

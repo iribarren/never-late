@@ -31,7 +31,7 @@ Cada fila tiene su prompt listo para pegar en una sesión nueva con `/feature` (
 | 6 | El ajuste de sistema "reducir movimiento" no llega a la cadencia de 1 s del contador | [`reducir-movimiento.md`](prompts/reducir-movimiento.md) | Papercut | S |
 | 7 | Se pide el nombre en el primer arranque y **nadie lo lee nunca**, ni se puede cambiar | [`perfil-editable.md`](prompts/perfil-editable.md) | Papercut | S |
 | 8 | El orden, el agrupado y la búsqueda se pierden al cerrar la app (y al morir el proceso) | [`preferencias-lista-persistentes.md`](prompts/preferencias-lista-persistentes.md) | Papercut | S |
-| 9 | El widget monta su repositorio a mano y hay dos mapeos de color gemelos que pueden desincronizarse | [`widget-hilt-y-token-color.md`](prompts/widget-hilt-y-token-color.md) | Arquitectura | M |
+| ~~9~~ | ~~El widget monta su repositorio a mano y hay dos mapeos de color gemelos que pueden desincronizarse~~ **Hecho** (`docs/specs/2026-08-17-widget-hilt-color-token.md`) | [`widget-hilt-y-token-color.md`](prompts/widget-hilt-y-token-color.md) | Arquitectura | M |
 | 10 | Un fallo en un móvil ajeno es invisible: no hay informe de errores de ningún tipo | [`informe-de-fallos.md`](prompts/informe-de-fallos.md) | Infra | L |
 
 ## Dependencias de orden
@@ -44,7 +44,10 @@ Solo hay dos, y ambas son reales, no preferencias de estilo:
 - **El 9 antes que las acciones por fila del 1.** La vinculación sin cualificar de `TaskRepository` es
   el decorador que refresca las superficies, así que una escritura hecha desde dentro del widget
   reentra en el propio widget. Leer es seguro; escribir no. Si no se hace el 9 primero, el 1 se limita
-  a la parte visual y declara las acciones fuera de alcance.
+  a la parte visual y declara las acciones fuera de alcance. **El 9 ya está hecho**
+  (`docs/specs/2026-08-17-widget-hilt-color-token.md`, D2): el widget entra en Hilt inyectando la capa
+  `@ReminderRepo`, precisamente para que una futura escritura desde el widget no reentre. El
+  prerrequisito del 1 queda cubierto; sus acciones por fila pueden implementarse.
 
 El resto son independientes entre sí.
 
