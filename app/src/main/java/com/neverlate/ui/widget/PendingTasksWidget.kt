@@ -38,6 +38,7 @@ import com.neverlate.domain.tasks.UrgencyLevel
 import com.neverlate.domain.tasks.urgencyLevel
 import com.neverlate.ui.components.formatRemainingLabel
 import com.neverlate.ui.tasks.labelRes
+import com.neverlate.ui.tasks.markerRes
 import com.neverlate.ui.theme.DarkColorScheme
 import com.neverlate.ui.theme.LightColorScheme
 import dagger.hilt.android.EntryPointAccessors
@@ -167,12 +168,9 @@ private fun PendingTaskRowContent(row: PendingTaskRow, context: Context) {
     // agree on the same four-level scale (urgencyLevelFor).
     val level = row.urgencyLevel()
     val markerColor = row.priority.glanceIndicatorColor()
-    val markerText = when (row.priority) {
-        Priority.NONE -> null
-        Priority.LOW -> context.getString(R.string.widget_priority_marker_low)
-        Priority.MEDIUM -> context.getString(R.string.widget_priority_marker_medium)
-        Priority.HIGH -> context.getString(R.string.widget_priority_marker_high)
-    }
+    // D8 (`priority-sorting`): the widget no longer decides its own marker text — it resolves the
+    // one shared mapping (ui/tasks/PriorityUi.kt) also used by the task card and the notification.
+    val markerText = row.priority.markerRes()?.let { context.getString(it) }
     val remainingLabel = formatRemainingLabel(context, row.remainingMillis)
 
     // Glance's semantics apply per-node, not merged up an accessibility tree the way Compose's

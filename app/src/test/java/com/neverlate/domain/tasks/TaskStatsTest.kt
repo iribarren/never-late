@@ -1,5 +1,6 @@
 package com.neverlate.domain.tasks
 
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -41,7 +42,8 @@ class TaskStatsTest {
         deadline: Long? = null,
         completedAt: Long? = null,
         deleted: Boolean = false,
-    ) = Task(title = title, deadline = deadline, completedAt = completedAt, deleted = deleted)
+        priority: Priority = Priority.NONE,
+    ) = Task(title = title, deadline = deadline, completedAt = completedAt, deleted = deleted, priority = priority)
 
     // Empty input -------------------------------------------------------------------------------
 
@@ -51,7 +53,7 @@ class TaskStatsTest {
         val stats = weeklyStatsFor(emptyList(), now, zone)
 
         // Assert: nothing to count, and no dated completion at all to compute a ratio from.
-        assertEquals(WeeklyTaskStats(completedThisWeek = 0, onTimePercent = null, dueSoon = 0), stats)
+        assertEquals(WeeklyTaskStats(completedThisWeek = 0, onTimePercent = null, dueSoon = 0, highPriorityCompletedThisWeek = 0), stats)
     }
 
     // All pending ---------------------------------------------------------------------------------
@@ -77,7 +79,7 @@ class TaskStatsTest {
 
         val stats = weeklyStatsFor(listOf(deletedCompletion, deletedDueSoon), now, zone)
 
-        assertEquals(WeeklyTaskStats(completedThisWeek = 0, onTimePercent = null, dueSoon = 0), stats)
+        assertEquals(WeeklyTaskStats(completedThisWeek = 0, onTimePercent = null, dueSoon = 0, highPriorityCompletedThisWeek = 0), stats)
     }
 
     // On time vs. late -----------------------------------------------------------------------------
@@ -198,5 +200,71 @@ class TaskStatsTest {
 
         assertEquals(2, stats.completedThisWeek)
         assertNull(stats.onTimePercent)
+    }
+
+    // highPriorityCompletedThisWeek (US-5, `priority-sorting`) -------------------------------------
+
+    @Test
+    fun `highPriorityCompletedThisWeek counts only HIGH priority tasks completed this week`() {
+        val high = task(completedAt = weekStart + 1_000L, priority = Priority.HIGH)
+        val medium = task(completedAt = weekStart + 1_000L, priority = Priority.MEDIUM)
+        val low = task(completedAt = weekStart + 1_000L, priority = Priority.LOW)
+        val none = task(completedAt = weekStart + 1_000L, priority = Priority.NONE)
+
+        val stats = weeklyStatsFor(listOf(high, medium, low, none), now, zone)
+
+        assertEquals(4, stats.completedThisWeek)
+        assertEquals(1, stats.highPriorityCompletedThisWeek)
+    }
+
+    @Test
+    fun `highPriorityCompletedThisWeek is 0, a legitimate value, when no HIGH task was completed this week`() {
+        val medium = task(completedAt = weekStart + 1_000L, priority = Priority.MEDIUM)
+
+        val stats = weeklyStatsFor(listOf(medium), now, zone)
+
+        assertEquals(0, stats.highPriorityCompletedThisWeek)
+    }
+
+    @Test
+    fun `highPriorityCompletedThisWeek excludes a HIGH task completed outside this week`() {
+        val completedLastWeek = task(completedAt = weekStart - 1_000L, priority = Priority.HIGH)
+        val completedNextWeek = task(completedAt = weekEnd, priority = Priority.HIGH) // weekEnd is exclusive
+
+        val stats = weeklyStatsFor(listOf(completedLastWeek, completedNextWeek), now, zone)
+
+        assertEquals(0, stats.completedThisWeek)
+        assertEquals(0, stats.highPriorityCompletedThisWeek)
+    }
+
+    @Test
+    fun `highPriorityCompletedThisWeek excludes a HIGH task that is still pending`() {
+        val pendingHigh = task(completedAt = null, priority = Priority.HIGH)
+
+        val stats = weeklyStatsFor(listOf(pendingHigh), now, zone)
+
+        assertEquals(0, stats.highPriorityCompletedThisWeek)
+    }
+
+    @Test
+    fun `highPriorityCompletedThisWeek excludes a deleted HIGH task completed this week`() {
+        val deletedHigh = task(completedAt = weekStart + 1_000L, priority = Priority.HIGH, deleted = true)
+
+        val stats = weeklyStatsFor(listOf(deletedHigh), now, zone)
+
+        assertEquals(0, stats.completedThisWeek)
+        assertEquals(0, stats.highPriorityCompletedThisWeek)
+    }
+
+    @Test
+    fun `highPriorityCompletedThisWeek at exactly weekStart counts, at exactly weekEnd does not`() {
+        val atWeekStart = task(completedAt = weekStart, priority = Priority.HIGH)
+        val atWeekEnd = task(completedAt = weekEnd, priority = Priority.HIGH)
+
+        val statsAtStart = weeklyStatsFor(listOf(atWeekStart), now, zone)
+        val statsAtEnd = weeklyStatsFor(listOf(atWeekEnd), now, zone)
+
+        assertEquals(1, statsAtStart.highPriorityCompletedThisWeek)
+        assertEquals(0, statsAtEnd.highPriorityCompletedThisWeek)
     }
 }

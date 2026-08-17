@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Card
@@ -110,7 +111,8 @@ fun StatsScreen(
     }
 }
 
-/** The three stat cards, in the fixed order the spec's *Layout* section lists them. */
+/** The four stat cards, in the fixed order the spec's *Layout* section lists them — the fourth
+ *  (`priority-sorting`, US-5) added alongside the original three, visually identical to them. */
 @Composable
 private fun StatsContent(stats: WeeklyTaskStats, modifier: Modifier = Modifier) {
     Column(
@@ -133,6 +135,13 @@ private fun StatsContent(stats: WeeklyTaskStats, modifier: Modifier = Modifier) 
             icon = Icons.Filled.Schedule,
             value = stats.dueSoon.toString(),
             label = stringResource(R.string.stats_due_soon_label),
+        )
+        StatCard(
+            icon = Icons.Filled.PriorityHigh,
+            // 0 is a legitimate, meaningful value here (unlike onTimePercent above) and is shown
+            // as such — see WeeklyTaskStats.highPriorityCompletedThisWeek's KDoc.
+            value = stats.highPriorityCompletedThisWeek.toString(),
+            label = stringResource(R.string.stats_high_priority_completed_label),
         )
     }
 }
@@ -183,7 +192,7 @@ private fun StatsScreenContentPreview() {
     NeverLateTheme {
         StatsScreen(
             uiState = StatsUiState.Content(
-                WeeklyTaskStats(completedThisWeek = 5, onTimePercent = 80, dueSoon = 2),
+                WeeklyTaskStats(completedThisWeek = 5, onTimePercent = 80, dueSoon = 2, highPriorityCompletedThisWeek = 3),
             ),
             onBack = {},
         )
@@ -196,7 +205,7 @@ private fun StatsScreenUndefinedOnTimePreview() {
     NeverLateTheme {
         StatsScreen(
             uiState = StatsUiState.Content(
-                WeeklyTaskStats(completedThisWeek = 1, onTimePercent = null, dueSoon = 0),
+                WeeklyTaskStats(completedThisWeek = 1, onTimePercent = null, dueSoon = 0, highPriorityCompletedThisWeek = 0),
             ),
             onBack = {},
         )

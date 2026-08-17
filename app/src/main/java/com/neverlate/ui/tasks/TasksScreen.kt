@@ -1,7 +1,6 @@
 package com.neverlate.ui.tasks
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -59,7 +57,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -75,12 +72,15 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neverlate.R
 import com.neverlate.data.sync.SyncStatus
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
 import com.neverlate.domain.tasks.ColorRole
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskGroupAxis
+import com.neverlate.domain.tasks.TaskGroupKey
 import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.domain.tasks.TaskSortField
 import com.neverlate.domain.tasks.UrgencyLevel
@@ -181,7 +181,9 @@ fun TasksRoute(
         onQueryChange = viewModel::onQueryChange,
         onSortFieldChange = viewModel::onSortFieldChange,
         onToggleSortDirection = viewModel::onToggleSortDirection,
-        onToggleGrouping = viewModel::onToggleGrouping,
+        onGroupAxisChange = viewModel::onGroupAxisChange,
+        onPriorityFilterToggle = viewModel::onPriorityFilterToggle,
+        onClearFilters = viewModel::onClearFilters,
         onStatsClick = onStatsClick,
         onBack = onBack,
         modifier = modifier,
@@ -215,7 +217,9 @@ fun TasksScreen(
     onQueryChange: (String) -> Unit,
     onSortFieldChange: (TaskSortField) -> Unit,
     onToggleSortDirection: () -> Unit,
-    onToggleGrouping: () -> Unit,
+    onGroupAxisChange: (TaskGroupAxis) -> Unit,
+    onPriorityFilterToggle: (Priority) -> Unit,
+    onClearFilters: () -> Unit,
     onStatsClick: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -288,7 +292,8 @@ fun TasksScreen(
                         onQueryChange = onQueryChange,
                         onSortFieldChange = onSortFieldChange,
                         onToggleSortDirection = onToggleSortDirection,
-                        onToggleGrouping = onToggleGrouping,
+                        onGroupAxisChange = onGroupAxisChange,
+                        onPriorityFilterToggle = onPriorityFilterToggle,
                     )
                 }
 
@@ -312,7 +317,9 @@ fun TasksScreen(
                         icon = Icons.Filled.SearchOff,
                         message = stringResource(R.string.tasks_no_results),
                         actionLabel = stringResource(R.string.tasks_no_results_clear_filter),
-                        onAction = { onQueryChange("") },
+                        // R2: clears BOTH the text query and the priority filter — a user must
+                        // never be stranded here by a filter this action doesn't also clear.
+                        onAction = onClearFilters,
                         modifier = Modifier.fillMaxSize(),
                     )
                     is TasksUiState.Content -> ShapedTaskListView(
@@ -401,7 +408,8 @@ private fun TaskListControls(
     onQueryChange: (String) -> Unit,
     onSortFieldChange: (TaskSortField) -> Unit,
     onToggleSortDirection: () -> Unit,
-    onToggleGrouping: () -> Unit,
+    onGroupAxisChange: (TaskGroupAxis) -> Unit,
+    onPriorityFilterToggle: (Priority) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -449,6 +457,13 @@ private fun TaskListControls(
                 label = { Text(stringResource(R.string.tasks_sort_title)) },
                 modifier = Modifier.minimumInteractiveComponentSize(),
             )
+            // US-1 (`priority-sorting`): third sort field, alongside the two above.
+            FilterChip(
+                selected = criteria.sortField == TaskSortField.Priority,
+                onClick = { onSortFieldChange(TaskSortField.Priority) },
+                label = { Text(stringResource(R.string.tasks_sort_priority)) },
+                modifier = Modifier.minimumInteractiveComponentSize(),
+            )
 
             // when as an exhaustive expression over SortDirection (TaskListShaping.kt), same
             // pattern as colorForUrgency below over UrgencyLevel: both the icon and the announced
@@ -472,15 +487,50 @@ private fun TaskListControls(
                 )
             }
 
+            // US-3 (`priority-sorting`): two independently-toggleable grouping chips, one per
+            // axis. Selecting one deselects the other (each onClick asks for its own axis
+            // unconditionally); tapping the currently-active one returns to None — the ternary
+            // reads "if I'm already selected, turn off; otherwise, become the selected axis".
             FilterChip(
-                selected = criteria.grouped,
-                onClick = onToggleGrouping,
+                selected = criteria.groupAxis == TaskGroupAxis.Urgency,
+                onClick = {
+                    onGroupAxisChange(
+                        if (criteria.groupAxis == TaskGroupAxis.Urgency) TaskGroupAxis.None else TaskGroupAxis.Urgency,
+                    )
+                },
                 label = { Text(stringResource(R.string.tasks_group_by_urgency)) },
                 modifier = Modifier.minimumInteractiveComponentSize(),
             )
+            FilterChip(
+                selected = criteria.groupAxis == TaskGroupAxis.Priority,
+                onClick = {
+                    onGroupAxisChange(
+                        if (criteria.groupAxis == TaskGroupAxis.Priority) TaskGroupAxis.None else TaskGroupAxis.Priority,
+                    )
+                },
+                label = { Text(stringResource(R.string.tasks_group_by_priority)) },
+                modifier = Modifier.minimumInteractiveComponentSize(),
+            )
+
+            // US-2 (`priority-sorting`, D5): four multi-select priority filter chips, in the same
+            // FlowRow as the sort/group chips above. Stock FilterChip selected treatment (leading
+            // check + secondaryContainer) — no per-priority background, so the palette stays
+            // confined to the marker (visual AC 3).
+            PriorityFilterOptions.forEach { priority ->
+                FilterChip(
+                    selected = priority in criteria.priorityFilter,
+                    onClick = { onPriorityFilterToggle(priority) },
+                    label = { Text(stringResource(priority.labelRes())) },
+                    modifier = Modifier.minimumInteractiveComponentSize(),
+                )
+            }
         }
     }
 }
+
+/** The four priority filter chips, in the same "most important first" display order the priority
+ *  grouping sections use (see `PRIORITY_DISPLAY_ORDER` in `TaskListShaping.kt`). */
+private val PriorityFilterOptions = listOf(Priority.HIGH, Priority.MEDIUM, Priority.LOW, Priority.NONE)
 
 /**
  * Renders a [ShapedTaskList] (feature 03b): [ShapedTaskList.Flat] as the plain [TaskList] already
@@ -511,11 +561,14 @@ private fun ShapedTaskListView(
             modifier = modifier,
         )
         is ShapedTaskList.Grouped -> LazyColumn(modifier = modifier.fillMaxSize()) {
-            // Destructuring a Map.Entry — the same component1()/component2() mechanism as
-            // destructuring a Pair, here read as "level" and "tasksInSection".
-            for ((level, tasksInSection) in shaped.sections) {
-                item(key = level) { SectionHeader(level) }
-                items(tasksInSection, key = { it.task.id }) { uiModel ->
+            // D4 (`priority-sorting`): sections is now a List<TaskSection>, in fixed display
+            // order regardless of axis — the header-level SectionHeader below is the only place
+            // that needs to know which axis a given key belongs to.
+            for (section in shaped.sections) {
+                // LazyColumn item keys must be Bundle-storable; TaskGroupKey isn't, so its
+                // toString() (stable and distinct per section) stands in as the key.
+                item(key = section.key.toString()) { SectionHeader(section.key) }
+                items(section.tasks, key = { it.task.id }) { uiModel ->
                     TaskRow(
                         uiModel = uiModel,
                         onClick = { onTaskClick(uiModel.task.id) },
@@ -531,15 +584,35 @@ private fun ShapedTaskListView(
     }
 }
 
-/** A section header's label for [ShapedTaskList.Grouped], one exhaustive `when` per [UrgencyLevel]
- *  — the same defensive pattern [colorForUrgency] below already uses for the same enum. */
+/**
+ * A section header's label for [ShapedTaskList.Grouped] (D4, `priority-sorting`): one exhaustive
+ * `when` over [TaskGroupKey] — the sealed interface's own two subtypes — each resolving to a
+ * *second* exhaustive `when` over the axis-specific enum, the same defensive pattern
+ * [colorForUrgency] below already uses. This is the one place per-axis knowledge lives (see D4):
+ * a third axis fails to compile here until its label exists, even though the screen-level
+ * [ShapedTaskListView] branch above no longer needs to change for it.
+ *
+ * Visual AC 4: identical styling to the pre-feature urgency header (`titleSmall`,
+ * `onSurfaceVariant`, same padding) regardless of which axis produced this section — a user tells
+ * the two axes apart only by the text, never by the header's look.
+ */
 @Composable
-private fun SectionHeader(level: UrgencyLevel, modifier: Modifier = Modifier) {
-    val textRes = when (level) {
-        UrgencyLevel.Overdue -> R.string.tasks_section_overdue
-        UrgencyLevel.Urgent -> R.string.tasks_section_urgent
-        UrgencyLevel.Soon -> R.string.tasks_section_soon
-        UrgencyLevel.Calm -> R.string.tasks_section_calm
+private fun SectionHeader(key: TaskGroupKey, modifier: Modifier = Modifier) {
+    val textRes = when (key) {
+        is TaskGroupKey.ByUrgency -> when (key.level) {
+            UrgencyLevel.Overdue -> R.string.tasks_section_overdue
+            UrgencyLevel.Urgent -> R.string.tasks_section_urgent
+            UrgencyLevel.Soon -> R.string.tasks_section_soon
+            UrgencyLevel.Calm -> R.string.tasks_section_calm
+        }
+        // Sin prioridad/No priority — a dedicated section-heading string, distinct from
+        // Priority.labelRes()'s "Ninguna"/"None" chip/description/marker label: a heading reads
+        // as a noun phrase (parallel to the urgency headers above), not as an adjective on a chip.
+        is TaskGroupKey.ByPriority -> if (key.priority == Priority.NONE) {
+            R.string.tasks_priority_section_none
+        } else {
+            key.priority.labelRes()
+        }
     }
     Text(
         text = stringResource(textRes),
@@ -631,23 +704,23 @@ private fun TaskRow(
                     .weight(1f)
                     .padding(start = 16.dp),
             ) {
-                // Feature 13b (US-2): a small priority dot leads the title for a non-NONE priority.
-                // It is suppressed on a completed row (isCompleted) so the muted/strikethrough
-                // done-state styling stays the row's only signal — "completed styling wins", the
-                // same reason the countdown/urgency color is dropped above.
+                // D8/US-6 (`priority-sorting`): the chromatic-only 8dp dot is REPLACED by the
+                // shared !/!!/!!! marker (same leading slot, same suppression rule) so priority is
+                // readable without perceiving color — a plain shape+color glyph instead of a
+                // color-only cue, matching the widget's own marker (ui/widget/PendingTasksWidget.kt).
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val priorityColor = task.priority.indicatorColor()
-                    if (!isCompleted && priorityColor != null) {
+                    val markerRes = task.priority.markerRes()
+                    if (!isCompleted && priorityColor != null && markerRes != null) {
                         val priorityDescription = stringResource(
                             R.string.tasks_priority_content_description,
                             stringResource(task.priority.labelRes()),
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(priorityColor)
-                                .semantics { contentDescription = priorityDescription },
+                        Text(
+                            text = stringResource(markerRes),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = priorityColor,
+                            modifier = Modifier.semantics { contentDescription = priorityDescription },
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                     }
@@ -880,7 +953,9 @@ private fun TasksScreenContentPreview() {
             onQueryChange = {},
             onSortFieldChange = {},
             onToggleSortDirection = {},
-            onToggleGrouping = {},
+            onGroupAxisChange = {},
+            onPriorityFilterToggle = {},
+            onClearFilters = {},
             onBack = null,
         )
     }
@@ -905,7 +980,9 @@ private fun TasksScreenEmptyPreview() {
             onQueryChange = {},
             onSortFieldChange = {},
             onToggleSortDirection = {},
-            onToggleGrouping = {},
+            onGroupAxisChange = {},
+            onPriorityFilterToggle = {},
+            onClearFilters = {},
             onBack = null,
         )
     }
@@ -930,7 +1007,9 @@ private fun TasksScreenNoResultsPreview() {
             onQueryChange = {},
             onSortFieldChange = {},
             onToggleSortDirection = {},
-            onToggleGrouping = {},
+            onGroupAxisChange = {},
+            onPriorityFilterToggle = {},
+            onClearFilters = {},
             onBack = null,
         )
     }

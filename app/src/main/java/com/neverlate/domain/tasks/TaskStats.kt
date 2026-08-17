@@ -1,5 +1,6 @@
 package com.neverlate.domain.tasks
 
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import java.time.DayOfWeek
 import java.time.Instant
@@ -29,6 +30,13 @@ data class WeeklyTaskStats(
     val onTimePercent: Int?,
     /** Still-pending tasks whose deadline falls within [DUE_SOON_MILLIS] of `now`. */
     val dueSoon: Int,
+    /**
+     * US-5 of `priority-sorting`: of [completedThisWeek], how many were [Priority.HIGH]. Derived
+     * from the same completed-this-week list above — no second pass, no second definition of
+     * "this week" — so it can never disagree with [completedThisWeek] about which tasks count.
+     * `0` is a legitimate value (unlike [onTimePercent]) and is shown as such.
+     */
+    val highPriorityCompletedThisWeek: Int,
 )
 
 /** The due-soon horizon (US-2's table): a pending task counts as "due soon" within this many
@@ -77,9 +85,12 @@ fun weeklyStatsFor(tasks: List<Task>, now: Long, zone: ZoneId): WeeklyTaskStats 
             task.deadline <= now + DUE_SOON_MILLIS
     }
 
+    val highPriorityCompletedThisWeek = completedThisWeek.count { it.priority == Priority.HIGH }
+
     return WeeklyTaskStats(
         completedThisWeek = completedThisWeek.size,
         onTimePercent = onTimePercent,
         dueSoon = dueSoon,
+        highPriorityCompletedThisWeek = highPriorityCompletedThisWeek,
     )
 }

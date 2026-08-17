@@ -421,6 +421,82 @@ than making every unrelated test carry WorkManager test-init boilerplate.
 No backend, contract, DB-version, or permission change; no new Gradle dependency; no new notification
 channel (D11) or string resource — reuses feature 09's `task_reminders` channel and `tasks_time_up`.
 
+## Feature `priority-sorting` — Priority sorts, filters, groups, and reaches every surface
+
+**Closes what 13b left decorative** (`docs/specs/2026-08-17-priority-sorting.md`): priority could be
+picked in the edit form and painted as a dot on the task card, and nothing else — it didn't sort,
+filter, or group the list, and neither the notification nor the stats screen knew it existed. Full
+decision set is D1–D8 in the spec; this entry records the three worth a second opinion before coding
+(D3, D4, D7) plus D1's ordering fix, matching this file's "record the *why*" convention.
+
+**D1 — `Priority` gains an explicit `rank`, and the "nothing relies on ordinal" KDoc stays true.**
+`Priority`'s own KDoc has always promised that comparisons never rely on `Enum.ordinal` — the
+`@TypeConverter` persists `name`, so reordering/inserting a constant can never corrupt a stored row.
+Sorting by priority would have made that promise false the moment it compared `ordinal` for
+convenience. The fix is a constructor property, `enum class Priority(val rank: Int) { NONE(0), LOW(1),
+MEDIUM(2), HIGH(3) }` — a plain Kotlin constructor parameter, invisible to both kotlinx.serialization
+(still encodes by `name`) and the Room converter (still stores `name`), so this is a no-op for
+persistence and the wire format: no contract change, no migration, no schema version bump.
+
+**D3 — the sort precedence stack is written down as four ordered steps, and priority is never an
+implicit secondary key.** Sorting by the selected field now always resolves through the same four
+steps: (1) completed-last (unchanged from 04c), (2) the selected field in the selected direction, (3)
+deadline ascending nulls-last, (4) title A→Z case-insensitive — the last two guarantee a **total
+order** so identical data never reshuffles between renders (`Modifier.animateItem()` depends on that
+stability). `Priority`'s own branch sorts by `rank` but **inverts** the numeric direction: ascending
+means "most important first" (`HIGH` → `NONE`), chosen for consistency of *meaning* — ascending already
+means "soonest deadline"/"A→Z" for the other two fields, i.e. "what to act on first is on top";
+`NONE`-first-when-ascending would be numerically tidy and behaviourally backwards. Deliberately **not**
+decided the other way: priority never boosts order when `Deadline`/`Title` is the selected field — a
+user who asks for chronological order gets chronological order, with no silent "…but important ones
+first" making the sort control lie about what it does.
+
+**D4 — `ShapedTaskList.Grouped` is generalized to a `List<TaskSection>` keyed by a sealed
+`TaskGroupKey`, not duplicated per axis.** Adding a second grouping axis (priority, alongside 03b's
+urgency) could have been a second `Grouped`-shaped variant (`GroupedByUrgency`/`GroupedByPriority`).
+That was rejected: the renderer's `when` over `ShapedTaskList` only ever asks "does this list have
+section headers?" — one question, two answers, unchanged by a third axis — so splitting the variant
+per axis would duplicate the entire grouped `LazyColumn` body (headers, `items(key = ...)`, row wiring,
+`animateItem()`) once per axis. Instead, `sealed interface TaskGroupKey { ByUrgency(level); ByPriority
+(priority) }` plus `data class TaskSection(val key: TaskGroupKey, val tasks: List<TaskUiModel>)` push
+the *only* thing that actually differs per axis — the header label — down into
+`SectionHeader(key: TaskGroupKey)`'s own exhaustive `when`, which still fails to compile for an
+unhandled axis. `List` over `Map`: display order (`URGENCY_DISPLAY_ORDER`/`PRIORITY_DISPLAY_ORDER`) is
+already a decision this file makes explicitly, so a `List` makes "these are in display order" a
+property of the type rather than of how a `Map` happened to be built. Stated tradeoff: the
+*screen-level* `when` no longer forces acknowledgement of a new axis, only the header-level one — judged
+acceptable because every axis in view differs only in its label, against the alternative of duplicating
+the list body wholesale. A completed task's *urgency* section stays forced to `Calm` (unchanged from
+04c — a done task has no meaningful countdown), but its *priority* section is its **real** priority
+(D6) — priority stays true after completion, so a finished HIGH task belongs in Alta, sunk below
+pending HIGH tasks by the completed-last sort key rather than needing a second "completed" bucket.
+
+**D7 — the notification gets a trailing priority marker, partially rebutting 05b's own D2.** 05b
+declined to render priority on the lock screen: `InboxStyle` lines are already truncated by the system,
+and a third token risks pushing *which task* and *how long is left* toward the ellipsis. That reasoning
+is correct about the mechanism and wrong about the conclusion once position is accounted for —
+truncation eats the **tail** of a line, so a marker placed *after* the remaining-time label cannot
+displace either fact; it is itself the first thing sacrificed on a line that doesn't fit. 05b's premise
+also changed: it argued priority "restates importance in a second, weaker channel" while the
+notification is already most-urgent-first — true while priority was decorative everywhere, false now
+that it sorts/filters/groups the app the user actually interacts with. Implementation is one new format
+string, `notification_row_format_priority = "%1$s — %2$s %3$s"`, used **only** for a non-`NONE`-priority
+row; a `NONE` row keeps the untouched `notification_row_format`, so every existing byte-identical-line
+test stays a valid regression guard. What 05b's D2 got right and this feature preserves: compact marker
+only (never the word "Alta"), and row ordering (`pendingRowsFor`, most-urgent-first) is untouched —
+priority informs a passive surface, it does not get to reorder one.
+
+**D8 — one marker mapping, app-wide.** `widget_priority_marker_low/medium/high` (05b, widget-only
+naming) is renamed to `priority_marker_low/medium/high` in both locales, and
+`Priority.markerRes(): Int?` (`ui/tasks/PriorityUi.kt`, `null` for `NONE`) becomes the single source
+three call sites resolve against — the task card (replacing, not supplementing, its chromatic-only dot;
+US-6), the widget (`ui/widget/PendingTasksWidget.kt`'s local `when` deleted in favor of the shared
+function), and the notification (D7 above) — the same "one shared non-`Color` decision, thin resolvers
+per world" shape D3 of `widget-hilt-color-token` already established for the color mapping.
+
+No backend, contract, DB-version, or permission change (priority already crosses the wire and persists
+since 13b/`MIGRATION_4_5`); no new Gradle dependency.
+
 ---
 
 ## Transversal — Permisos y manifest

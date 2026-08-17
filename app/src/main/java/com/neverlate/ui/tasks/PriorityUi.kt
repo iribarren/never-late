@@ -26,6 +26,23 @@ fun Priority.labelRes(): Int = when (this) {
 }
 
 /**
+ * D8 (`priority-sorting`): the compact, color-independent `!`/`!!`/`!!!` marker — one non-composable
+ * mapping shared by the task card, the widget (`ui/widget/PendingTasksWidget.kt`), and the lock
+ * screen notification (`ui/notification/TasksNotificationHelper.kt`), so the three surfaces cannot
+ * drift the way a hand-written `when` per surface eventually would. `null` for [Priority.NONE] —
+ * same "no visual noise for the default" rule [indicatorColor] already follows. Deliberately
+ * **not** `@Composable`: [ui.notification.TasksNotificationHelper] needs the string outside any
+ * Compose composition, via a plain `context.getString(...)` call.
+ */
+@StringRes
+fun Priority.markerRes(): Int? = when (this) {
+    Priority.NONE -> null
+    Priority.LOW -> R.string.priority_marker_low
+    Priority.MEDIUM -> R.string.priority_marker_medium
+    Priority.HIGH -> R.string.priority_marker_high
+}
+
+/**
  * Resolves the shared [priorityColorRole] mapping (`domain/tasks/ColorRole.kt`, feature
  * "widget-hilt-color-token") to a themed [Color], picked from **existing** theme roles only (no
  * one-off hex) so it re-themes with the rest of the app and works in light/dark. The scale rises in
