@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Feature 05b (D4): the header band's shape — top corners rounded to match widget_background.xml,
+    bottom corners square so the band sits flush against the rows below it. Tinted at runtime with
+    GlanceTheme.colors.primaryContainer (see PendingTasksWidget.kt); the white <solid> below is only
+    a placeholder for that tint, same reasoning as widget_background.xml.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners
+        android:topLeftRadius="@dimen/widget_corner_radius"
+        android:topRightRadius="@dimen/widget_corner_radius"
+        android:bottomLeftRadius="0dp"
+        android:bottomRightRadius="0dp" />
+    <solid android:color="@android:color/white" />
+</shape>

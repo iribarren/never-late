@@ -32,7 +32,11 @@ fun themeModeToDark(mode: ThemeMode, systemInDark: Boolean): Boolean = when (mod
 // by the Material 3 spec, not chosen per app: every M3 app maps its tonal palettes onto roles the
 // same way, which is exactly what keeps light/dark contrast (and accessibility) consistent across
 // the whole ecosystem. Only the *palettes themselves* (Color.kt) are brand-specific.
-private val DarkColorScheme = darkColorScheme(
+// internal (not private) since feature 05b: the home-screen widget is a second consumer, wrapping
+// its Glance content in GlanceTheme(colors = ColorProviders(light = LightColorScheme, dark =
+// DarkColorScheme)) so it inherits this exact role->color mapping instead of re-deciding it — see
+// docs/specs/2026-08-17-widget-visual-refresh.md (D1).
+internal val DarkColorScheme = darkColorScheme(
     primary = primaryDark,
     onPrimary = onPrimaryDark,
     primaryContainer = primaryContainerDark,
@@ -71,7 +75,7 @@ private val DarkColorScheme = darkColorScheme(
     surfaceDim = surfaceDimDark,
 )
 
-private val LightColorScheme = lightColorScheme(
+internal val LightColorScheme = lightColorScheme(
     primary = primaryLight,
     onPrimary = onPrimaryLight,
     primaryContainer = primaryContainerLight,

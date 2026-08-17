@@ -1,5 +1,6 @@
 package com.neverlate.ui.widget
 
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -83,5 +84,16 @@ class PendingTasksWidgetStateTest {
         val model = toWidgetModel(tasks = listOf(task), now = 0L) as PendingTasksWidgetModel.Content
 
         assertEquals(3_600_000L, model.rows.single().remainingMillis)
+    }
+
+    @Test
+    fun `a task's priority is carried through to the widget row`() {
+        // Feature 05b: pendingRowsFor (and therefore toWidgetModel) now fills PendingTaskRow's
+        // priority field from the task instead of leaving it at its NONE default.
+        val task = Task(title = "Importante", estimatedDurationMillis = 5 * 60_000L, priority = Priority.HIGH)
+
+        val model = toWidgetModel(tasks = listOf(task), now = 0L) as PendingTasksWidgetModel.Content
+
+        assertEquals(Priority.HIGH, model.rows.single().priority)
     }
 }

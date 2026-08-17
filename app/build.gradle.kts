@@ -122,6 +122,9 @@ dependencies {
     // Glance: declarative API (Compose-like, but a restricted subset) for building App Widgets —
     // the home-screen pending-tasks widget (feature 05) is this project's first use of it.
     implementation(libs.androidx.glance.appwidget)
+    // Feature 05b: lets the widget wrap its content in GlanceTheme(colors = ColorProviders(light =
+    // LightColorScheme, dark = DarkColorScheme)) — the app's own Theme.kt schemes, not a duplicate.
+    implementation(libs.androidx.glance.material3)
     // WorkManager: schedules the widget's periodic background refresh (feature 05), since a
     // widget has no `delay`-based ticker of its own — see WidgetRefreshWorker.
     implementation(libs.androidx.work.runtime.ktx)

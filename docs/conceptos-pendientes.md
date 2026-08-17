@@ -43,6 +43,7 @@ posición final en la secuencia.
 | **03b** ★ | Fundamentos de Kotlin (null-safety, `when`, colecciones, alcance, extensiones) | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos/tareas en memoria | ⬜ pendiente |
 | **04b** ★ | Corrutinas y `Flow` a fondo (`debounce`, `combine`, `stateIn`) | 04 (corrutinas, `Flow`, Room) | Buscador de tareas con `debounce` + `combine` | ✅ hecho en **feature 04b** |
 | **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ✅ hecho en **feature 04c** |
+| **05b** ★ | Temas fuera de Compose: por qué un `CompositionLocal` no cruza a Glance, `GlanceTheme` + `glance-material3`, `ColorProvider(day, night)`, límites de API dentro de un widget y previews | 05 (widget/Glance), 16/17 (paleta y urgencia), 13b (prioridad), 20b (texto compartido) | Rediseño visual del widget de tareas pendientes | ✅ hecho en **feature 05b** |
 | — | Side-effects en Compose (`LaunchedEffect`, `derivedStateOf`) | 02–04 | Snackbar "tarea creada" | ✅ hecho en **feature 17** |
 | — | Animaciones en Compose (`animateItem`, `animate*AsState`) | 02–04 | Animar aparición/tachado/desaparición de tareas | ✅ hecho en **features 17 y 19** |
 | **07b** ★ | Arquitectura nombrada (UDF/MVVM/capas) | 02–07 | Consolidar + documentar el patrón ya usado (poca UI nueva) | ✅ hecho en **feature 07b** |
@@ -57,8 +58,9 @@ posición final en la secuencia.
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
 **Pendientes: 3** (03b, 10b, 21). **Ya hechas por sus propias features:** 04b
-(corrutinas/`Flow`), 04c (testing), 07b (arquitectura nombrada), 13b (migraciones de Room), 13c
-(paginación), 13d (Hilt), 18b (layouts adaptables) y 20b (tiempo restante localizable). **Ya cubiertas
+(corrutinas/`Flow`), 04c (testing), 05b (temas fuera de Compose / Glance), 07b (arquitectura
+nombrada), 13b (migraciones de Room), 13c (paginación), 13d (Hilt), 18b (layouts adaptables) y 20b
+(tiempo restante localizable). **Ya cubiertas
 por 14–20: 4** (side-effects, animaciones, theming dinámico y el repaso de accesibilidad; ver detalle
 abajo). El slot **21** es el último de este roadmap; cualquier feature futura no listada aquí se
 numeraría a partir de 22.

@@ -3,10 +3,15 @@
     App Widget metadata for PendingTasksWidget (feature 05).
 
     updatePeriodMillis="0" deliberately disables the system's own periodic-update mechanism: this
-    project drives refreshes explicitly instead, via WidgetRefreshingTaskRepository (on every
-    task write) and WidgetRefreshWorker (a WorkManager PeriodicWorkRequest every ~15 min) — see
-    those classes' KDoc. Relying on updatePeriodMillis here would mean two competing refresh
+    project drives refreshes explicitly instead, via TaskSurfacesRefreshingRepository (on every
+    task write) and TaskSurfacesRefreshWorker (a WorkManager PeriodicWorkRequest every ~15 min) —
+    see those classes' KDoc. Relying on updatePeriodMillis here would mean two competing refresh
     schedules with no clear owner.
+
+    Feature 05b (D5): previewLayout (res/layout/widget_preview.xml, honored on API 31+) and
+    previewImage (res/drawable/widget_preview_image.xml, used on API 24-30 and by tooling/store
+    surfaces) both show a real preview of the widget's composition in the picker, instead of the
+    generic app-icon placeholder.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp"
@@ -16,4 +21,6 @@
     android:updatePeriodMillis="0"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:description="@string/widget_pending_tasks_description" />
+    android:description="@string/widget_pending_tasks_description"
+    android:previewLayout="@layout/widget_preview"
+    android:previewImage="@drawable/widget_preview_image" />

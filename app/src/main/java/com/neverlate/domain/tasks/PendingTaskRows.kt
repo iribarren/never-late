@@ -1,5 +1,6 @@
 package com.neverlate.domain.tasks
 
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.computeRemainingMillis
 
@@ -24,8 +25,26 @@ private const val MAX_PENDING_ROWS = 5
  * [com.neverlate.ui.components.formatRemainingLabel] instead. There is no separate `isTimedOut`
  * flag either — it is trivially `remainingMillis == 0L`, so callers derive it where needed rather
  * than this type duplicating that state.
+ *
+ * [priority] (feature 05b) defaults to [Priority.NONE] so every existing caller/test keeps
+ * compiling unmodified. The lock-screen notification simply never reads it — a Kotlin `data class`
+ * read by name means a field one consumer ignores costs that consumer nothing; see the spec's D2
+ * for why the notification stays priority-free for now.
  */
-data class PendingTaskRow(val title: String, val remainingMillis: Long)
+data class PendingTaskRow(
+    val title: String,
+    val remainingMillis: Long,
+    val priority: Priority = Priority.NONE,
+)
+
+/**
+ * A row's [UrgencyLevel], derived the same way the task card derives it
+ * (`remainingMillis`/`isTimedOut` -> [urgencyLevelFor]) — kept here, next to [PendingTaskRow]
+ * itself, so both the widget's urgency color and any future consumer share one JVM-testable
+ * definition of "timed out" for a row: exactly `remainingMillis == 0L`, the invariant feature 20b
+ * established.
+ */
+fun PendingTaskRow.urgencyLevel(): UrgencyLevel = urgencyLevelFor(remainingMillis, remainingMillis == 0L)
 
 /**
  * Single source of truth for "what counts as pending, in what order, capped to how many" —
@@ -47,5 +66,5 @@ fun pendingRowsFor(tasks: List<Task>, now: Long): List<PendingTaskRow> =
         .sortedBy { (_, remainingMillis) -> remainingMillis }
         .take(MAX_PENDING_ROWS)
         .map { (task, remainingMillis) ->
-            PendingTaskRow(title = task.title, remainingMillis = remainingMillis)
+            PendingTaskRow(title = task.title, remainingMillis = remainingMillis, priority = task.priority)
         }
