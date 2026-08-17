@@ -39,10 +39,27 @@ Your primary task is to write high-quality tests for recently written or modifie
    - Avoid testing implementation details — test behavior and outcomes
    - Use the project's existing mock/stub/spy patterns
 
-5. **Run the tests**: After writing tests, run them to verify they pass. If any fail:
-   - Diagnose whether the test itself is wrong or if there's a bug in the implementation
-   - Fix test issues and re-run
-   - Report any discovered bugs in the implementation clearly
+5. **Run the tests**: After writing tests, run them to verify they pass. Scope and safety matter as
+   much as correctness here:
+   - **Run only the test class(es) for the code you just wrote or changed**, filtered by name (e.g.
+     `./gradlew :app:testDebugUnitTest --tests "com.neverlate.ui.tasks.CountdownTickerTest"` in this
+     project, or the equivalent `-t`/`-k`/`--filter`/`-run` flag for the framework in use). **Never
+     invoke the full, unfiltered suite** — that is the orchestrator's job, run once as the final gate
+     before commit, not something each test-writing pass repeats.
+   - **Run it in the foreground** (a normal blocking command), not backgrounded. A scoped run should
+     finish in seconds; there is no reason to background it and then wait idle.
+   - **Never run a build/test command while the orchestrator (or anyone else) might be doing the same
+     on the same working tree.** Two processes writing to the same build output / test-results
+     directory at once causes spurious failures that look real but aren't (e.g. "could not write XML
+     test results") and can race with `git` operations happening concurrently. If you are unsure
+     whether you have exclusive use of the tree, ask rather than run.
+   - If a command genuinely must run in the background, launch it once and let its normal completion
+     notification end the wait — do not poll it manually and do not repeat "I'll wait" turn after turn
+     as a substitute for actually checking the result.
+   - If any test fails:
+     - Diagnose whether the test itself is wrong or if there's a bug in the implementation
+     - Fix test issues and re-run (still scoped, still foreground)
+     - Report any discovered bugs in the implementation clearly
 
 6. **Report results**: Summarize:
    - What tests were written and why
