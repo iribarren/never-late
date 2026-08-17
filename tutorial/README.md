@@ -84,6 +84,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 19 | [barra-progreso-tareas](19-barra-progreso-tareas.md) | `LinearProgressIndicator` determinado, `animateFloatAsState` | ✅ |
 | 20 | [cromo-marca](20-cromo-marca.md) | Roles de color aplicados a componentes: top bars, chips, FAB | ✅ |
 | 20b | [tiempo-restante-localizable](20b-tiempo-restante-localizable.md) | Dónde puede nacer el texto de cara al usuario: sacar el formateo del dominio a la UI, `NumberFormat` + recursos con placeholder, `<plurals>` vs abreviatura, refactor de un tipo compartido | ✅ |
+| 20c | [reducir-movimiento](20c-reducir-movimiento.md) | `MotionDurationScale` como `CoroutineContext.Element`, animar vs. refrescar, por qué `LocalAccessibilityManager` no sirve, derogar una instrucción previa con conocimiento de causa | ✅ |
 
 ## Bloque 5 — Producción
 

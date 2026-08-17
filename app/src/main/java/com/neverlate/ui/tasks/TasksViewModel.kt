@@ -2,6 +2,7 @@ package com.neverlate.ui.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
@@ -57,9 +58,10 @@ sealed interface TasksUiState {
  *
  * Unlike [com.neverlate.ui.articles.ArticlesViewModel] (a one-shot load), this ViewModel
  * continuously observes [TaskRepository.observeTasks] and, while at least one task is running,
- * also re-derives every task's remaining time once a second via [countdownTicker] — this is the
- * coroutine/Flow-based timer the feature spec calls for, kept entirely out of the UI layer (the
- * screen only ever reads [uiState]).
+ * also re-derives every task's remaining time via [countdownTicker] — this is the coroutine/Flow-
+ * based timer the feature spec calls for, kept entirely out of the UI layer (the screen only ever
+ * reads [uiState]). The cadence itself is once a second under normal motion, coarser under reduced
+ * motion (`reduce-motion` spec, D4) — see [tickIntervalFor] and [uiTasksFlow].
  *
  * [flatMapLatest] switches the upstream Flow to (or away from) the ticker every time the task
  * list itself changes: as soon as no task is running, it swaps to a plain [flowOf] that emits
@@ -80,7 +82,10 @@ sealed interface TasksUiState {
  */
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class TasksViewModel @Inject constructor(private val repository: TaskRepository) : ViewModel() {
+class TasksViewModel @Inject constructor(
+    private val repository: TaskRepository,
+    private val motionSettings: MotionSettings,
+) : ViewModel() {
 
     /**
      * Feature 04b: the search field's raw text, as its **own** [MutableStateFlow] — deliberately
@@ -113,16 +118,31 @@ class TasksViewModel @Inject constructor(private val repository: TaskRepository)
 
     /**
      * The Room-backed task stream, unchanged by feature 04b: [TaskRepository.observeTasks],
-     * switched (via [flatMapLatest]) to the once-a-second [countdownTicker] while any task is
-     * running, then mapped to [TaskUiModel]s. Feature 04b adds operators **on top of** this Flow
-     * (see [uiState] below) rather than opening a second stream toward Room — there is still only
-     * ever one read of the task list.
+     * switched (via [flatMapLatest]) to a [countdownTicker] while any task is running, then mapped
+     * to [TaskUiModel]s. Feature 04b adds operators **on top of** this Flow (see [uiState] below)
+     * rather than opening a second stream toward Room — there is still only ever one read of the
+     * task list.
+     *
+     * `reduce-motion` spec (D4): [combine]d with [MotionSettings.reduceMotion] so the ticker's
+     * interval is recomputed via [tickIntervalFor] whenever *either* the task list or the
+     * reduce-motion flag changes — a system-setting toggle mid-session takes effect on the very
+     * next emission, no app restart needed. The existing "nothing running → no ticker at all"
+     * optimisation is preserved exactly, in both motion modes: reduced motion never *starts* a
+     * ticker that would otherwise stay off, it only changes the interval of one that runs anyway.
      */
-    private val uiTasksFlow: Flow<List<TaskUiModel>> = repository.observeTasks()
-        .flatMapLatest { tasks ->
-            if (tasks.any { it.isRunning }) countdownTicker().map { tasks } else flowOf(tasks)
+    private val uiTasksFlow: Flow<List<TaskUiModel>> =
+        combine(repository.observeTasks(), motionSettings.reduceMotion) { tasks, reduceMotion ->
+            tasks to reduceMotion
         }
-        .map { tasks -> tasks.toUiModels() }
+            .flatMapLatest { (tasks, reduceMotion) ->
+                if (tasks.any { it.isRunning }) {
+                    val interval = tickIntervalFor(reduceMotion, tasks, System.currentTimeMillis())
+                    countdownTicker(interval).map { tasks }
+                } else {
+                    flowOf(tasks)
+                }
+            }
+            .map { tasks -> tasks.toUiModels() }
 
     /**
      * `debounce` (a new `Flow` time operator, feature 04b's central concept): re-emits a value

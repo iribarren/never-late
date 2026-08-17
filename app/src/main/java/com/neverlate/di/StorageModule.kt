@@ -5,6 +5,8 @@ import com.neverlate.data.DataStoreUserPreferencesRepository
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.EncryptedTokenStorage
 import com.neverlate.data.auth.TokenStorage
+import com.neverlate.data.settings.MotionSettings
+import com.neverlate.data.settings.SystemMotionSettings
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -14,9 +16,10 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Feature 13d: provides the two on-device storage seams — [TokenStorage] (Keystore-backed, feature
- * 11/12) and [UserPreferencesRepository] (plain DataStore, feature 07). Both are the simplest DI
- * shape there is: **one interface, one real implementation, no decoration** — which is exactly what
+ * Feature 13d: provides the on-device storage seams — [TokenStorage] (Keystore-backed, feature
+ * 11/12), [UserPreferencesRepository] (plain DataStore, feature 07), and [MotionSettings]
+ * (`Settings.Global` read, `reduce-motion` spec). All three are the simplest DI shape there is:
+ * **one interface, one real implementation, no decoration** — which is exactly what
  * `@Binds` is for (contrast with [com.neverlate.di.RepositoryModule]'s `TaskRepository` chain, where
  * `@Provides` composes several layers instead).
  *
@@ -40,6 +43,11 @@ abstract class StorageModule {
     @Singleton
     abstract fun bindUserPreferencesRepository(impl: DataStoreUserPreferencesRepository): UserPreferencesRepository
 
+    /** `reduce-motion` spec (D3): the single, injectable "should motion be reduced?" seam. */
+    @Binds
+    @Singleton
+    abstract fun bindMotionSettings(impl: SystemMotionSettings): MotionSettings
+
     companion object {
 
         @Provides
@@ -52,5 +60,10 @@ abstract class StorageModule {
         fun provideDataStoreUserPreferencesRepository(
             @ApplicationContext context: Context,
         ): DataStoreUserPreferencesRepository = DataStoreUserPreferencesRepository(context)
+
+        @Provides
+        @Singleton
+        fun provideSystemMotionSettings(@ApplicationContext context: Context): SystemMotionSettings =
+            SystemMotionSettings(context)
     }
 }

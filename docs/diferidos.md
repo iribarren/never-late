@@ -28,7 +28,7 @@ Cada fila tiene su prompt listo para pegar en una sesión nueva con `/feature` (
 | 3 | La prioridad se pinta pero no ordena, no filtra y no llega a notificación ni estadísticas | [`prioridad-operativa.md`](prompts/prioridad-operativa.md) | Producto | M |
 | 4 | Los títulos de tarea se ven en claro en la pantalla de bloqueo y la notificación no se puede apagar | [`notificacion-privacidad-y-apagado.md`](prompts/notificacion-privacidad-y-apagado.md) | Producto | M |
 | 5 | Las tareas completadas ocupan filas del widget y la notificación — y se cuelan **las primeras, en rojo** | [`tareas-completadas-widget-notificacion.md`](prompts/tareas-completadas-widget-notificacion.md) | **Bugfix** | S |
-| 6 | El ajuste de sistema "reducir movimiento" no llega a la cadencia de 1 s del contador | [`reducir-movimiento.md`](prompts/reducir-movimiento.md) | Papercut | S |
+| ~~6~~ | ~~El ajuste de sistema "reducir movimiento" no llega a la cadencia de 1 s del contador~~ **Hecho** (`docs/specs/2026-08-17-reduce-motion.md`) | [`reducir-movimiento.md`](prompts/reducir-movimiento.md) | Papercut | S |
 | 7 | Se pide el nombre en el primer arranque y **nadie lo lee nunca**, ni se puede cambiar | [`perfil-editable.md`](prompts/perfil-editable.md) | Papercut | S |
 | 8 | El orden, el agrupado y la búsqueda se pierden al cerrar la app (y al morir el proceso) | [`preferencias-lista-persistentes.md`](prompts/preferencias-lista-persistentes.md) | Papercut | S |
 | ~~9~~ | ~~El widget monta su repositorio a mano y hay dos mapeos de color gemelos que pueden desincronizarse~~ **Hecho** (`docs/specs/2026-08-17-widget-hilt-color-token.md`) | [`widget-hilt-y-token-color.md`](prompts/widget-hilt-y-token-color.md) | Arquitectura | M |
@@ -67,6 +67,23 @@ Del inventario completo, esto se consideró y **no** se convirtió en prompt:
   pedir** (tareas recurrentes, colaboración, sincronización en tiempo real, favoritos de artículos) y
   **límites aceptados a conciencia** (sin registro sin conexión, sin resolución manual de conflictos,
   sin bloqueo real de otras apps). Todo eso sigue anotado donde estaba.
+- **Un interruptor "reducir movimiento" dentro de la app** — decidido en contra en el feature
+  `reduce-motion` (D1, `docs/specs/2026-08-17-reduce-motion.md`). El argumento que decide: el ajuste
+  de sistema es la respuesta *per-user, cross-app* ya bendecida por la plataforma, y un interruptor
+  local solo podría ser **aditivo** (reducir más, nunca menos) — en cuanto el sistema instala una
+  `MotionDurationScale` en cero, `animateItem`/`animateFloatAsState` ya han colapsado a un salto
+  instantáneo, y ningún interruptor de la app puede devolverles el movimiento sin envolver cada
+  animación en su propio scale override. Un control que queda inerte justo en el caso en que alguien
+  lo usaría es peor que no tener control. Si algún día gana el argumento de la *descubribilidad* (un
+  usuario que nunca encontró el ajuste de Android podría encontrar el nuestro), el criterio compartido
+  (`MotionSettings`) ya está detrás de una interfaz — añadir el override sería un cambio de una línea
+  (`systemReduced || prefs.reduceMotion`) más una fila de Settings, sin tocar ningún punto de consumo.
+- **Un tratamiento visual alternativo para movimiento reducido** (p. ej. un cross-fade donde antes
+  había un slide, o un resaltado "acaba de cambiar" sin movimiento, para que un corte instantáneo
+  siga siendo perceptible) — fuera de alcance del feature `reduce-motion`: implica **diseñar
+  movimiento nuevo**, justo lo que ese feature explícitamente no hace (su único objetivo era la
+  cadencia del contador, no mejorar ninguna animación). Si se quiere alguna vez, empieza como su
+  propia spec.
 
 ---
 

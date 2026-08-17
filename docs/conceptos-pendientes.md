@@ -55,12 +55,13 @@ posición final en la secuencia.
 | — | Accesibilidad (repaso: `semantics`, `contentDescription`, ≥48dp, fuente dinámica) | 02–07 | Repaso de accesibilidad transversal | ✅ hecho en **feature 18** |
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ✅ hecho en **feature 18b** |
 | **20b** ★ | Dónde nace el texto de cara al usuario: formateo fuera del dominio, `NumberFormat` + recursos con placeholder, `<plurals>` vs abreviatura, refactor de tipo compartido | 08 (i18n), 04/05/06/19 (cuenta atrás compartida) | Tiempo restante compacto y localizable (`2h 38m` / `1d 12h 10m`) en tarjeta, widget y notificación | ✅ hecho en **feature 20b** |
+| — | `MotionDurationScale` como `CoroutineContext.Element`, animar vs. refrescar, por qué `LocalAccessibilityManager` no sirve, derogar una instrucción previa con conocimiento de causa | 17 (animaciones), 19 (barra de progreso), 20b (tick del `CountdownTicker`) | Respetar "reducir movimiento" del sistema (ajuste de Accesibilidad → *Quitar animaciones*) | ✅ hecho en **feature reduce-motion** |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
 **Pendientes: 2** (10b, 21). **Ya hechas por sus propias features:** 03b (fundamentos de Kotlin), 04b
 (corrutinas/`Flow`), 04c (testing), 05b (temas fuera de Compose / Glance), 07b (arquitectura
-nombrada), 13b (migraciones de Room), 13c (paginación), 13d (Hilt), 18b (layouts adaptables) y 20b
-(tiempo restante localizable). **Ya cubiertas
+nombrada), 13b (migraciones de Room), 13c (paginación), 13d (Hilt), 18b (layouts adaptables), 20b
+(tiempo restante localizable) y 20c (reducir movimiento). **Ya cubiertas
 por 14–20: 4** (side-effects, animaciones, theming dinámico y el repaso de accesibilidad; ver detalle
 abajo). El slot **21** es el último de este roadmap; cualquier feature futura no listada aquí se
 numeraría a partir de 22.

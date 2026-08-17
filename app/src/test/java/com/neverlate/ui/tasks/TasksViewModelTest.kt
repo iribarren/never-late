@@ -1,5 +1,6 @@
 package com.neverlate.ui.tasks
 
+import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
@@ -43,7 +44,21 @@ private class FakeTaskRepository(initialTasks: List<Task> = emptyList()) : TaskR
 
     private val tasksFlow = MutableStateFlow(initialTasks)
 
-    override fun observeTasks(): Flow<List<Task>> = tasksFlow
+    /**
+     * Counts calls to [observeTasks] (`reduce-motion` spec). [TasksViewModel.uiTasksFlow] builds
+     * its `combine(repository.observeTasks(), motionSettings.reduceMotion)` once, in a property
+     * initializer - so this call count is fixed the moment the ViewModel is constructed and stays
+     * flat no matter how many times [MotionSettings.reduceMotion] flips afterwards. That makes it
+     * a reliable, non-flaky way to prove the task subscription is never rebuilt on a reduce-motion
+     * toggle, without depending on wall-clock-derived state actually changing between ticks.
+     */
+    var observeTasksCallCount: Int = 0
+        private set
+
+    override fun observeTasks(): Flow<List<Task>> {
+        observeTasksCallCount++
+        return tasksFlow
+    }
 
     override fun observeTask(id: Long): Flow<Task?> = tasksFlow.map { tasks -> tasks.firstOrNull { it.id == id } }
 
@@ -92,6 +107,16 @@ private class FakeTaskRepository(initialTasks: List<Task> = emptyList()) : TaskR
     }
 }
 
+/**
+ * In-memory fake for [MotionSettings] (`reduce-motion` spec). Defaults to `false` (full motion) so
+ * every pre-existing test above is unaffected; [reduceMotionFlow] lets a test flip the value live
+ * to exercise [TasksViewModel.uiTasksFlow]'s `combine` with [MotionSettings.reduceMotion].
+ */
+private class FakeMotionSettings(initial: Boolean = false) : MotionSettings {
+    val reduceMotionFlow = MutableStateFlow(initial)
+    override val reduceMotion: Flow<Boolean> = reduceMotionFlow
+}
+
 private val teaTask = Task(id = 1, title = "Preparar té", estimatedDurationMillis = 5 * 60_000L)
 private val reportTask = Task(id = 2, title = "Enviar informe", estimatedDurationMillis = 10 * 60_000L)
 
@@ -134,7 +159,7 @@ class TasksViewModelTest {
 
     @Test
     fun `uiState stays at its Loading seed with no collector attached`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         // No collector on uiState yet: the combine/debounce chain behind stateIn is inert
         // (SharingStarted.WhileSubscribed never starts it without a subscriber), so advancing the
@@ -155,7 +180,7 @@ class TasksViewModelTest {
 
     @Test
     fun `repository with tasks produces Content state with computed remaining time`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask, reportTask)))
         collectUiState(viewModel)
 
         // debounce(300) delays even the *initial* "" query - the pipeline needs the debounce to
@@ -174,7 +199,7 @@ class TasksViewModelTest {
 
     @Test
     fun `empty repository produces Empty state`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(emptyList()))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(emptyList()))
         collectUiState(viewModel)
 
         advanceTimeBy(300)
@@ -186,7 +211,7 @@ class TasksViewModelTest {
     @Test
     fun `startTimer marks the task running and remaining stays close to its full duration`() = runTest(testDispatcher) {
         val repository = FakeTaskRepository(listOf(teaTask))
-        val viewModel = TasksViewModel(repository)
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = repository)
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -207,7 +232,7 @@ class TasksViewModelTest {
     @Test
     fun `pauseTimer stops the countdown and freezes remaining time`() = runTest(testDispatcher) {
         val repository = FakeTaskRepository(listOf(teaTask))
-        val viewModel = TasksViewModel(repository)
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = repository)
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -228,7 +253,7 @@ class TasksViewModelTest {
         // Already expired when observed: timerEndsAt is in the past, so the very first tick
         // computes a remaining time of zero (US-5's "no negative values" rule).
         val expiredTask = Task(id = 3, title = "Tarea vencida", timerEndsAt = 1L)
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(expiredTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(expiredTask)))
         collectUiState(viewModel)
 
         advanceTimeBy(300)
@@ -244,7 +269,7 @@ class TasksViewModelTest {
     @Test
     fun `deleteTask removes the task from the list`() = runTest(testDispatcher) {
         val repository = FakeTaskRepository(listOf(teaTask))
-        val viewModel = TasksViewModel(repository)
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = repository)
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -259,14 +284,14 @@ class TasksViewModelTest {
 
     @Test
     fun `criteria starts at its defaults - deadline ascending, ungrouped`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         assertEquals(TaskListCriteria(), viewModel.criteria.value)
     }
 
     @Test
     fun `onSortFieldChange updates criteria's sortField and keeps the current direction`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         viewModel.onSortFieldChange(TaskSortField.Title)
 
@@ -276,7 +301,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onToggleSortDirection flips ascending to descending and back`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         viewModel.onToggleSortDirection()
         assertEquals(SortDirection.Descending, viewModel.criteria.value.direction)
@@ -287,7 +312,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onGroupAxisChange to Urgency produces a Grouped shaped result`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -303,7 +328,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onGroupAxisChange back to None returns to an ungrouped Flat result`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -320,7 +345,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onGroupAxisChange to Priority produces a Grouped shaped result`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -336,7 +361,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onGroupAxisChange to Priority then Urgency deselects the previous axis, never both at once`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         viewModel.onGroupAxisChange(TaskGroupAxis.Priority)
         assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value.groupAxis)
@@ -352,7 +377,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onPriorityFilterToggle adds a priority to an empty filter set`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         viewModel.onPriorityFilterToggle(Priority.HIGH)
 
@@ -361,7 +386,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onPriorityFilterToggle twice for the same priority returns to no filter`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         viewModel.onPriorityFilterToggle(Priority.HIGH)
         viewModel.onPriorityFilterToggle(Priority.HIGH)
@@ -371,7 +396,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onPriorityFilterToggle supports multiple priorities active at once`() {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
 
         viewModel.onPriorityFilterToggle(Priority.HIGH)
         viewModel.onPriorityFilterToggle(Priority.MEDIUM)
@@ -381,7 +406,7 @@ class TasksViewModelTest {
 
     @Test
     fun `a priority filter that matches nothing produces NoResults`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask))) // teaTask defaults to Priority.NONE
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask))) // teaTask defaults to Priority.NONE
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
@@ -395,7 +420,7 @@ class TasksViewModelTest {
     @Test
     fun `onClearFilters clears both the text query and the priority filter, escaping NoResults`() =
         runTest(testDispatcher) {
-            val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+            val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
             collectUiState(viewModel)
             advanceTimeBy(300)
             runCurrent()
@@ -421,7 +446,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onQueryChange updates query immediately, independent of the debounce`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask, reportTask)))
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -434,7 +459,7 @@ class TasksViewModelTest {
 
     @Test
     fun `typing letter by letter only filters once after the pause, not on every keystroke`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask, reportTask)))
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -457,7 +482,7 @@ class TasksViewModelTest {
 
     @Test
     fun `onQueryChange that matches nothing produces NoResults, not Empty`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask, reportTask)))
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -472,7 +497,7 @@ class TasksViewModelTest {
 
     @Test
     fun `clearing the query after NoResults returns to Content once the debounce settles`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -490,7 +515,7 @@ class TasksViewModelTest {
 
     @Test
     fun `re-entering the same settled query does not add a second emission`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask, reportTask)))
         val emissions = mutableListOf<TasksUiState>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { emissions.add(it) }
@@ -517,7 +542,7 @@ class TasksViewModelTest {
 
     @Test
     fun `rapid A to AB to A settles on A's filtered result, not an intermediate query`() = runTest(testDispatcher) {
-        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask, reportTask)))
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = FakeTaskRepository(listOf(teaTask, reportTask)))
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -538,7 +563,7 @@ class TasksViewModelTest {
     @Test
     fun `combine re-emits when the task list changes, independent of the query`() = runTest(testDispatcher) {
         val repository = FakeTaskRepository(listOf(teaTask))
-        val viewModel = TasksViewModel(repository)
+        val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), repository = repository)
         collectUiState(viewModel)
 
         viewModel.onQueryChange("en") // matches "Enviar informe" but not "Preparar té"
@@ -554,5 +579,49 @@ class TasksViewModelTest {
 
         val tasks = viewModel.uiState.value.contentTasks()
         assertEquals(listOf(reportTask.title), tasks.map { it.task.title })
+    }
+
+    // `reduce-motion` spec (D4): MotionSettings wiring ------------------------------------------
+
+    @Test
+    fun `flipping reduceMotion mid-stream never re-subscribes to the task flow`() = runTest(testDispatcher) {
+        val repository = FakeTaskRepository(listOf(teaTask))
+        val motionSettings = FakeMotionSettings(initial = false)
+        val viewModel = TasksViewModel(motionSettings = motionSettings, repository = repository)
+
+        // uiTasksFlow builds combine(repository.observeTasks(), motionSettings.reduceMotion) once,
+        // in a property initializer - so the task flow is already subscribed at construction time,
+        // before uiState even has a collector.
+        assertEquals(1, repository.observeTasksCallCount)
+
+        collectUiState(viewModel)
+        advanceTimeBy(300)
+        runCurrent()
+        viewModel.startTimer(teaTask.id)
+        runCurrent()
+        assertTrue((viewModel.uiState.value as TasksUiState.Content).contentTasks().single().task.isRunning)
+
+        // Flip the system setting back and forth mid-stream, the way a real toggle in
+        // Ajustes -> Accesibilidad would. Only the *interval* fed into flatMapLatest's ticker
+        // should be re-derived (via tickIntervalFor) - the underlying observeTasks() subscription
+        // must stay the same one from construction.
+        motionSettings.reduceMotionFlow.value = true
+        runCurrent()
+        motionSettings.reduceMotionFlow.value = false
+        runCurrent()
+        motionSettings.reduceMotionFlow.value = true
+        runCurrent()
+
+        assertEquals(
+            "the task flow must be subscribed exactly once, regardless of how many times " +
+                "reduceMotion flips",
+            1,
+            repository.observeTasksCallCount,
+        )
+        val finalTask = (viewModel.uiState.value as TasksUiState.Content).contentTasks().single()
+        assertTrue(
+            "the running task's state must survive every reduceMotion flip unchanged",
+            finalTask.task.isRunning,
+        )
     }
 }
