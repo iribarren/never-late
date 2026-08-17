@@ -25,7 +25,10 @@ class PendingTasksWidgetStateTest {
 
         assertTrue(model is PendingTasksWidgetModel.Content)
         val rows = (model as PendingTasksWidgetModel.Content).rows
-        assertEquals(listOf(PendingTaskRow(title = "Leer", remainingMillis = 5 * 60_000L)), rows)
+        assertEquals(
+            listOf(PendingTaskRow(title = "Leer", remainingMillis = 5 * 60_000L, totalMillis = 5 * 60_000L)),
+            rows,
+        )
     }
 
     @Test
@@ -54,7 +57,7 @@ class PendingTasksWidgetStateTest {
         assertEquals(
             listOf(
                 PendingTaskRow(title = "Vencida", remainingMillis = 0L),
-                PendingTaskRow(title = "Activa", remainingMillis = 5 * 60_000L),
+                PendingTaskRow(title = "Activa", remainingMillis = 5 * 60_000L, totalMillis = 5 * 60_000L),
             ),
             model.rows,
         )
@@ -109,5 +112,31 @@ class PendingTasksWidgetStateTest {
         val model = toWidgetModel(tasks = listOf(task), now = 0L) as PendingTasksWidgetModel.Content
 
         assertEquals(Priority.HIGH, model.rows.single().priority)
+    }
+
+    // widget-adaptive-layout (D3/AC-8): rowsForBucket is the pure, render-only per-bucket trim,
+    // kept separate from pendingRowsFor's domain-level cap (MAX_PENDING_ROWS = 5).
+
+    private fun rowsOf(count: Int): List<PendingTaskRow> =
+        (1..count).map { n -> PendingTaskRow(title = "Tarea $n", remainingMillis = n * 60_000L) }
+
+    @Test
+    fun `the small bucket keeps at most two rows`() {
+        assertEquals(2, rowsForBucket(rowsOf(5), isLargeBucket = false).size)
+        assertEquals(1, rowsForBucket(rowsOf(1), isLargeBucket = false).size)
+        assertEquals(0, rowsForBucket(rowsOf(0), isLargeBucket = false).size)
+    }
+
+    @Test
+    fun `the small bucket keeps the first rows in the order it received them`() {
+        val trimmed = rowsForBucket(rowsOf(5), isLargeBucket = false)
+
+        assertEquals(listOf("Tarea 1", "Tarea 2"), trimmed.map { it.title })
+    }
+
+    @Test
+    fun `the large bucket keeps every row it received, up to the already-capped five`() {
+        assertEquals(5, rowsForBucket(rowsOf(5), isLargeBucket = true).size)
+        assertEquals(3, rowsForBucket(rowsOf(3), isLargeBucket = true).size)
     }
 }

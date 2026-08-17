@@ -45,6 +45,7 @@ el backlog con prerrequisitos y features propuestas vive en
 |----|---------|--------|--------|
 | 05 | [widget](05-widget.md) | Widget con Glance + WorkManager (trabajo en background) | ✅ |
 | 05b | [widget-tema-y-glance](05b-widget-tema-y-glance.md) | Por qué el tema de Compose no cruza a Glance: `GlanceTheme`, `ColorProvider(day, night)`, límites de API y previews | ✅ |
+| 05c | [widget-adaptativo](05c-widget-adaptativo.md) | `SizeMode.Responsive`/`LocalSize` frente a `BoxWithConstraints`, `actionRunCallback`/`ActionCallback`, diseñar alrededor de un límite de plataforma, reentrancia en una escritura | ✅ |
 | 06 | [lockscreen](06-lockscreen.md) | Notificaciones + servicio en primer plano | ✅ |
 | 07 | [ajustes](07-ajustes.md) | Pantalla de ajustes, tema claro/oscuro con DataStore | ✅ |
 | 07b | [arquitectura](07b-arquitectura.md) | Poner nombre al patrón: UDF / MVVM / capas (transversal) | ✅ |

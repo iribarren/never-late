@@ -156,6 +156,10 @@
     <string name="widget_pending_tasks_title">Pending tasks</string>
     <string name="widget_pending_tasks_empty">You have no pending tasks.</string>
     <string name="widget_pending_tasks_description">Shows your pending tasks and the time left on each.</string>
+    <!-- Large-bucket row (widget-adaptive-layout): the row is tappable to complete the task, so
+         its contentDescription names the action, not just the data (%1$s = title, remaining time
+         and priority, already joined). -->
+    <string name="widget_row_complete_content_description">Complete: %1$s</string>
     <!-- Feature 05b, renamed by priority-sorting (D8): priority marker glyphs, a repetition-count
          cue (not just color) leading a row's title. No longer widget-specific — the task card and
          the notification (feature priority-sorting) read the same three strings, via the single

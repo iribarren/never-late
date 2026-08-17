@@ -40,3 +40,20 @@ fun toWidgetModel(tasks: List<Task>, now: Long): PendingTasksWidgetModel {
     if (rows.isEmpty()) return PendingTasksWidgetModel.Empty
     return PendingTasksWidgetModel.Content(rows)
 }
+
+/**
+ * How many rows fit in a given `widget-adaptive-layout` size bucket — a "how many rows fit here"
+ * render decision, distinct from `pendingRowsFor`'s domain rule of what counts as pending in the
+ * first place (spec D3). Kept pure and Glance-free, next to [toWidgetModel], for the same reason
+ * that function is: unit-testable on the JVM with no widget host.
+ *
+ * The small bucket takes 2 rows — the header plus 2 compact rows is what fits inside the
+ * `SMALL_WIDGET` bucket's 110dp height ([com.neverlate.ui.widget.PendingTasksWidget]). The large
+ * bucket keeps every row [toWidgetModel] already produced (already capped to
+ * [com.neverlate.domain.tasks.MAX_PENDING_ROWS] — that cap is not repeated here, it stays the one
+ * domain-level ceiling).
+ */
+private const val SMALL_BUCKET_ROW_COUNT = 2
+
+fun rowsForBucket(rows: List<PendingTaskRow>, isLargeBucket: Boolean): List<PendingTaskRow> =
+    if (isLargeBucket) rows else rows.take(SMALL_BUCKET_ROW_COUNT)
