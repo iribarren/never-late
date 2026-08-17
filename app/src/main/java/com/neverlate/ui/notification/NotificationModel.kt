@@ -46,6 +46,8 @@ sealed interface TasksNotificationModel {
  * than each keeping their own copy of the sort/cap rule that could quietly drift apart.
  */
 fun toNotificationModel(tasks: List<Task>, now: Long): TasksNotificationModel {
-    if (tasks.isEmpty()) return TasksNotificationModel.Empty
-    return TasksNotificationModel.Content(rows = pendingRowsFor(tasks, now), totalPendingCount = tasks.size)
+    val rows = pendingRowsFor(tasks, now)
+    if (rows.isEmpty()) return TasksNotificationModel.Empty
+    val totalPendingCount = tasks.count { task -> task.completedAt == null }
+    return TasksNotificationModel.Content(rows = rows, totalPendingCount = totalPendingCount)
 }

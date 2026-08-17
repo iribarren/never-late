@@ -82,6 +82,36 @@ class NotificationModelTest {
     }
 
     @Test
+    fun `a task list containing only completed tasks yields Empty`() {
+        // Bugfix: completed-tasks-in-passive-surfaces. toNotificationModel only checks
+        // tasks.isEmpty() for the Empty decision, so a non-empty list of exclusively completed
+        // tasks currently falls through to Content(rows = pendingRowsFor(...)) — which, once
+        // pendingRowsFor is fixed to exclude completed tasks, would throw the
+        // `require(rows.isNotEmpty())` inside Content instead of yielding Empty as it should.
+        val tasks = listOf(1, 2, 3).map { minutes ->
+            Task(title = "Hecha $minutes", estimatedDurationMillis = minutes * 60_000L, completedAt = 99L)
+        }
+
+        val model = toNotificationModel(tasks = tasks, now = 0L)
+
+        assertEquals(TasksNotificationModel.Empty, model)
+    }
+
+    @Test
+    fun `totalPendingCount only counts pending tasks, not completed ones mixed into the input`() {
+        val pending = listOf(1, 2).map { minutes ->
+            Task(title = "Pendiente $minutes", estimatedDurationMillis = minutes * 60_000L)
+        }
+        val completed = listOf(3, 4, 5).map { minutes ->
+            Task(title = "Hecha $minutes", estimatedDurationMillis = minutes * 60_000L, completedAt = 7L)
+        }
+
+        val model = toNotificationModel(tasks = pending + completed, now = 0L) as TasksNotificationModel.Content
+
+        assertEquals(2, model.totalPendingCount)
+    }
+
+    @Test
     fun `notification and widget produce identical rows for the same snapshot`() {
         // Locks in the "the two surfaces cannot quietly diverge" guarantee: both go through the
         // shared pendingRowsFor, so identical input must yield identical rows at any instant.
