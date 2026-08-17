@@ -42,6 +42,33 @@ class PendingTaskRowsTest {
         assertEquals(Priority.NONE, rows.single().priority)
     }
 
+    // widget-adaptive-layout (D2/AC-7): pendingRowsFor now propagates id and totalMillis from the
+    // task, both needed only by the widget's large bucket (row completion action and progress
+    // bar respectively).
+
+    @Test
+    fun `pendingRowsFor propagates the task's id and estimatedDurationMillis as totalMillis`() {
+        val task = Task(id = 7L, title = "Con id", estimatedDurationMillis = 20 * 60_000L)
+
+        val row = pendingRowsFor(listOf(task), now = 0L).single()
+
+        assertEquals(7L, row.id)
+        assertEquals(20 * 60_000L, row.totalMillis)
+    }
+
+    @Test
+    fun `a task with no estimatedDurationMillis carries a null totalMillis on its row`() {
+        // A task with only a deadline (no estimated duration) has no well-defined "total window" —
+        // deadlineProgressFor already treats a null totalMillis as "no bar", so this row must
+        // propagate exactly that, not a fabricated value.
+        val task = Task(id = 3L, title = "Solo deadline", deadline = 60_000L)
+
+        val row = pendingRowsFor(listOf(task), now = 0L).single()
+
+        assertEquals(3L, row.id)
+        assertEquals(null, row.totalMillis)
+    }
+
     @Test
     fun `urgencyLevel is Overdue at exactly zero remaining millis`() {
         val row = PendingTaskRow(title = "Vencida", remainingMillis = 0L)

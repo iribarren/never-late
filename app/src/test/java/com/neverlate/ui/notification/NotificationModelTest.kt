@@ -31,7 +31,10 @@ class NotificationModelTest {
 
         assertTrue(model is TasksNotificationModel.Content)
         model as TasksNotificationModel.Content
-        assertEquals(listOf(PendingTaskRow(title = "Leer", remainingMillis = 5 * 60_000L)), model.rows)
+        assertEquals(
+            listOf(PendingTaskRow(title = "Leer", remainingMillis = 5 * 60_000L, totalMillis = 5 * 60_000L)),
+            model.rows,
+        )
         assertEquals(1, model.totalPendingCount)
         assertEquals("Leer", model.mostUrgent.title)
     }
@@ -60,7 +63,7 @@ class NotificationModelTest {
         assertEquals(
             listOf(
                 PendingTaskRow(title = "Vencida", remainingMillis = 0L),
-                PendingTaskRow(title = "Activa", remainingMillis = 5 * 60_000L),
+                PendingTaskRow(title = "Activa", remainingMillis = 5 * 60_000L, totalMillis = 5 * 60_000L),
             ),
             model.rows,
         )

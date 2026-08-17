@@ -30,11 +30,25 @@ private const val MAX_PENDING_ROWS = 5
  * compiling unmodified. The lock-screen notification simply never reads it — a Kotlin `data class`
  * read by name means a field one consumer ignores costs that consumer nothing; see the spec's D2
  * for why the notification stays priority-free for now.
+ *
+ * [id] and [totalMillis] (`widget-adaptive-layout`) exist because the home-screen widget's large
+ * bucket needs a task id to complete a row without opening the app, and a total duration window to
+ * compute [deadlineProgressFor]'s elapsed fraction — both genuinely task-level data, not
+ * widget-only decoration, so they stay on the one shared row type like [priority] before them. The
+ * lock-screen notification ignores both, same reasoning as [priority].
+ *
+ * **Tripwire (spec `widget-adaptive-layout`, D2):** this is now three fields added for the sole
+ * benefit of one consumer (the widget). That is the ceiling. The **next** field that only the
+ * widget needs must not land here — extract a `WidgetTaskRow` projection in
+ * `ui/widget/PendingTasksWidgetState.kt`, built from [PendingTaskRow], and leave this type as the
+ * minimum common shape the passive surfaces share.
  */
 data class PendingTaskRow(
     val title: String,
     val remainingMillis: Long,
     val priority: Priority = Priority.NONE,
+    val id: Long = 0L,
+    val totalMillis: Long? = null,
 )
 
 /**
@@ -73,5 +87,11 @@ fun pendingRowsFor(tasks: List<Task>, now: Long): List<PendingTaskRow> =
         .sortedBy { (_, remainingMillis) -> remainingMillis }
         .take(MAX_PENDING_ROWS)
         .map { (task, remainingMillis) ->
-            PendingTaskRow(title = task.title, remainingMillis = remainingMillis, priority = task.priority)
+            PendingTaskRow(
+                title = task.title,
+                remainingMillis = remainingMillis,
+                priority = task.priority,
+                id = task.id,
+                totalMillis = task.estimatedDurationMillis,
+            )
         }
