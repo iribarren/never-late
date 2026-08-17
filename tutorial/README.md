@@ -86,6 +86,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 20 | [cromo-marca](20-cromo-marca.md) | Roles de color aplicados a componentes: top bars, chips, FAB | ✅ |
 | 20b | [tiempo-restante-localizable](20b-tiempo-restante-localizable.md) | Dónde puede nacer el texto de cara al usuario: sacar el formateo del dominio a la UI, `NumberFormat` + recursos con placeholder, `<plurals>` vs abreviatura, refactor de un tipo compartido | ✅ |
 | 20c | [reducir-movimiento](20c-reducir-movimiento.md) | `MotionDurationScale` como `CoroutineContext.Element`, animar vs. refrescar, por qué `LocalAccessibilityManager` no sirve, derogar una instrucción previa con conocimiento de causa | ✅ |
+| 20d | [modo-foco](20d-modo-foco.md) | `BackHandler` y su alcance honesto, gestos personalizados con `CustomAccessibilityAction`, las tres capas de estado del ciclo de vida (y cuál se deja sin usar), diseñar fricción sin diseñar una trampa | ✅ |
 
 ## Bloque 5 — Producción
 

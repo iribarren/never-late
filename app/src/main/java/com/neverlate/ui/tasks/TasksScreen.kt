@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Assignment
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
@@ -64,6 +67,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -76,7 +80,6 @@ import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
-import com.neverlate.domain.tasks.ColorRole
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
@@ -85,15 +88,14 @@ import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.domain.tasks.TaskSortField
 import com.neverlate.domain.tasks.UrgencyLevel
 import com.neverlate.domain.tasks.deadlineProgressFor
-import com.neverlate.domain.tasks.urgencyColorRole
 import com.neverlate.domain.tasks.urgencyLevelFor
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
 import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.components.formatRemainingLabel
 import com.neverlate.ui.notification.RequestNotificationPermissionEffect
-import com.neverlate.ui.theme.NeverLateExtras
 import com.neverlate.ui.theme.NeverLateTheme
+import com.neverlate.ui.theme.colorForUrgency
 import java.text.NumberFormat
 
 /**
@@ -106,6 +108,26 @@ import java.text.NumberFormat
  * ViewModel that only [com.neverlate.ui.tasks.TaskEditScreen] ever sees.
  */
 const val TASK_CREATED_RESULT_KEY = "taskCreated"
+
+/**
+ * Modo Foco (`docs/specs/2026-08-18-focus-mode.md`, D3): the same [SavedStateHandle] result idiom
+ * as [TASK_CREATED_RESULT_KEY] above, reused rather than duplicated — `AppNavHost`'s
+ * `composable(Routes.FOCUS)` writes both keys onto the Tasks back stack entry's handle right before
+ * returning here, so the outcome (completed/abandoned) and the completed count survive the
+ * navigation pop. Session outcome is deliberately **not** persisted anywhere else (D3) — this
+ * one-shot pair is the whole mechanism.
+ */
+const val FOCUS_EXIT_OUTCOME_KEY = "focusExitOutcome"
+
+/** Paired with [FOCUS_EXIT_OUTCOME_KEY]: how many roster tasks were done when the session ended —
+ *  only meaningful when the outcome is [FOCUS_EXIT_OUTCOME_COMPLETED] (the plurals snackbar). */
+const val FOCUS_EXIT_COUNT_KEY = "focusExitCompletedCount"
+
+/** [FOCUS_EXIT_OUTCOME_KEY] value for the dignified ritual exit (D3). */
+const val FOCUS_EXIT_OUTCOME_COMPLETED = "completed"
+
+/** [FOCUS_EXIT_OUTCOME_KEY] value for the unconditional "Abandonar sesión" exit (D3). */
+const val FOCUS_EXIT_OUTCOME_ABANDONED = "abandoned"
 
 /**
  * Stateful wrapper: obtains [TasksViewModel] via `hiltViewModel()` (feature 13d) and forwards its
@@ -128,6 +150,10 @@ fun TasksRoute(
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
     onStatsClick: () -> Unit = {},
+    // Modo Foco (D4): confirming the entry dialog's 4-digit code calls this with that code so the
+    // caller (AppNavHost) can freeze the roster and persist the session before navigating — see
+    // AppNavHost's Routes.TASKS composable.
+    onFocusClick: (String) -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: TasksViewModel = hiltViewModel(),
@@ -152,6 +178,8 @@ fun TasksRoute(
     // belongs).
     val snackbarHostState = remember { SnackbarHostState() }
     val taskCreatedMessage = stringResource(R.string.tasks_task_created_snackbar)
+    val focusAbandonedMessage = stringResource(R.string.focus_snackbar_abandoned)
+    val context = LocalContext.current
 
     if (taskCreatedHandle != null) {
         LaunchedEffect(taskCreatedHandle) {
@@ -161,6 +189,23 @@ fun TasksRoute(
                     // later recomposition (e.g. a rotation) does not replay this snackbar.
                     taskCreatedHandle[TASK_CREATED_RESULT_KEY] = false
                     snackbarHostState.showSnackbar(taskCreatedMessage)
+                }
+            }
+        }
+
+        // Modo Foco (D3): same one-shot idiom as TASK_CREATED_RESULT_KEY above, for the exit
+        // outcome AppNavHost stashes here right before popping Routes.FOCUS off the back stack.
+        LaunchedEffect(taskCreatedHandle) {
+            taskCreatedHandle.getStateFlow(FOCUS_EXIT_OUTCOME_KEY, "").collect { outcome ->
+                if (outcome.isNotEmpty()) {
+                    taskCreatedHandle[FOCUS_EXIT_OUTCOME_KEY] = ""
+                    val message = if (outcome == FOCUS_EXIT_OUTCOME_COMPLETED) {
+                        val count = taskCreatedHandle.get<Int>(FOCUS_EXIT_COUNT_KEY) ?: 0
+                        context.resources.getQuantityString(R.plurals.focus_snackbar_completed, count, count)
+                    } else {
+                        focusAbandonedMessage
+                    }
+                    snackbarHostState.showSnackbar(message)
                 }
             }
         }
@@ -187,6 +232,7 @@ fun TasksRoute(
         onPriorityFilterToggle = viewModel::onPriorityFilterToggle,
         onClearFilters = viewModel::onClearFilters,
         onStatsClick = onStatsClick,
+        onFocusClick = onFocusClick,
         onBack = onBack,
         modifier = modifier,
     )
@@ -227,10 +273,16 @@ fun TasksScreen(
     onPriorityFilterToggle: (Priority) -> Unit,
     onClearFilters: () -> Unit,
     onStatsClick: () -> Unit = {},
+    onFocusClick: (String) -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    // Modo Foco (D1): deliberately shown regardless of whether any task is currently pending — an
+    // empty roster is a legal session (see the feature spec's "rejected alternative": disabling
+    // this button would need a third subscription to the task stream for no real benefit).
+    var showFocusEntryDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -249,6 +301,15 @@ fun TasksScreen(
                     }
                 },
                 actions = {
+                    // Modo Foco (D4): opens the entry dialog (4-digit code), a secondary
+                    // destination — see AppNavHost's Routes.FOCUS, deliberately not a fourth
+                    // bottom-nav tab, same reasoning as Stats below.
+                    IconButton(onClick = { showFocusEntryDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.CenterFocusStrong,
+                            contentDescription = stringResource(R.string.focus_entry_content_description),
+                        )
+                    }
                     // Feature 04c (US-3): opens the Stats screen, a secondary destination — see
                     // AppNavHost's Routes.STATS, deliberately not a fourth bottom-nav tab.
                     IconButton(onClick = onStatsClick) {
@@ -353,7 +414,64 @@ fun TasksScreen(
             }
         }
     }
+
+    if (showFocusEntryDialog) {
+        FocusEntryDialog(
+            onConfirm = { code ->
+                showFocusEntryDialog = false
+                onFocusClick(code)
+            },
+            onDismiss = { showFocusEntryDialog = false },
+        )
+    }
 }
+
+/**
+ * Modo Foco entry dialog (US-1/US-6, AC-18): asks for the 4-digit exit code the person is choosing
+ * for themselves — "Empezar" stays disabled until [code] is exactly 4 digits (AC-18), and only
+ * digits are ever accepted into the field (non-digit input is filtered out on every keystroke,
+ * never merely validated after the fact).
+ *
+ * D8/US-6: the explanatory copy (`focus_entry_dialog_message`) deliberately describes the mode
+ * without lockdown language — it must never claim to block the device or other apps, since
+ * `BackHandler` only ever intercepts this app's own back gesture (see the feature spec's D8).
+ */
+@Composable
+private fun FocusEntryDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var code by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.focus_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.focus_entry_dialog_message))
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { input -> code = input.filter { it.isDigit() }.take(FOCUS_EXIT_CODE_LENGTH) },
+                    label = { Text(stringResource(R.string.focus_entry_dialog_code_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(code) },
+                enabled = code.length == FOCUS_EXIT_CODE_LENGTH,
+            ) { Text(stringResource(R.string.focus_entry_dialog_start_button)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.focus_entry_dialog_cancel_button)) }
+        },
+    )
+}
+
+/** Modo Foco (AC-18): the exit code is always exactly 4 digits, both at entry and in the exit ritual's
+ *  own field — one shared constant so the two call sites can never quietly drift apart. */
+const val FOCUS_EXIT_CODE_LENGTH = 4
 
 /**
  * The "subtle hint" half of OQ-1's minimal sync UI: a single caption line, shown only for the two
@@ -880,25 +998,6 @@ private fun TaskRow(
             onDismiss = { showDeleteConfirm = false },
         )
     }
-}
-
-/**
- * Resolves the shared [urgencyColorRole] mapping (`domain/tasks/ColorRole.kt`, feature
- * "widget-hilt-color-token") to a themed [Color]: [ColorRole.Error] reuses
- * [MaterialTheme.colorScheme]'s existing `error` role — visually "urgent" and "error" are the same
- * signal, "look at this now" — while [ColorRole.Calm]/[ColorRole.Soon] read from [NeverLateExtras],
- * the small extra color set feature 17 adds alongside `MaterialTheme.colorScheme` for the roles
- * Material 3 itself doesn't define (see `Theme.kt`'s `NeverLateExtendedColors`). This function no
- * longer decides *which* role a level means — only how to paint that role — so it stays in sync
- * with the widget's `urgencyColorProvider` (`ui/widget/WidgetColors.kt`) by construction.
- */
-@Composable
-private fun colorForUrgency(level: UrgencyLevel): Color = when (urgencyColorRole(level)) {
-    ColorRole.Calm -> NeverLateExtras.colors.calm
-    ColorRole.Soon -> NeverLateExtras.colors.soon
-    ColorRole.Error -> MaterialTheme.colorScheme.error
-    ColorRole.Primary, ColorRole.Secondary, ColorRole.Tertiary ->
-        error("urgencyColorRole never returns a priority role")
 }
 
 /**

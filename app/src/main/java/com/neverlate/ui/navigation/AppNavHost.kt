@@ -20,6 +20,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -41,19 +42,29 @@ import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthState
 import com.neverlate.data.tasks.TaskRepository
+import com.neverlate.domain.tasks.FocusSession
+import com.neverlate.domain.tasks.focusRosterFor
+import com.neverlate.domain.tasks.isFocusSessionActive
 import com.neverlate.ui.articles.ArticleDetailRoute
 import com.neverlate.ui.articles.ArticlesListDetailPane
 import com.neverlate.ui.articles.ArticlesRoute
 import com.neverlate.ui.auth.LoginRoute
 import com.neverlate.ui.auth.RegisterRoute
 import com.neverlate.ui.components.ReadableWidthContainer
+import com.neverlate.ui.focus.FocusRoute
 import com.neverlate.ui.onboarding.OnboardingRoute
 import com.neverlate.ui.settings.SettingsRoute
 import com.neverlate.ui.stats.StatsRoute
+import com.neverlate.ui.tasks.FOCUS_EXIT_COUNT_KEY
+import com.neverlate.ui.tasks.FOCUS_EXIT_OUTCOME_ABANDONED
+import com.neverlate.ui.tasks.FOCUS_EXIT_OUTCOME_COMPLETED
+import com.neverlate.ui.tasks.FOCUS_EXIT_OUTCOME_KEY
 import com.neverlate.ui.tasks.TASK_CREATED_RESULT_KEY
 import com.neverlate.ui.tasks.TaskEditRoute
 import com.neverlate.ui.tasks.TasksRoute
 import com.neverlate.ui.theme.NeverLateTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /** Destination names for the nav graph, kept as constants so routes can't be mistyped. */
 private object Routes {
@@ -66,6 +77,11 @@ private object Routes {
     const val TASK_EDIT = "taskEdit"
     const val SETTINGS = "settings"
     const val STATS = "stats"
+    // Modo Foco (D4, `docs/specs/2026-08-18-focus-mode.md`): a secondary route, exactly like STATS
+    // above — deliberately absent from TOP_LEVEL_ROUTES below (that single omission hides the
+    // bottom bar/rail, see MainAppNavHost's KDoc) and, unlike every other destination, its
+    // composable is not wrapped in ReadableWidthContainer (D4).
+    const val FOCUS = "focus"
 }
 
 /**
@@ -251,9 +267,13 @@ private fun MainAppNavHost(
         else -> {
             // Feature 18: Home is retired, so Tasks is the sole "already onboarded" landing
             // destination — the openTasksOnStart branch below (see this function's KDoc) now
-            // agrees with the default, but is kept explicit rather than folded away.
+            // agrees with the default, but is kept explicit rather than folded away. Modo Foco
+            // (D4): an active (non-expired) session routes here ahead of openTasksOnStart but
+            // behind onboarding — so opening the app any way at all, including the widget tap or
+            // the lock-screen notification, lands back in the session (see the feature spec's D4).
             val startDestination = when {
                 !preferences.onboarded -> Routes.ONBOARDING
+                isFocusSessionActive(preferences.focusSession, System.currentTimeMillis()) -> Routes.FOCUS
                 openTasksOnStart -> Routes.TASKS
                 else -> Routes.TASKS
             }
@@ -281,6 +301,8 @@ private fun MainAppNavHost(
                         navController = navController,
                         startDestination = startDestination,
                         articleRepository = articleRepository,
+                        taskRepository = taskRepository,
+                        userPreferencesRepository = repository,
                         widthSizeClass = widthSizeClass,
                         modifier = Modifier.padding(innerPadding),
                     )
@@ -300,6 +322,8 @@ private fun MainAppNavHost(
                         navController = navController,
                         startDestination = startDestination,
                         articleRepository = articleRepository,
+                        taskRepository = taskRepository,
+                        userPreferencesRepository = repository,
                         widthSizeClass = widthSizeClass,
                         modifier = Modifier.weight(1f),
                     )
@@ -322,15 +346,25 @@ private fun MainAppNavHost(
  * [WindowWidthSizeClass.Expanded] renders [ArticlesListDetailPane] (list + detail side by side),
  * anything narrower keeps the original single-pane [ArticlesRoute] + pushed `ArticleDetail`
  * destination completely unchanged.
+ *
+ * [taskRepository]/[userPreferencesRepository] (Modo Foco, D4) are used **only** by the
+ * `Routes.TASKS` composable's `onFocusClick`, below — freezing the roster ([focusRosterFor]) and
+ * persisting the session ([UserPreferencesRepository.startFocusSession]) happen here, right before
+ * navigating, exactly as the feature spec's session-lifecycle diagram shows, rather than adding a
+ * new method to [com.neverlate.ui.tasks.TasksViewModel] for a one-off write.
  */
 @Composable
 private fun MainNavGraph(
     navController: NavHostController,
     startDestination: String,
     articleRepository: ArticleRepository,
+    taskRepository: TaskRepository,
+    userPreferencesRepository: UserPreferencesRepository,
     widthSizeClass: WindowWidthSizeClass,
     modifier: Modifier = Modifier,
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -418,6 +452,24 @@ private fun MainNavGraph(
                     // Feature 04c: a top-bar action on Tasks, not a fourth bottom-nav tab
                     // (Out of Scope) — see StatsScreen's KDoc and Routes.STATS below.
                     onStatsClick = { navController.navigate(Routes.STATS) },
+                    // Modo Foco (D4): the entry dialog's confirm callback lands here with the
+                    // chosen code. The roster is frozen from the *current* task list (never the
+                    // filtered/sorted uiState a search or sort chip could have shaped), the
+                    // session is persisted, and only then do we navigate — matching the feature
+                    // spec's session-lifecycle diagram exactly.
+                    onFocusClick = { code ->
+                        coroutineScope.launch {
+                            val roster = focusRosterFor(taskRepository.observeTasks().first())
+                            userPreferencesRepository.startFocusSession(
+                                FocusSession(
+                                    startedAt = System.currentTimeMillis(),
+                                    exitCode = code,
+                                    roster = roster,
+                                ),
+                            )
+                            navController.navigate(Routes.FOCUS)
+                        }
+                    },
                     // Tasks is a top-level tab now (feature 18): no back arrow, the bottom
                     // bar/rail replaces it — it is also the landing destination, so there is
                     // nowhere "back" would go anyway.
@@ -437,6 +489,27 @@ private fun MainNavGraph(
         composable(Routes.STATS) {
             StatsRoute(
                 onBack = { navController.popBackStack() },
+            )
+        }
+        // Modo Foco (D4): a secondary route like Stats above, but deliberately NOT wrapped in
+        // ReadableWidthContainer (this screen wants the whole window, see FocusScreen's KDoc) and
+        // also this app's startDestination while a session is active (see this function's own
+        // startDestination arm above) — so this composable can be reached with nothing below it on
+        // the back stack. exitFocusSession below therefore always navigates to Routes.TASKS with
+        // popUpTo(Routes.FOCUS) rather than relying on popBackStack()/previousBackStackEntry, which
+        // would have nothing to pop back to on a cold start into an active session.
+        composable(Routes.FOCUS) {
+            FocusRoute(
+                onSessionCompleted = { completedCount ->
+                    exitFocusSession(navController, FOCUS_EXIT_OUTCOME_COMPLETED, completedCount)
+                },
+                onSessionAbandoned = {
+                    exitFocusSession(navController, FOCUS_EXIT_OUTCOME_ABANDONED, completedCount = 0)
+                },
+                // AC-V10: only the row list inside FocusScreen is width-constrained (via
+                // ReadableWidthContainer, applied internally — see FocusScreen's KDoc); the screen
+                // as a whole is still not wrapped in ReadableWidthContainer here (D4).
+                widthSizeClass = widthSizeClass,
             )
         }
         composable(Routes.TASK_EDIT) {
@@ -477,6 +550,27 @@ private fun MainNavGraph(
             )
         }
     }
+}
+
+/**
+ * Modo Foco (D3/D4): the single place either exit path ends up. `navigate(Routes.TASKS) {
+ * popUpTo(Routes.FOCUS) { inclusive = true } }` works whether `Routes.FOCUS` is a normal pushed
+ * destination (Tasks already sits below it on the back stack) **or** the app's own
+ * `startDestination` (a cold start into an active session, per this file's `startDestination` arm
+ * above — in which case there is no `previousBackStackEntry` to pop to at all): either way it
+ * lands on `Routes.TASKS`, creating that entry if it did not already exist.
+ * [NavHostController.getBackStackEntry] is then guaranteed to resolve it, so the exit outcome can
+ * be stashed on its [SavedStateHandle] — the same one-shot idiom [TASK_CREATED_RESULT_KEY] already
+ * uses — for [TasksRoute] to pick up and show as a snackbar.
+ */
+private fun exitFocusSession(navController: NavHostController, outcome: String, completedCount: Int) {
+    navController.navigate(Routes.TASKS) {
+        popUpTo(Routes.FOCUS) { inclusive = true }
+        launchSingleTop = true
+    }
+    val tasksHandle = navController.getBackStackEntry(Routes.TASKS).savedStateHandle
+    tasksHandle[FOCUS_EXIT_COUNT_KEY] = completedCount
+    tasksHandle[FOCUS_EXIT_OUTCOME_KEY] = outcome
 }
 
 /**

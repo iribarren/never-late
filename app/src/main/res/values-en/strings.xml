@@ -288,4 +288,65 @@
     <!-- Feature priority-sorting (US-5): fourth card, HIGH-priority tasks completed this week. -->
     <string name="stats_high_priority_completed_label">High-priority completed</string>
     <string name="stats_empty">No tasks yet.</string>
+
+    <!-- Modo Foco / Focus Mode (docs/specs/2026-08-18-focus-mode.md): entry point + entry dialog.
+         D8/US-6: the message deliberately avoids lockdown language — BackHandler only intercepts
+         this app's own back gesture; Home/recents/the shade all keep working. -->
+    <string name="focus_title">Focus Mode</string>
+    <string name="focus_entry_content_description">Open Focus Mode</string>
+    <string name="focus_entry_dialog_message">You\'ll see only your pending tasks, full screen. To leave, finish the tasks, slide a bar and type the code you choose now. The Home button and recents keep working the whole time: this does not lock the device.</string>
+    <string name="focus_entry_dialog_code_label">Exit code (4 digits)</string>
+    <string name="focus_entry_dialog_start_button">Start</string>
+    <string name="focus_entry_dialog_cancel_button">Cancel</string>
+
+    <!-- Focus Mode: top-bar session progress, e.g. "3 of 7 tasks" (AC-V1). A <plurals> so the
+         denominator agrees grammatically. -->
+    <plurals name="focus_progress_state_description">
+        <item quantity="one">%1$d of %2$d task</item>
+        <item quantity="other">%1$d of %2$d tasks</item>
+    </plurals>
+
+    <!-- Focus Mode: "nothing pending left" state (reuses MessageState) + the persistent bottom exit
+         action, which doubles as MessageState's own actionLabel (AC-V6). -->
+    <string name="focus_empty_message">You\'ve finished everything pending in this session.</string>
+    <string name="focus_exit_button">Exit Focus Mode</string>
+
+    <!-- Focus Mode: exit panel checklist (US-3). The tasks requirement is a <plurals> ("5 of 7
+         done"). -->
+    <plurals name="focus_exit_requirement_tasks">
+        <item quantity="one">Tasks done (%1$d of %2$d)</item>
+        <item quantity="other">Tasks done (%1$d of %2$d)</item>
+    </plurals>
+    <string name="focus_exit_requirement_code">Code entered</string>
+    <string name="focus_exit_requirement_slide">Slide to exit</string>
+
+    <!-- Focus Mode: "forgot the code" middle path (D3) — a 60s countdown, then the code in plain
+         text. %1$d in the countdown label is the whole seconds remaining. -->
+    <string name="focus_exit_forgot_code_button">I don\'t remember the code</string>
+    <string name="focus_exit_countdown_label">Code visible in %1$d s</string>
+    <string name="focus_exit_code_revealed_label">Your code is %1$s</string>
+
+    <!-- Focus Mode: the slide-to-unlock bar (D9/US-5) — contentDescription names the control,
+         stateDescription (composed at the call site) names which prerequisite is still missing,
+         and the CustomAccessibilityAction gets its own label. -->
+    <string name="focus_slide_content_description">Bar to exit Focus Mode</string>
+    <string name="focus_slide_action_label">Unlock</string>
+    <string name="focus_slide_state_enabled">Ready to slide</string>
+    <string name="focus_slide_state_disabled_tasks">Finish the pending tasks to continue</string>
+    <string name="focus_slide_state_disabled_code">Enter the correct code to continue</string>
+
+    <!-- Focus Mode: the unconditional emergency exit (D3) — never gated on the code or the gesture. -->
+    <string name="focus_abandon_button">Abandon session</string>
+    <string name="focus_abandon_confirm_title">Abandon session</string>
+    <string name="focus_abandon_confirm_message">The session will be closed as abandoned. Are you sure you want to continue?</string>
+    <string name="focus_abandon_confirm_button">Abandon</string>
+    <string name="focus_abandon_cancel_button">Cancel</string>
+
+    <!-- Focus Mode: the exit-outcome snackbar shown back on Tasks (D3), via the same
+         SavedStateHandle result idiom TASK_CREATED_RESULT_KEY already uses. -->
+    <plurals name="focus_snackbar_completed">
+        <item quantity="one">Session completed: %1$d task done</item>
+        <item quantity="other">Session completed: %1$d tasks done</item>
+    </plurals>
+    <string name="focus_snackbar_abandoned">Session abandoned</string>
 </resources>

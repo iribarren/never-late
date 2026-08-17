@@ -136,6 +136,14 @@ private class FakeUserPreferencesRepository(initial: UserPreferences = UserPrefe
     override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
         userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
     }
+
+    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) {
+        userPreferences.value = userPreferences.value.copy(focusSession = session)
+    }
+
+    override suspend fun endFocusSession() {
+        userPreferences.value = userPreferences.value.copy(focusSession = null)
+    }
 }
 
 private val teaTask = Task(id = 1, title = "Preparar té", estimatedDurationMillis = 5 * 60_000L)

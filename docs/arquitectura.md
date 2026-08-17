@@ -654,6 +654,81 @@ secundario de esta.
 
 ---
 
+## Feature `focus-mode` — Modo Foco: full-screen session + costly exit ritual
+
+**The core tension the spec exists to resolve.** A mode that demands a code to leave can trap the
+person it's for — and in an app built for ADD/ADHD, forgetting that code is the likely case, not the
+edge case (`docs/specs/2026-08-18-focus-mode.md`, D3). The feature's whole shape follows from refusing
+to let that risk go unmitigated: an unconditional "Abandonar sesión" — one tap, one confirmation,
+gated on nothing forgettable, performable-or-not, or waitable — sits beside the dignified ritual exit
+from the very first frame the exit panel can be opened. If a future change ever puts a condition,
+delay or gesture in front of that button, it has broken this feature regardless of what the tests say.
+
+**D — the session is a frozen roster, not a live filter.** `focusRosterFor` captures the *set of task
+ids* pending at the instant a session starts; the screen renders and the exit gate counts exactly that
+set for the session's whole life, never a live "everything currently pending" query. A task arriving
+mid-session (sync pull) is neither shown nor counted — the alternative would silently re-lock someone
+one checkbox from finishing, for a task they've never read, which is the exact trap this feature exists
+to avoid, arriving through the back door. A roster id that stops resolving (deleted locally, purged
+elsewhere) counts as **done**, not as an eternal blocker — every failure mode here resolves toward
+"easier to leave."
+
+**D — the exit code is plaintext friction, not a credential.** It lives in the existing `user_prefs`
+DataStore (`UserPreferences.focusSession`, three new keys — never a second DataStore, never
+`EncryptedTokenStorage`). It is deliberately unhashed: hashing would make the "show me the code"
+escape hatch (a visible 60-second countdown, anchored to *when the person asks*, not to session start)
+impossible to build, trading a real safety property for a security property with no threat to defend
+against — the only party this code resists is the same person's own next impulse. Anyone tempted to
+"harden" this later should read `UserPreferences.focusSession`'s KDoc first.
+
+**D — every unreadable stored value fails open.** `focusSessionFrom` (in
+`UserPreferencesRepository.kt`, `internal` so it's JVM-testable without a real DataStore) treats a
+missing/non-positive `startedAt` as "no session," a blank exit code as "the code step is already
+satisfied," and drops individual unparseable roster ids one at a time rather than discarding the whole
+set. This is not the usual crash-avoidance tolerant-parsing pattern (`ThemeMode.fromStorage`'s
+reasoning) — here, the fallback direction is a product-safety decision: a corrupted preference must
+never produce a state that's *harder* to leave than a healthy one.
+
+**D — three state tiers, one deliberately unused.** The session itself (`startedAt`, exit code, frozen
+roster) lives in DataStore, surviving rotation, process death and reboot — without that, killing the
+app from recents would be a silent fourth, undocumented exit, and the ritual would be theatre. Every
+transient piece of exit-panel state (open/closed, typed digits, drag progress, the reveal countdown)
+lives in `FocusViewModel` only. `SavedStateHandle` is **not used anywhere in this feature** — a
+deliberate choice, not an oversight: that middle tier exists for state expensive to reproduce after a
+system-initiated process death, and losing a half-typed code or a half-finished drag costs seconds,
+arguably a better outcome than resurrecting a stranded ritual mid-input. A session older than 12 hours
+is treated as absent by a pure predicate evaluated on read (`isFocusSessionActive`) — no alarm, no
+receiver, no `WorkManager` job, because expiry only needs to be *true the next time anyone asks*, not
+an event anyone needs to be notified of.
+
+**D — the slide-to-unlock bar's `CustomAccessibilityAction` is load-bearing, not polish.** A drag
+gesture with no semantic equivalent would strand a TalkBack user inside the mode — not a missing nice-
+to-have, the feature being broken for a subset of users while every non-accessibility test passes. The
+bar's custom action performs the exact same `onSlideComplete()` the drag calls, gated on the identical
+`tasksSatisfied && codeSatisfied` condition, so the two input paths can never diverge. `FocusExitAccessibilityTest`
+proves both honest exits are reachable using only semantics actions — invoking the `CustomActions`
+lambda directly, never a `performTouchInput` drag — the one test in this feature explicitly marked
+"do not ship without it."
+
+**Reused, not duplicated.** Task completion goes through the exact call
+`TasksViewModel.toggleComplete` already uses (`saveTask(task.copy(completedAt = …))`), so it still
+flows through the full four-layer repository chain — widget/notification refresh, reminder
+cancellation, outbox enqueue — with no focus-specific write path. `colorForUrgency` moved out of
+`TasksScreen.kt` (where it was `private`) into `ui/theme/UrgencyColors.kt`, a pure, behaviour-preserving
+move, so Focus mode is a second *consumer* of the shared urgency-color mapping rather than a second
+copy. The screen is a secondary route exactly like Stats — absent from `TOP_LEVEL_ROUTES`, entered via
+a Tasks top-bar `IconButton` — with one deliberate exception to the rest of the app's pattern: it is
+not wrapped in `ReadableWidthContainer` at the top level (the surface spans the full window; only the
+row list inside is width-constrained), because a screen whose entire point is "nothing else exists
+right now" reads as the opposite of that on a tablet with empty gutters.
+
+No backend, contract, Room migration or new Gradle dependency. `BackHandler` (this repo's second use,
+after `ArticlesListDetailPane`) intercepts only this app's own back gesture — the entry dialog's copy
+says so in plain language, deliberately avoiding lockdown wording, because Home/recents/the shade all
+keep working regardless.
+
+---
+
 ## Transversal — Permisos y manifest
 
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime

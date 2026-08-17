@@ -1,6 +1,7 @@
 package com.neverlate.data
 
 import com.neverlate.data.tasks.Priority
+import com.neverlate.domain.tasks.FocusSession
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
 import com.neverlate.domain.tasks.TaskListCriteria
@@ -8,6 +9,7 @@ import com.neverlate.domain.tasks.TaskSortField
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -160,5 +162,41 @@ class DataStoreUserPreferencesRepositoryTest {
         assertEquals(SortDirection.Descending, readBackFromSecondInstance.direction)
         assertEquals(TaskGroupAxis.Urgency, readBackFromSecondInstance.groupAxis)
         assertEquals(emptySet<Priority>(), readBackFromSecondInstance.priorityFilter)
+    }
+
+    /**
+     * Modo Foco (AC-6/AC-7/AC-10): [DataStoreUserPreferencesRepository.startFocusSession] round-
+     * trips `startedAt`/`exitCode`/`roster` through the real DataStore (not the in-memory fake),
+     * and [DataStoreUserPreferencesRepository.endFocusSession] clears all three keys so a
+     * subsequent read reports `focusSession == null` again. The tolerant-parsing half of D6 (AC-8/
+     * AC-9 — missing values, individual corrupted roster ids) is covered separately and more
+     * cheaply by [FocusSessionFromTest], which needs no Android runtime at all.
+     */
+    @Test
+    fun `focusSession round-trips through startFocusSession and is fully cleared by endFocusSession`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = DataStoreUserPreferencesRepository(context)
+
+        // Fresh install default: no key has ever been written for any of the three focus_* keys.
+        assertNull(repository.userPreferences.first().focusSession)
+
+        val session = FocusSession(startedAt = 12_345L, exitCode = "0417", roster = setOf(1L, 2L, 3L))
+        repository.startFocusSession(session)
+
+        val readBack = repository.userPreferences.first().focusSession
+        assertEquals(session, readBack)
+
+        // A second, independent instance against the same on-disk file sees it too — proves the
+        // write landed on disk, not just in an in-memory echo of this one instance (same technique
+        // the taskListArrangement test above uses).
+        val secondRepository = DataStoreUserPreferencesRepository(context)
+        assertEquals(session, secondRepository.userPreferences.first().focusSession)
+
+        repository.endFocusSession()
+        assertNull(
+            "endFocusSession must clear all three keys, not just one",
+            repository.userPreferences.first().focusSession,
+        )
+        assertNull(secondRepository.userPreferences.first().focusSession)
     }
 }
