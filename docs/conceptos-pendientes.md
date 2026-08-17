@@ -182,6 +182,16 @@ qualifiers (`@RoomRepo`/`@OutboxRepo`/`@ReminderRepo`) en el mismo orden de siem
 `ViewModel`s pasan a `@HiltViewModel` + `hiltViewModel()`, con `articleId`/`taskId` llegando por
 `SavedStateHandle`. Cero cambios de comportamiento — ver el resumen en `CLAUDE.md` y la lección.
 
+✅ **Continuación ad-hoc: `@EntryPoint` para lo que Hilt no construye → lección 13e.** No estaba en
+este roadmap (es post-20, decidida caso por caso como cualquier feature de esa etapa — ver *Tutorial
+Track (optional)* en `CLAUDE.md`), pero se intercala aquí por curva de aprendizaje: 13d dejó el widget
+fuera de Hilt porque `GlanceAppWidget` no es una clase que Hilt construya. La **feature
+`widget-hilt-color-token`** (`13e-entrypoint-token-color`) cierra esa excepción con `@EntryPoint`/
+`EntryPointAccessors`, más una segunda deuda no relacionada con DI que compartía los mismos ficheros:
+el mapeo de color urgencia/prioridad, duplicado entre el mundo Compose y el mundo Glance desde la 05b,
+extraído a un token de rol compartido (`domain/tasks/ColorRole.kt`). No cuenta para "pendientes" abajo
+— no era un hueco de este backlog, es una lección añadida.
+
 ### 6. Datos: migraciones y paginación → lecciones **13b** y **13c**
 
 La 04/10/11 usaban Room con `fallbackToDestructiveMigration` (borra datos al cambiar el esquema),

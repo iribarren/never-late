@@ -78,12 +78,14 @@ import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
+import com.neverlate.domain.tasks.ColorRole
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.domain.tasks.TaskSortField
 import com.neverlate.domain.tasks.UrgencyLevel
 import com.neverlate.domain.tasks.deadlineProgressFor
+import com.neverlate.domain.tasks.urgencyColorRole
 import com.neverlate.domain.tasks.urgencyLevelFor
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
@@ -790,18 +792,22 @@ private fun TaskRow(
 }
 
 /**
- * Maps a pure [UrgencyLevel] to a themed [Color] (feature 17). [UrgencyLevel.Urgent] and
- * [UrgencyLevel.Overdue] both reuse [MaterialTheme.colorScheme]'s existing `error` role — visually
- * "urgent" and "error" are the same signal, "look at this now" — while [UrgencyLevel.Calm]/
- * [UrgencyLevel.Soon] read from [NeverLateExtras], the small extra color set feature 17 adds
- * alongside `MaterialTheme.colorScheme` for the roles Material 3 itself doesn't define (see
- * `Theme.kt`'s `NeverLateExtendedColors`).
+ * Resolves the shared [urgencyColorRole] mapping (`domain/tasks/ColorRole.kt`, feature
+ * "widget-hilt-color-token") to a themed [Color]: [ColorRole.Error] reuses
+ * [MaterialTheme.colorScheme]'s existing `error` role — visually "urgent" and "error" are the same
+ * signal, "look at this now" — while [ColorRole.Calm]/[ColorRole.Soon] read from [NeverLateExtras],
+ * the small extra color set feature 17 adds alongside `MaterialTheme.colorScheme` for the roles
+ * Material 3 itself doesn't define (see `Theme.kt`'s `NeverLateExtendedColors`). This function no
+ * longer decides *which* role a level means — only how to paint that role — so it stays in sync
+ * with the widget's `urgencyColorProvider` (`ui/widget/WidgetColors.kt`) by construction.
  */
 @Composable
-private fun colorForUrgency(level: UrgencyLevel): Color = when (level) {
-    UrgencyLevel.Calm -> NeverLateExtras.colors.calm
-    UrgencyLevel.Soon -> NeverLateExtras.colors.soon
-    UrgencyLevel.Urgent, UrgencyLevel.Overdue -> MaterialTheme.colorScheme.error
+private fun colorForUrgency(level: UrgencyLevel): Color = when (urgencyColorRole(level)) {
+    ColorRole.Calm -> NeverLateExtras.colors.calm
+    ColorRole.Soon -> NeverLateExtras.colors.soon
+    ColorRole.Error -> MaterialTheme.colorScheme.error
+    ColorRole.Primary, ColorRole.Secondary, ColorRole.Tertiary ->
+        error("urgencyColorRole never returns a priority role")
 }
 
 /**

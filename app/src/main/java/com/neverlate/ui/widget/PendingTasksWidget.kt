@@ -31,9 +31,8 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.neverlate.MainActivity
 import com.neverlate.R
-import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.Priority
-import com.neverlate.data.tasks.RoomTaskRepository
+import com.neverlate.di.WidgetEntryPoint
 import com.neverlate.domain.tasks.PendingTaskRow
 import com.neverlate.domain.tasks.UrgencyLevel
 import com.neverlate.domain.tasks.urgencyLevel
@@ -41,6 +40,7 @@ import com.neverlate.ui.components.formatRemainingLabel
 import com.neverlate.ui.tasks.labelRes
 import com.neverlate.ui.theme.DarkColorScheme
 import com.neverlate.ui.theme.LightColorScheme
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
 
 /**
@@ -51,12 +51,15 @@ import kotlinx.coroutines.flow.first
 class PendingTasksWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // A widget cannot reuse MainActivity's manually-injected repository — it never runs
-        // MainActivity.onCreate. Instead it reaches the same process-wide database singleton
-        // directly from its own Context, exactly like MainActivity does, and builds the same
-        // RoomTaskRepository on top of it. Same data, same types, no new data-access path.
-        val database = NeverLateDatabase.getInstance(context)
-        val repository = RoomTaskRepository(database.taskDao())
+        // A widget cannot reuse MainActivity's @Inject-ed repository — it never runs
+        // MainActivity.onCreate, and Hilt never constructs a GlanceAppWidget in the first place
+        // (see WidgetEntryPoint's KDoc for the full why). EntryPointAccessors.fromApplication
+        // reaches the same Hilt-managed singleton graph MainActivity gets, from the widget's own
+        // Context — resolved here, inside provideGlance, so the three call sites that construct
+        // PendingTasksWidget() don't need to change at all.
+        val repository = EntryPointAccessors
+            .fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+            .taskRepository()
 
         // `.first()` takes a one-shot snapshot instead of an ongoing subscription: a widget
         // draws on demand (once per provideGlance call) rather than observing continuously like
