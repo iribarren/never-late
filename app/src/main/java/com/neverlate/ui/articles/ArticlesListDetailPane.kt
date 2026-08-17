@@ -51,6 +51,14 @@ import com.neverlate.ui.theme.NeverLateTheme
  * pushed-route ViewModel calls) and renders it with the same [ArticleDetailUiState] +
  * [ArticleDetailBody] the compact path already uses — reusing the rendering, not the ViewModel
  * plumbing, per the feature spec's approved decision.
+ *
+ * **`reduce-motion` spec (D5), verified rather than assumed:** every `AnimatedPane` below — both
+ * live call sites here (`listPane`/`detailPane`) and the two in
+ * [ArticlesListDetailPanePlaceholderPreview] — animates via `Transition`
+ * (`material3-adaptive` 1.0.0), which reads `MotionDurationScale` from the composition's coroutine
+ * context, the exact same mechanism `animateItem`/`animateFloatAsState` use elsewhere in this app.
+ * They already honour `Settings.Global.ANIMATOR_DURATION_SCALE` with zero app code. No change was
+ * needed here; this note exists so the question is answered permanently rather than re-opened.
  */
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable

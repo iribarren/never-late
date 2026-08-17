@@ -499,6 +499,56 @@ since 13b/`MIGRATION_4_5`); no new Gradle dependency.
 
 ---
 
+## Feature `reduce-motion` — Respecting "reduce motion"
+
+**Most of this was already free** (`docs/specs/2026-08-17-reduce-motion.md`): Compose's window
+`Recomposer` installs `MotionDurationScale` — a `CoroutineContext.Element` sourced from
+`Settings.Global.animator_duration_scale` and kept live via a `ContentObserver` — into the
+composition's coroutine context, and every animation running inside that context (`animateItem()`,
+`animateFloatAsState`, `AnimatedPane`'s `Transition`) already collapses to an instant snap when the
+scale is `0`. Verified against the *resolved* runtime classpath (Compose UI 1.10.0, not the BOM
+string), not assumed. The feature's real work is the one gap the platform cannot cover, plus writing
+the "already free" inventory down so nobody re-implements it.
+
+**D — a periodic recomposition is not an animation, and that distinction is the whole feature.**
+`CountdownTicker`'s `delay(1_000)` loop drives the Tasks screen's once-a-second refresh so the
+task-card progress bar (`animateFloatAsState`) can drain smoothly. No `MotionDurationScale` slows
+that loop down, because there is nothing being *interpolated* for it to scale — it is a plain
+coroutine `delay`, not an animation. So under reduced motion the 1 s cadence keeps firing at full
+cost while the smooth drain it exists to protect no longer exists (the bar already snaps instantly):
+a screen burning a recomposition a second, and the battery behind it, to buy nothing, on exactly the
+screen whose user asked for less movement. The fix is `tickIntervalFor` (`ui/tasks/CountdownTicker.kt`,
+pure and JVM-testable): 1 000 ms under normal motion, 60 000 ms under reduced motion, **clamped**
+down to the soonest running task's expiry so the functional side of the tick — `autoPauseTimedOut`'s
+database write at zero — never lands up to 59 s late. `CountdownTicker`'s existing KDoc (feature 20b's
+"keep the 1 s tick" instruction) is **bounded, not overwritten**: the original paragraph stays
+verbatim, with an appended exception naming this spec — a rule with its reason attached can be
+safely bounded; one without a reason attached can only be obeyed or broken.
+
+**One criterion, one owner.** `data/settings/MotionSettings.kt` is the single file allowed to read
+`Settings.Global.ANIMATOR_DURATION_SCALE` — an interface (same rationale as
+`UserPreferencesRepository`: a JVM test drives a fake) plus `SystemMotionSettings`, a `callbackFlow`
++ `ContentObserver` wrapper, bound in Hilt alongside the other storage-shaped providers in
+`StorageModule`. `TasksViewModel` (the primary, in fact only-today, consumer) injects it directly;
+`ui/theme/ReduceMotion.kt`'s `rememberReduceMotion()` is a thin Compose-side doorway onto the same
+binding, reached via a `MotionSettingsEntryPoint` (`di/`) the same way `WidgetEntryPoint` reaches Hilt
+from `PendingTasksWidget` — a Composable has no constructor for `@Inject` to hook into. Deliberately
+unconsumed by any screen today; it exists so a future Compose-level motion decision has one place to
+read from instead of a second `Settings.Global` call being added ad hoc.
+
+**Decided against: an in-app "reduce motion" toggle.** The system setting is the platform-blessed,
+per-user, cross-app answer, and — the deciding argument — an app-level "allow motion" could never
+override a `0` system scale (the framework has already snapped every animation by the time app code
+would run), so an in-app switch could only ever be *additive*: a control that is silently inert in
+exactly the case a user would reach for it. Recorded in `docs/diferidos.md` with the full reasoning
+so a future revisit starts from the argument, not from scratch.
+
+No backend, contract, DB-version, or permission change (`Settings.Global` reads need none); no new
+Gradle dependency; no new string resource (the only candidate — a Settings row — was the toggle
+decided against above).
+
+---
+
 ## Transversal — Permisos y manifest
 
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime
