@@ -64,6 +64,10 @@ private class FakeUserPreferencesRepository(
     override suspend fun saveDynamicColor(enabled: Boolean) {
         userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
     }
+
+    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) {
+        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

@@ -9,6 +9,10 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskGroupAxis
+import com.neverlate.domain.tasks.TaskListCriteria
+import com.neverlate.domain.tasks.TaskSortField
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -76,6 +80,14 @@ data class UserPreferences(
      * happens to produce, unless they opt in from Settings.
      */
     val dynamicColor: Boolean = false,
+    /**
+     * `persisted-list-preferences` (D1/D4): the Tasks list's durable arrangement —
+     * [TaskListCriteria.sortField]/`direction`/`groupAxis` only. `priorityFilter` is deliberately
+     * **not** persisted (D1 — it *hides* tasks rather than merely re-arranging them), so a read
+     * here always carries `priorityFilter = emptySet()`; [com.neverlate.ui.tasks.TasksViewModel]
+     * reassembles the in-memory filter on top of this value.
+     */
+    val taskListArrangement: TaskListCriteria = TaskListCriteria(),
 ) {
     companion object {
         /** Default lead time (minutes) a reminder fires before a task's deadline. */
@@ -133,6 +145,15 @@ interface UserPreferencesRepository {
 
     /** Persists the Material You / dynamic color opt-in (feature 16) — see [UserPreferences.dynamicColor]. */
     suspend fun saveDynamicColor(enabled: Boolean)
+
+    /**
+     * `persisted-list-preferences` (D4): persists [criteria]'s `sortField`, `direction` and
+     * `groupAxis` — and **only** those three. Named "arrangement", not "criteria", precisely
+     * because [criteria]'s `priorityFilter` is deliberately dropped (D1): a restored filter would
+     * make the list look like it lost tasks, which is worse than never persisting it at all. See
+     * [UserPreferences.taskListArrangement].
+     */
+    suspend fun saveTaskListArrangement(criteria: TaskListCriteria)
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -153,6 +174,12 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         val SYNC_CURSOR = longPreferencesKey("sync_cursor")
         // Added in feature 16 — same "user_prefs" file yet again, no second DataStore.
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        // Added by persisted-list-preferences — same "user_prefs" file yet again, no second
+        // DataStore. Three keys for TaskListCriteria's three durable fields (D1/D4);
+        // priorityFilter deliberately has no key at all.
+        val TASK_SORT_FIELD = stringPreferencesKey("task_sort_field")
+        val TASK_SORT_DIRECTION = stringPreferencesKey("task_sort_direction")
+        val TASK_GROUP_AXIS = stringPreferencesKey("task_group_axis")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -173,6 +200,15 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
                 // UserPreferences' own default (false) — same tolerant-read pattern as every key
                 // above.
                 dynamicColor = preferences[Keys.DYNAMIC_COLOR] ?: false,
+                // Tolerant parsing for all three (D4): a missing key (fresh install, or an
+                // install from before this feature) or an unrecognised value both fall back to
+                // TaskListCriteria()'s own defaults, never a crash. priorityFilter is not read
+                // from storage at all — it always comes back empty (D1).
+                taskListArrangement = TaskListCriteria(
+                    sortField = TaskSortField.fromStorage(preferences[Keys.TASK_SORT_FIELD]),
+                    direction = SortDirection.fromStorage(preferences[Keys.TASK_SORT_DIRECTION]),
+                    groupAxis = TaskGroupAxis.fromStorage(preferences[Keys.TASK_GROUP_AXIS]),
+                ),
             )
         }
 
@@ -219,6 +255,17 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
     override suspend fun saveDynamicColor(enabled: Boolean) {
         context.userPrefsDataStore.edit { preferences ->
             preferences[Keys.DYNAMIC_COLOR] = enabled
+        }
+    }
+
+    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
+        // One edit {} writing exactly three keys — sortField/direction/groupAxis.name — and
+        // deliberately never priorityFilter (D1/D4): see the interface KDoc for why a filter
+        // must never end up on disk.
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.TASK_SORT_FIELD] = criteria.sortField.name
+            preferences[Keys.TASK_SORT_DIRECTION] = criteria.direction.name
+            preferences[Keys.TASK_GROUP_AXIS] = criteria.groupAxis.name
         }
     }
 }

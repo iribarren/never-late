@@ -4,6 +4,7 @@ import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferences
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.tasks.Task
+import com.neverlate.domain.tasks.TaskListCriteria
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -45,6 +46,10 @@ private class FakeUserPreferencesRepository(
 
     override suspend fun saveDynamicColor(enabled: Boolean) {
         userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
+    }
+
+    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
+        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
     }
 }
 

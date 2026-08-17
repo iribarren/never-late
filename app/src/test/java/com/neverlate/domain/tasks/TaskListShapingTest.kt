@@ -589,4 +589,32 @@ class TaskListShapingTest {
 
         assertEquals(listOf(Priority.NONE, Priority.LOW, Priority.MEDIUM, Priority.HIGH), sortedByRank)
     }
+
+    // fromStorage tolerant parsing (`persisted-list-preferences`, D4, AC-4) ----------------------
+
+    @Test
+    fun `TaskSortField fromStorage returns Deadline for null, unknown, and each valid name round-trips`() {
+        assertEquals(TaskSortField.Deadline, TaskSortField.fromStorage(null))
+        assertEquals(TaskSortField.Deadline, TaskSortField.fromStorage("NotAField"))
+        assertEquals(TaskSortField.Deadline, TaskSortField.fromStorage("Deadline"))
+        assertEquals(TaskSortField.Title, TaskSortField.fromStorage("Title"))
+        assertEquals(TaskSortField.Priority, TaskSortField.fromStorage("Priority"))
+    }
+
+    @Test
+    fun `SortDirection fromStorage returns Ascending for null, unknown, and each valid name round-trips`() {
+        assertEquals(SortDirection.Ascending, SortDirection.fromStorage(null))
+        assertEquals(SortDirection.Ascending, SortDirection.fromStorage("Sideways"))
+        assertEquals(SortDirection.Ascending, SortDirection.fromStorage("Ascending"))
+        assertEquals(SortDirection.Descending, SortDirection.fromStorage("Descending"))
+    }
+
+    @Test
+    fun `TaskGroupAxis fromStorage returns None for null, unknown, and each valid name round-trips`() {
+        assertEquals(TaskGroupAxis.None, TaskGroupAxis.fromStorage(null))
+        assertEquals(TaskGroupAxis.None, TaskGroupAxis.fromStorage("Whatever"))
+        assertEquals(TaskGroupAxis.None, TaskGroupAxis.fromStorage("None"))
+        assertEquals(TaskGroupAxis.Urgency, TaskGroupAxis.fromStorage("Urgency"))
+        assertEquals(TaskGroupAxis.Priority, TaskGroupAxis.fromStorage("Priority"))
+    }
 }

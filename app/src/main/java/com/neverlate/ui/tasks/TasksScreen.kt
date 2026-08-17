@@ -207,7 +207,10 @@ fun TasksRoute(
 fun TasksScreen(
     uiState: TasksUiState,
     syncStatus: SyncStatus,
-    criteria: TaskListCriteria,
+    // `persisted-list-preferences` (D3): null exactly while the stored arrangement has not been
+    // read yet (mirrors uiState == Loading) — see TaskListControls' call site below, which is the
+    // only place this nullability is observed.
+    criteria: TaskListCriteria?,
     query: String,
     userName: String = "",
     onRefresh: () -> Unit,
@@ -287,8 +290,12 @@ fun TasksScreen(
                 // Feature 03b: the search/sort/group controls only make sense once there is a
                 // list to shape — hidden during Loading and Empty (no tasks exist yet at all),
                 // shown for both NoResults (so the filter that caused it can be adjusted/cleared)
-                // and Content.
-                if (uiState is TasksUiState.NoResults || uiState is TasksUiState.Content) {
+                // and Content. `persisted-list-preferences` (D3) adds a second, equivalent guard:
+                // criteria is null exactly while the stored arrangement has not loaded yet, which
+                // in practice is exactly when uiState is still Loading — so this `if` never fires
+                // with a null criteria in reachable states, but the compiler-enforced null check
+                // (rather than a non-null assertion) is what makes that invariant unbreakable.
+                if ((uiState is TasksUiState.NoResults || uiState is TasksUiState.Content) && criteria != null) {
                     TaskListControls(
                         query = query,
                         criteria = criteria,
