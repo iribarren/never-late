@@ -3,6 +3,7 @@ package com.neverlate.domain.tasks
 import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -69,5 +70,53 @@ class PendingTaskRowsTest {
         val row = PendingTaskRow(title = "Calma", remainingMillis = 60 * 60_000L + 1)
 
         assertEquals(UrgencyLevel.Calm, row.urgencyLevel())
+    }
+
+    // Bugfix: completed-tasks-in-passive-surfaces. pendingRowsFor must exclude any task whose
+    // completedAt is non-null, regardless of its remaining-time data — a completed task is not
+    // "pending" no matter how urgent its now-irrelevant countdown looks.
+
+    @Test
+    fun `a completed task with valid remaining-time data is excluded from the rows`() {
+        val completed = Task(
+            title = "Terminada",
+            estimatedDurationMillis = 5 * 60_000L,
+            completedAt = 1_000L,
+        )
+
+        val rows = pendingRowsFor(listOf(completed), now = 0L)
+
+        assertEquals(emptyList<PendingTaskRow>(), rows)
+    }
+
+    @Test
+    fun `a completed timed-out task does not sort in and does not push a pending task out of the cap`() {
+        // Under the buggy behaviour, completedTimedOut's remaining millis clamp to 0 and sort
+        // first, occupying one of the five row slots and evicting the least-urgent still-pending
+        // task. It must be excluded outright instead.
+        val completedTimedOut = Task(title = "Vencida y hecha", timerEndsAt = -1_000L, completedAt = 500L)
+        val pendingTasks = listOf(1, 2, 3, 4, 5).map { minutes ->
+            Task(title = "Pendiente $minutes", estimatedDurationMillis = minutes * 60_000L)
+        }
+
+        val rows = pendingRowsFor(listOf(completedTimedOut) + pendingTasks, now = 0L)
+
+        assertEquals(5, rows.size)
+        assertEquals(
+            listOf("Pendiente 1", "Pendiente 2", "Pendiente 3", "Pendiente 4", "Pendiente 5"),
+            rows.map { it.title },
+        )
+        assertTrue("a completed task must never appear among the rows", rows.none { it.title == "Vencida y hecha" })
+    }
+
+    @Test
+    fun `when every task is completed pendingRowsFor returns an empty list`() {
+        val tasks = listOf(1, 2, 3).map { minutes ->
+            Task(title = "Hecha $minutes", estimatedDurationMillis = minutes * 60_000L, completedAt = 42L)
+        }
+
+        val rows = pendingRowsFor(tasks, now = 0L)
+
+        assertEquals(emptyList<PendingTaskRow>(), rows)
     }
 }

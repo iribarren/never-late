@@ -36,6 +36,7 @@ sealed interface PendingTasksWidgetModel {
  * surfaces cannot quietly diverge on that rule.
  */
 fun toWidgetModel(tasks: List<Task>, now: Long): PendingTasksWidgetModel {
-    if (tasks.isEmpty()) return PendingTasksWidgetModel.Empty
-    return PendingTasksWidgetModel.Content(pendingRowsFor(tasks, now))
+    val rows = pendingRowsFor(tasks, now)
+    if (rows.isEmpty()) return PendingTasksWidgetModel.Empty
+    return PendingTasksWidgetModel.Content(rows)
 }

@@ -87,6 +87,20 @@ class PendingTasksWidgetStateTest {
     }
 
     @Test
+    fun `a task list containing only completed tasks yields Empty, not Content with zero rows`() {
+        // Bugfix: completed-tasks-in-passive-surfaces. toWidgetModel only checks tasks.isEmpty()
+        // for the Empty decision, so a non-empty list of exclusively completed tasks currently
+        // falls through to Content(rows = emptyList()) instead of Empty.
+        val tasks = listOf(1, 2, 3).map { minutes ->
+            Task(title = "Hecha $minutes", estimatedDurationMillis = minutes * 60_000L, completedAt = 99L)
+        }
+
+        val model = toWidgetModel(tasks = tasks, now = 0L)
+
+        assertEquals(PendingTasksWidgetModel.Empty, model)
+    }
+
+    @Test
     fun `a task's priority is carried through to the widget row`() {
         // Feature 05b: pendingRowsFor (and therefore toWidgetModel) now fills PendingTaskRow's
         // priority field from the task instead of leaving it at its NONE default.

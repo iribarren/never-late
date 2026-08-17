@@ -55,13 +55,20 @@ fun PendingTaskRow.urgencyLevel(): UrgencyLevel = urgencyLevelFor(remainingMilli
  * makes that guarantee possible (and unit-testable on the JVM without a widget host or a
  * notification manager).
  *
- * "Pending" definition (coherent across both features): every task counts, including ones whose
- * countdown has already reached zero — hiding a timed-out task could hide the exact thing the
- * user most needs to notice. Rows are sorted **most-urgent-first** (smallest remaining time
- * first), then capped to [MAX_PENDING_ROWS].
+ * "Pending" definition (coherent across both features): a task counts unless it is completed
+ * (`completedAt != null` — the same definition [com.neverlate.domain.tasks.TaskListShaping]'s
+ * `sortedBy`/`groupedByUrgency` already use for the Tasks screen, not a second one invented here).
+ * A task whose countdown has already reached zero but is **not** completed still counts — hiding a
+ * timed-out task could hide the exact thing the user most needs to notice; only completion excludes
+ * a task. Rows are sorted **most-urgent-first** (smallest remaining time first), then capped to
+ * [MAX_PENDING_ROWS].
+ *
+ * `deleted` tasks are not filtered here: the DAO query backing [tasks] already excludes them before
+ * this function ever sees the list, so there is nothing left to check for that flag at this layer.
  */
 fun pendingRowsFor(tasks: List<Task>, now: Long): List<PendingTaskRow> =
     tasks
+        .filter { task -> task.completedAt == null }
         .map { task -> task to computeRemainingMillis(task, now) }
         .sortedBy { (_, remainingMillis) -> remainingMillis }
         .take(MAX_PENDING_ROWS)
