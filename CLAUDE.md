@@ -35,7 +35,7 @@ never-late/
 ├─ gradle.properties            # Gradle/AndroidX flags
 ├─ gradle/
 │  ├─ libs.versions.toml        # Version catalog (single source of truth for versions)
-│  └─ wrapper/                  # Gradle wrapper (pins Gradle 8.13)
+│  └─ wrapper/                  # Gradle wrapper (pins Gradle 9.5.0)
 ├─ gradlew / gradlew.bat        # Wrapper launchers — always build via these
 ├─ app/
 │  ├─ build.gradle.kts          # Android app module config + dependencies
@@ -119,16 +119,24 @@ than re-listing routes).
 
 ## Development
 
-- **JDK: 21 — and only 21.** Gradle 8.x cannot run on a JDK 25 and aborts with an inscrutable
-  `IllegalArgumentException: 25.0.3` before any build logic runs. Where the system JDK is newer than
-  21, pin the supported one **once**, machine-wide, in the untracked `~/.gradle/gradle.properties`:
+- **JDK: the system one (25).** Both builds run on the JDK the machine ships — nothing is pinned by
+  hand. A plain `./gradlew` just works, in the app build and in `backend/` alike. Do **not** set
+  `org.gradle.java.home`, and do **not** pass `JAVA_HOME=` per command: it is easy to forget on one
+  invocation, and every change of value makes Gradle fork a fresh 2 GB daemon, discarding warm caches.
 
-  ```properties
-  org.gradle.java.home=/home/aritz/android-studio/jbr   # the Android Studio bundled JBR, a JDK 21
-  ```
+  > This used to be the opposite rule ("JDK 21 — and only 21", pinned via `org.gradle.java.home` to
+  > the Android Studio JBR), because Gradle 8.x aborts on a JDK 25 with an inscrutable
+  > `IllegalArgumentException: 25.0.3` before any build logic runs. The Gradle 9 / AGP 9 upgrade
+  > removed that constraint and the pin along with it — see
+  > `docs/specs/2026-08-17-gradle9-agp9-jdk25.md`. If you are on a machine that still has that line
+  > in `~/.gradle/gradle.properties`, delete it.
 
-  With that in place a plain `./gradlew` just works. Do **not** pass `JAVA_HOME=` per command: it is
-  easy to forget on one invocation and every change of value forks a new 2 GB daemon.
+- **Build toolchain:** Gradle **9.5.0** (both wrappers), AGP **9.3.0**, Kotlin **2.3.20** (app) /
+  **2.3.21** (backend), KSP **2.3.11**, Hilt **2.60.1**. AGP 9's **built-in Kotlin** is on, so
+  `org.jetbrains.kotlin.android` is *not* applied by hand in any `plugins {}` block — AGP supplies it.
+  Kotlin compiler options live in a top-level `kotlin { compilerOptions { … } }` block; the old
+  `android { kotlinOptions { … } }` DSL no longer exists. The **configuration cache is deliberately
+  off** (see `gradle.properties`).
 - **Android SDK:** `~/Android/Sdk` (configured in `local.properties` via `sdk.dir`).
 - **SDK config:** `compileSdk = 36`, `targetSdk = 36`, `minSdk = 24`.
 - Extra SDK packages/licenses: `~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager`.
@@ -358,9 +366,10 @@ here exists because its absence produced a stuck run.
   and the scoped runs are faster still, all far inside the tool's 10-minute foreground limit. If a
   command ever does exceed that ceiling, launch it in the background **once** and let its completion
   notification end the wait — never a poll, and never a second copy of the same command.
-- **One JDK, one daemon.** Invoke Gradle with no `JAVA_HOME=` prefix. Alternating between the
-  system JDK and the Android Studio JBR makes Gradle treat the running daemon as incompatible and
-  fork a fresh 2 GB one, throwing away every warm cache.
+- **One JDK, one daemon.** Invoke Gradle with no `JAVA_HOME=` prefix and no `org.gradle.java.home`:
+  the system JDK is the only one either build needs. Pointing Gradle at a different JDK on some
+  invocations makes it treat the running daemon as incompatible and fork a fresh 2 GB one, throwing
+  away every warm cache.
 - **The full suite runs exactly once**, by the orchestrator, as the gate before committing:
 
   ```bash

@@ -1,10 +1,12 @@
 import java.io.FileInputStream
 import java.time.Duration
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
+    // org.jetbrains.kotlin.android is no longer applied by hand: AGP 9's built-in Kotlin
+    // (android.builtInKotlin, on by default) supplies it — see the root build.gradle.kts comment.
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
@@ -67,10 +69,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         // Generates BuildConfig.DEBUG, used by ArticlesNetwork to gate verbose OkHttp body
@@ -88,6 +86,15 @@ android {
     // MigrationTestHelper can load them on-device to build the old-version database (feature 13b).
     sourceSets {
         getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+// AGP 9: `android { kotlinOptions { jvmTarget } }` is removed; the built-in-Kotlin `kotlin {}`
+// extension's compilerOptions is the replacement. Emitted bytecode stays 17, same as
+// compileOptions above.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 

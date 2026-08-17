@@ -595,6 +595,65 @@ couple their copy forever.
 
 ---
 
+## Feature `gradle9-agp9-jdk25` — Compilar con el JDK del sistema
+
+**El problema no era "Gradle viejo", era una muleta invisible.** El JDK del sistema pasó a 25 y
+Gradle 8.13 no arranca sobre él (aborta con `IllegalArgumentException: 25.0.3` antes de ejecutar
+lógica de build). Eso se había tapado con `org.gradle.java.home` apuntando al JBR 21 de Android
+Studio en el `~/.gradle/gradle.properties` del usuario: un fichero **sin versionar**, que no se hereda
+al clonar y que ataba el proyecto a que Android Studio siguiera instalado en esa ruta exacta.
+`CLAUDE.md` llegó a documentarlo como norma de proyecto ("JDK 21 — y solo 21"), que es cómo un parche
+de una máquina se convierte en una decisión de arquitectura por acumulación. La feature termina
+cuando esa línea se puede borrar.
+
+**Hasta dónde se saltó, y por qué no al mínimo.** El mínimo viable era AGP 9.0 + Gradle 9.1.0; se fue
+a **AGP 9.3.0 + Gradle 9.5.0 + Kotlin 2.3.20 + KSP 2.3.11 + Hilt 2.60.1**. El argumento que decidió:
+*el mínimo no compra un diff más pequeño*. Toda la migración cara —dejar de aplicar
+`org.jetbrains.kotlin.android` a mano porque AGP 9 trae **built-in Kotlin**, cambiar
+`kotlinOptions` por `kotlin { compilerOptions { … } }`, los mínimos de Kotlin/KSP, y el salto forzado
+de Hilt— es una ruptura de AGP **9.0**, y se paga idéntica en los dos caminos. El mínimo solo compra
+repetir la misma rama en meses, con AGP 10 ya anunciado (y quitando el escape
+`android.builtInKotlin=false`, que aquí no se usó). Además Gradle 9.4+ es lo que pedirá un JDK 26 —
+exactamente cómo llegamos aquí. En contra pesaba que **no hay CI**: la verificación es una máquina.
+Se aceptó porque la superficie extra entre 9.1.0 y 9.5.0 es de Gradle, no de AGP, y el riesgo
+concentrado estaba en AGP 9.0.
+
+**Hilt 2.60.1, saltándose 2.59.** Hilt no tiene ninguna versión que sirva a AGP 8 y a AGP 9 a la vez
+(2.59 añadió soporte de 9 y a la vez dropeó el 8), así que entra en esta rama por obligación, no por
+oportunidad. Se evitó 2.59 porque publicó artefactos a los que les faltaba `ComponentTreeDeps` en
+runtime: sin CI, aterrizar encima de una release con un bug conocido es un riesgo gratuito.
+
+**Lo que NO se subió, y por qué el comentario importa tanto como la versión.** `compileSdk` se queda
+en 36 y `minSdk` en 24 (compromiso de producto). `hilt-navigation-compose` se queda en 1.2.0: al
+re-verificar el pin resultó que el comentario del catálogo **era falso** —culpaba a un requisito de
+`compileSdk` 37 en la 1.3.0, cuando el bloqueo real de la 1.3.0 es que `hiltViewModel()` se muda a
+otro artefacto (tocaría los imports de cuatro pantallas), y el requisito de `compileSdk` 37 empieza
+de verdad en la 1.4.0. La regla que deja esta feature: **un pin cuyo comentario miente es peor que no
+haber subido**, porque la siguiente persona se lo cree. Todos los comentarios de pin afectados
+(`hilt`, `hiltNavigationCompose`, `composeMaterial3Adaptive`, y el de `shadow` en el backend) se
+reescribieron con su razón verdadera y actual.
+
+**El backend: el toolchain sube a 25 y arrastra el runtime (decisión del usuario).** `backend/` es un
+build independiente con su propio wrapper, y `jvmToolchain(21)` habría dejado de resolver en cuanto se
+borrara la muleta, porque en esta máquina no hay ningún JDK 21 que Gradle sepa descubrir (el JBR de
+Android Studio no está en ruta estándar). Se barajaron dos salidas: auto-aprovisionar un JDK 21 con el
+**foojay resolver** (dejaba el artefacto desplegado intacto) o **subir el toolchain a 25**. El usuario
+eligió la segunda: una sola versión de Java en la máquina, en el contenedor y en el toolchain, sin
+descargas automáticas de JDKs. El coste asumido y declarado es que **esta feature toca el runtime de
+producción** — `eclipse-temurin:21-jre` → `25-jre`, y la imagen de build del `Dockerfile` (que no usa
+el wrapper, y por eso se rompe por separado) `gradle:8.13-jdk21` → `gradle:9.5-jdk25`. Lo que lo hace
+aceptable es que **Java 25 es LTS igual que el 21**: es un movimiento LTS → LTS, no un salto a una
+release efímera. Consecuencia metodológica: verificar el backend dejó de ser "compila" y pasó a ser
+"arranca y responde en el contenedor", porque Netty/HikariCP/driver de Postgres sobre una JVM nueva
+no fallan al compilar, fallan al ejecutar.
+
+**La caché de configuración sigue apagada, a propósito.** Gradle 9 no la activa por defecto (eso es
+plan de Gradle 10). Se verificó apagada en la salida real del build y se anotó explícitamente en
+`gradle.properties`: adoptarla con KSP + Hilt + Room detrás es su propia feature, no un efecto
+secundario de esta.
+
+---
+
 ## Transversal — Permisos y manifest
 
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime

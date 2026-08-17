@@ -3,9 +3,11 @@
 # build.gradle.kts). Kept separate from the app's catalog because this is an independent
 # Gradle build (JVM only, no Android Gradle Plugin).
 [versions]
-# Newer than the Android app's Kotlin (2.1.0, gradle/libs.versions.toml at the repo root) —
-# these are two independent Gradle builds, so they don't need to share a Kotlin version. Ktor
-# 3.5.1's published artifacts require a compiler new enough to read their metadata format.
+# Deliberately independent from the Android app's Kotlin (2.3.20, gradle/libs.versions.toml at the
+# repo root): these are two separate Gradle builds and don't need to share a version — the app's is
+# tied to the AGP 9 / KSP chain, this one only has to satisfy Ktor. Ktor 3.5.1's published artifacts
+# require a compiler new enough to read their metadata format. 2.3.21 also emits Java 25 bytecode
+# cleanly, which is what jvmToolchain(25) in build.gradle.kts needs.
 kotlin = "2.3.21"
 ktor = "3.5.1"
 logback = "1.5.18"
@@ -16,6 +18,7 @@ postgresql = "42.7.12"
 kotlinxCoroutines = "1.9.0"
 kotlinxSerializationJson = "1.7.3"
 junit = "5.11.4"
+shadow = "9.6.1"
 
 [libraries]
 # --- Ktor server ---
@@ -46,3 +49,4 @@ junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.r
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
