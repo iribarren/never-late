@@ -162,6 +162,23 @@ decoradores). Al ser de **consolidación**, la revisión confirmó que las capas
 tocó código de producción ni cambió comportamiento. **Ubicación:** **07b** (tras tener UI + dominio +
 datos con la 07).
 
+### 4b. Identidad de `PendingIntent` y alarmas ancladas a estado mutable → lección **09b**
+
+✅ **Continuación ad-hoc de la 09 (`recordatorios`).** No estaba en este roadmap (es post-20, decidida
+caso por caso como cualquier feature de esa etapa — ver *Tutorial Track (optional)* en `CLAUDE.md`),
+pero se intercala aquí por curva de aprendizaje inmediatamente después de la 09, que dejó a medio
+enseñar la identidad de un `PendingIntent`: solo hacía falta **una** alarma por tarea, así que nunca se
+puso a prueba qué distingue a dos `PendingIntent` entre sí. La feature **times-up-alert** añadió una
+segunda alarma por tarea (el aviso de "se acabó el tiempo", además del recordatorio previo al plazo) y
+destapó un bug real — las dos alarmas se pisaban en silencio bajo `FLAG_UPDATE_CURRENT` porque los
+`extras` no forman parte de la identidad de un `PendingIntent`. La lección **09b**
+(`09b-segunda-alarma`) enseña esa identidad real (componente + *request code* + `filterEquals` del
+`Intent`), el contraste entre una alarma anclada a un dato fijo (se programa una vez) y una anclada a
+un dato que cambia con el uso normal de la app (`timerEndsAt`, que se reprograma en cada *play*/pausa),
+y por qué esa reprogramación va en el decorador de repositorio — el único sitio por el que pasa toda
+escritura — y no en el `ViewModel`. No cuenta para "pendientes" abajo — no era un hueco de este
+backlog, es una lección añadida.
+
 ### 5. Inyección de dependencias real (Hilt/Koin) → lección **13d**
 
 Desde la 02 la app hace **DI manual** (`AppViewModelFactory`, singletons construidos a mano). El coste

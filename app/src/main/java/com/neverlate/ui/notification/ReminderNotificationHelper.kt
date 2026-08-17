@@ -76,8 +76,29 @@ object ReminderNotificationHelper {
             minutesRemaining,
             deadlineLabel,
         )
+        return baseBuilder(context, task, body).build()
+    }
 
-        return NotificationCompat.Builder(context, REMINDER_NOTIFICATION_CHANNEL_ID)
+    /**
+     * Builds the times-up-alert feature's notification for [task], fired the instant its time
+     * actually runs out (see `domain/tasks/TimeUpPlanning.kt`'s `timeUpInstantFor`).
+     *
+     * Unlike [buildNotification], this needs no [locale] and no `now`: its body is the fixed,
+     * already-localized [R.string.tasks_time_up] — deliberately timeless text, so a late delivery
+     * (D5, inexact-alarm degradation) can never make it read as wrong the way a countdown-flavoured
+     * "in N minutes" string could.
+     */
+    fun buildTimeUpNotification(context: Context, task: Task): Notification =
+        baseBuilder(context, task, context.getString(R.string.tasks_time_up)).build()
+
+    /**
+     * The chrome shared by both notification kinds, factored out so [buildNotification] and
+     * [buildTimeUpNotification] cannot drift apart (icon, priority, visibility, auto-cancel and the
+     * tap target are identical between the two — only the channel is already shared and the body
+     * text differs).
+     */
+    private fun baseBuilder(context: Context, task: Task, body: String): NotificationCompat.Builder =
+        NotificationCompat.Builder(context, REMINDER_NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle(task.title)
             .setContentText(body)
@@ -87,21 +108,27 @@ object ReminderNotificationHelper {
             // OQ-5 (approved): show the task title on the lock screen, same D3 call feature 06 made
             // for the continuous notification.
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // Lets the OS classify this correctly under Do Not Disturb.
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             // A reminder is a one-shot alert, not an ongoing status: it should disappear once seen.
             .setAutoCancel(true)
             .setContentIntent(buildContentIntent(context, task.id))
-            .build()
-    }
 
-    /** Notification id for task [taskId]'s reminder — distinct from [TASKS_NOTIFICATION_ID] (1001)
-     *  so several reminders (and the continuous summary) can all be visible at once. */
-    fun notificationIdFor(taskId: Long): Int = requestCodeFor(taskId)
+    /** Notification id for task [taskId]'s [kind] alarm — offset well past [TASKS_NOTIFICATION_ID]
+     *  (1001) so several reminders (of either kind) and the continuous summary can all be visible
+     *  at once, with no collision (D2). */
+    fun notificationIdFor(taskId: Long, kind: ReminderKind): Int =
+        REMINDER_NOTIFICATION_ID_BASE + requestCodeFor(taskId, kind)
 
     /**
      * `PendingIntent` that opens [MainActivity] on the tasks list — reusing
      * [MainActivity.EXTRA_OPEN_TASKS], the same "open the app on tasks" recipe
      * [TasksNotificationHelper] and the pending-tasks widget already use, so tapping any of this
      * app's task surfaces always lands in the same place.
+     *
+     * Keyed only by [taskId] (not by [ReminderKind]) — tapping either kind's notification should
+     * always land on the same content intent, and content `PendingIntent`s are independent of the
+     * alarm `PendingIntent`s namespaced in [ReminderScheduler.kt].
      */
     private fun buildContentIntent(context: Context, taskId: Long): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -110,11 +137,18 @@ object ReminderNotificationHelper {
         }
         return PendingIntent.getActivity(
             context,
-            requestCodeFor(taskId),
+            taskId.toInt(),
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }
 }
+
+/**
+ * Base offset for reminder notification ids (D2) — chosen well clear of [TASKS_NOTIFICATION_ID]
+ * (1001), which the un-namespaced `requestCodeFor(taskId)` used to collide with for task id 1001,
+ * and which a bare `taskId * 2 (+1)` would newly collide with for task ids 500/501.
+ */
+private const val REMINDER_NOTIFICATION_ID_BASE = 10_000
 
 private const val MILLIS_PER_MINUTE = 60_000L

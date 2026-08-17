@@ -44,10 +44,16 @@ data class ReminderPlan(val taskId: Long, val triggerAtMillis: Long)
  * with a deadline whose [reminderTimeFor] is still in the future ([isReminderInFuture]), everyone
  * else dropped. Used by [com.neverlate.ui.notification.BootRescheduleWorker] after a device
  * restart wipes every `AlarmManager` alarm (US-2).
+ *
+ * D9 (times-up-alert feature): also drops any task already handled — `completedAt != null` or
+ * `deleted` — which fixes a pre-existing bug where a completed-but-not-yet-due task still got
+ * reminded.
  */
 fun remindersToSchedule(tasks: List<Task>, now: Long, leadMillis: Long): List<ReminderPlan> =
-    tasks.mapNotNull { task ->
-        reminderTimeFor(task, leadMillis)
-            ?.takeIf { reminderAt -> isReminderInFuture(reminderAt, now) }
-            ?.let { reminderAt -> ReminderPlan(task.id, reminderAt) }
-    }
+    tasks
+        .filter { task -> task.completedAt == null && !task.deleted }
+        .mapNotNull { task ->
+            reminderTimeFor(task, leadMillis)
+                ?.takeIf { reminderAt -> isReminderInFuture(reminderAt, now) }
+                ?.let { reminderAt -> ReminderPlan(task.id, reminderAt) }
+        }
