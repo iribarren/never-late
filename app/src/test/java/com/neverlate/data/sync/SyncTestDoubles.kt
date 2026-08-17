@@ -7,6 +7,7 @@ import com.neverlate.data.UserPreferences
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.TokenStorage
 import com.neverlate.data.tasks.NeverLateDatabase
+import com.neverlate.domain.tasks.TaskListCriteria
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.robolectric.RuntimeEnvironment
 
@@ -109,5 +110,9 @@ class FakeUserPreferencesRepository(
 
     override suspend fun saveDynamicColor(enabled: Boolean) {
         userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
+    }
+
+    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
+        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
     }
 }

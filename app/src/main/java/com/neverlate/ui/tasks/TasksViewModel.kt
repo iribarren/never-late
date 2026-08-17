@@ -101,23 +101,52 @@ class TasksViewModel @Inject constructor(
 
     /**
      * Feature 04b: the search field's raw text, as its **own** [MutableStateFlow] — deliberately
-     * separate from [_criteria] below. [TasksScreen]'s field reads [query] directly, so every
-     * keystroke is reflected on screen the instant it happens (US-1); only the *derived filtering*
-     * downstream of [debouncedQuery] waits for a pause in typing. Keeping the query and the
-     * sort/group criteria as two different `StateFlow`s is what lets one be debounced while the
-     * other stays immediate.
+     * separate from [arrangement]/[_priorityFilter] below. [TasksScreen]'s field reads [query]
+     * directly, so every keystroke is reflected on screen the instant it happens (US-1); only the
+     * *derived filtering* downstream of [debouncedQuery] waits for a pause in typing. Keeping the
+     * query and the sort/group/filter state as separate `StateFlow`s is what lets one be debounced
+     * while the others stay immediate.
      */
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
     /**
-     * Feature 03b: sort field, direction, and grouping — everything *except* the text query
-     * (feature 04b moved that out, see [_query] above). These three stay immediate: touching a
-     * sort chip re-shapes the visible list on the very next [combine] emission below, with no
-     * debounce — only free-text search benefits from waiting out a typing burst.
+     * `persisted-list-preferences` (D2/D3): the durable half of the list's arrangement — sort
+     * field, direction and grouping axis — read straight from
+     * [UserPreferencesRepository.userPreferences]. `null` until the very first DataStore emission
+     * arrives; [uiState] below treats `null` as [TasksUiState.Loading] rather than ever rendering
+     * a default-valued frame that would then jump to the restored one (D3's "unrepresentable, not
+     * merely unlikely" invariant). There is deliberately **no** local echo `MutableStateFlow` here
+     * (D2) — DataStore is the single source of truth, and each setter below writes through
+     * [userPreferencesRepository] instead of mutating a parallel value.
      */
-    private val _criteria = MutableStateFlow(TaskListCriteria())
-    val criteria: StateFlow<TaskListCriteria> = _criteria.asStateFlow()
+    private val arrangement: StateFlow<TaskListCriteria?> =
+        userPreferencesRepository.userPreferences
+            .map { it.taskListArrangement }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * D1/D2: the priority filter *hides* tasks rather than re-arranging them, so — unlike sort
+     * field/direction/group axis above — it is never persisted and stays a plain in-memory
+     * `MutableStateFlow`, the same role [_query] already plays for the (also unpersisted) text
+     * search. [uiState] below reassembles a full [TaskListCriteria] from [arrangement] plus this
+     * at the point of use.
+     */
+    private val _priorityFilter = MutableStateFlow<Set<Priority>>(emptySet())
+
+    /**
+     * The full [TaskListCriteria] [TasksScreen]'s control row (chips) renders, reassembled from
+     * [arrangement] + [_priorityFilter] — kept as its **own** `StateFlow`, separate from [uiState],
+     * so the chips can reflect a sort/group/filter change without waiting on [debouncedQuery] or a
+     * fresh [uiTasksFlow] tick. `null` exactly when [arrangement] is (D3's invariant): [TasksRoute]
+     * passes this straight through to [TasksScreen] as `criteria: TaskListCriteria?`, which renders
+     * the control row only when it is non-null — precisely when the list itself is no longer
+     * [TasksUiState.Loading].
+     */
+    val criteria: StateFlow<TaskListCriteria?> =
+        combine(arrangement, _priorityFilter) { arr, filter -> arr?.copy(priorityFilter = filter) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
      * Feature 11's minimal sync indicator (OQ-1): forwarded straight from
@@ -177,8 +206,8 @@ class TasksViewModel @Inject constructor(
     /**
      * `combine` (feature 04b): builds a `Flow` that re-emits every time **any** of its three
      * sources produces a new value — a fresh countdown tick from [uiTasksFlow], a settled query
-     * from [debouncedQuery], or a sort/group change from [_criteria] — always pairing each
-     * source's *latest* value, never a stale one. That is exactly US-3's requirement: the visible
+     * from [debouncedQuery], or a sort/group/filter change from [arrangement]/[_priorityFilter] —
+     * always pairing each source's *latest* value, never a stale one. That is exactly US-3's requirement: the visible
      * list is a pure, declarative function of "the newest of each of these three things".
      *
      * `combine`'s result is a **cold** `Flow`: like any other `Flow`, it does no work at all until
@@ -199,8 +228,14 @@ class TasksViewModel @Inject constructor(
      * emission arrives — [stateIn]'s "always has a current value" guarantee needs *some* seed.
      */
     val uiState: StateFlow<TasksUiState> =
-        combine(uiTasksFlow, debouncedQuery, _criteria) { uiTasks, settledQuery, criteria ->
-            shapeToUiState(uiTasks, settledQuery, criteria)
+        combine(uiTasksFlow, debouncedQuery, arrangement, _priorityFilter) { uiTasks, settledQuery, arr, filter ->
+            // D3's invariant: arrangement == null is Loading, full stop — never a default-valued
+            // Content that would jump to the restored arrangement a moment later.
+            if (arr == null) {
+                TasksUiState.Loading
+            } else {
+                shapeToUiState(uiTasks, settledQuery, arr.copy(priorityFilter = filter))
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TasksUiState.Loading)
 
     init {
@@ -231,52 +266,73 @@ class TasksViewModel @Inject constructor(
         _query.value = query
     }
 
-    /** US-2: switches which field the list is sorted by, keeping the current direction. */
+    /**
+     * US-2: switches which field the list is sorted by, keeping the current direction.
+     * `persisted-list-preferences` (D2): writes through [userPreferencesRepository] instead of a
+     * local `MutableStateFlow` — the new value reaches [uiState] once DataStore re-emits.
+     * [arrangement]'s current value stands in for "keeping the current direction/group axis"
+     * since there is no local echo to read; if it is still `null` (DataStore has not answered
+     * yet), the chip cannot have been visible to tap in the first place (D3's invariant), so this
+     * falls back to [TaskListCriteria]'s own defaults rather than crash.
+     */
     fun onSortFieldChange(field: TaskSortField) {
-        _criteria.value = _criteria.value.copy(sortField = field)
+        val current = arrangement.value ?: TaskListCriteria()
+        viewModelScope.launch {
+            userPreferencesRepository.saveTaskListArrangement(current.copy(sortField = field))
+        }
     }
 
-    /** US-2: flips ascending ↔ descending for whichever field is currently selected. */
+    /** US-2: flips ascending ↔ descending for whichever field is currently selected. Writes
+     *  through the repository — see [onSortFieldChange]'s KDoc for the same reasoning. */
     fun onToggleSortDirection() {
-        val current = _criteria.value
+        val current = arrangement.value ?: TaskListCriteria()
         val flipped = when (current.direction) {
             SortDirection.Ascending -> SortDirection.Descending
             SortDirection.Descending -> SortDirection.Ascending
         }
-        _criteria.value = current.copy(direction = flipped)
+        viewModelScope.launch {
+            userPreferencesRepository.saveTaskListArrangement(current.copy(direction = flipped))
+        }
     }
 
     /**
      * US-3 (`priority-sorting`): switches the group axis. Called with [TaskGroupAxis.Urgency] or
      * [TaskGroupAxis.Priority] when the corresponding chip is tapped, and with
      * [TaskGroupAxis.None] when the currently-active chip is tapped again — [TasksScreen] decides
-     * which of the three to pass, this setter just applies it.
+     * which of the three to pass, this setter just applies it. Writes through the repository —
+     * see [onSortFieldChange]'s KDoc for the same reasoning.
      */
     fun onGroupAxisChange(axis: TaskGroupAxis) {
-        _criteria.value = _criteria.value.copy(groupAxis = axis)
+        val current = arrangement.value ?: TaskListCriteria()
+        viewModelScope.launch {
+            userPreferencesRepository.saveTaskListArrangement(current.copy(groupAxis = axis))
+        }
     }
 
     /**
      * D5/US-2 (`priority-sorting`): flips [priority]'s membership in the filter set — the same
      * "flip a `Set` member via `.copy(...)`" pattern every other multi-select control in this
      * codebase would use. An empty set (every priority absent) means "no filter", so tapping the
-     * last active chip off returns to showing everything.
+     * last active chip off returns to showing everything. D1: the priority filter is never
+     * persisted, so this only mutates [_priorityFilter] in memory.
      */
     fun onPriorityFilterToggle(priority: Priority) {
-        val current = _criteria.value.priorityFilter
+        val current = _priorityFilter.value
         val updated = if (priority in current) current - priority else current + priority
-        _criteria.value = _criteria.value.copy(priorityFilter = updated)
+        _priorityFilter.value = updated
     }
 
     /**
      * US-2 (`priority-sorting`, R2): [TasksUiState.NoResults]' clear action must never strand the
      * user in a state whose only escape leaves a filter active — clears **both** the text query
      * and the priority filter in one call, unlike [onQueryChange]/[onPriorityFilterToggle] which
-     * each touch only their own slice of state.
+     * each touch only their own slice of state. D1: the persisted arrangement (sort/group) is
+     * deliberately left untouched — clearing filters is not the same action as changing how the
+     * list is arranged.
      */
     fun onClearFilters() {
         _query.value = ""
-        _criteria.value = _criteria.value.copy(priorityFilter = emptySet())
+        _priorityFilter.value = emptySet()
     }
 
     /** Maps freshly-observed [Task] rows to their [TaskUiModel] countdown snapshot, all read

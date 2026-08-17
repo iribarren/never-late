@@ -22,10 +22,33 @@ import com.neverlate.ui.tasks.TaskUiModel
  */
 
 /** Which field to sort the task list by (US-2, US-1 of `priority-sorting`). */
-enum class TaskSortField { Deadline, Title, Priority }
+enum class TaskSortField {
+    Deadline, Title, Priority;
+
+    companion object {
+        /**
+         * `persisted-list-preferences` (D4): parses the stored `String` back into a
+         * [TaskSortField], tolerating anything unexpected — same pattern as
+         * [com.neverlate.data.ThemeMode.fromStorage]. A missing/unknown value falls back to
+         * [Deadline] (the same default [TaskListCriteria] already declares) rather than throwing,
+         * so a renamed/removed constant from a future version never crashes the Tasks screen.
+         */
+        fun fromStorage(value: String?): TaskSortField =
+            entries.firstOrNull { it.name == value } ?: Deadline
+    }
+}
 
 /** Ascending ("soonest deadline first" / "A→Z" / "most important first") or descending direction. */
-enum class SortDirection { Ascending, Descending }
+enum class SortDirection {
+    Ascending, Descending;
+
+    companion object {
+        /** `persisted-list-preferences` (D4): tolerant parsing, defaulting to [Ascending] — see
+         *  [TaskSortField.Companion.fromStorage]'s KDoc for the full reasoning. */
+        fun fromStorage(value: String?): SortDirection =
+            entries.firstOrNull { it.name == value } ?: Ascending
+    }
+}
 
 /**
  * The three-state grouping axis (US-3 of `priority-sorting`): no grouping, urgency sections
@@ -33,7 +56,16 @@ enum class SortDirection { Ascending, Descending }
  * [TaskListCriteria] — a `Boolean` could only ever mean "grouped by urgency or not", which stops
  * being true the moment a second axis exists.
  */
-enum class TaskGroupAxis { None, Urgency, Priority }
+enum class TaskGroupAxis {
+    None, Urgency, Priority;
+
+    companion object {
+        /** `persisted-list-preferences` (D4): tolerant parsing, defaulting to [None] — see
+         *  [TaskSortField.Companion.fromStorage]'s KDoc for the full reasoning. */
+        fun fromStorage(value: String?): TaskGroupAxis =
+            entries.firstOrNull { it.name == value } ?: None
+    }
+}
 
 /**
  * Everything the Tasks screen's sort/group/filter controls (sort chips, direction toggle, group

@@ -65,6 +65,7 @@ private class NoopUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
     override suspend fun saveSyncCursor(cursor: Long) = Unit
     override suspend fun saveDynamicColor(enabled: Boolean) = Unit
+    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) = Unit
 }
 
 /**

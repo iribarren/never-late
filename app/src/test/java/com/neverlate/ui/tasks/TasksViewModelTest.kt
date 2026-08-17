@@ -133,6 +133,9 @@ private class FakeUserPreferencesRepository(initial: UserPreferences = UserPrefe
     override suspend fun saveReminderLeadMinutes(minutes: Int) {}
     override suspend fun saveSyncCursor(cursor: Long) {}
     override suspend fun saveDynamicColor(enabled: Boolean) {}
+    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
+        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
+    }
 }
 
 private val teaTask = Task(id = 1, title = "Preparar té", estimatedDurationMillis = 5 * 60_000L)
@@ -172,6 +175,23 @@ class TasksViewModelTest {
     private fun TestScope.collectUiState(viewModel: TasksViewModel) {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect {}
+        }
+    }
+
+    /**
+     * `persisted-list-preferences` (D2/D3): mirrors [collectUiState] above, but for
+     * [TasksViewModel.criteria]. Unlike the pre-this-feature `_criteria` `MutableStateFlow`,
+     * [TasksViewModel.criteria] is now its own `combine(arrangement, _priorityFilter).stateIn(...)`
+     * chain, seeded at `null` until the fake repository's arrangement is actually collected — so
+     * reading `criteria.value` right after constructing the ViewModel or right after calling a
+     * setter, with no collector attached and no time advanced, is no longer valid (it would either
+     * NPE on the `!!` or observe a stale value). Every test that reads [TasksViewModel.criteria]
+     * must attach this collector first and call `advanceUntilIdle()` before asserting, the same
+     * "wait for a value before deciding" discipline [collectUiState] already established.
+     */
+    private fun TestScope.collectCriteria(viewModel: TasksViewModel) {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.criteria.collect {}
         }
     }
 
@@ -330,44 +350,57 @@ class TasksViewModelTest {
     // Feature 03b: sort / group criteria (immediate, no debounce) ----------------------------------
 
     @Test
-    fun `criteria starts at its defaults - deadline ascending, ungrouped`() {
+    fun `criteria starts at its defaults - deadline ascending, ungrouped`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
         assertEquals(TaskListCriteria(), viewModel.criteria.value)
     }
 
     @Test
-    fun `onSortFieldChange updates criteria's sortField and keeps the current direction`() {
+    fun `onSortFieldChange updates criteria's sortField and keeps the current direction`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
+        // D2: the setter writes through the fake repository asynchronously (viewModelScope.launch)
+        // rather than mutating a local MutableStateFlow synchronously - the new value only reaches
+        // criteria once the DataStore-backed flow re-emits, hence the advanceUntilIdle() below.
         viewModel.onSortFieldChange(TaskSortField.Title)
+        advanceUntilIdle()
 
-        assertEquals(TaskSortField.Title, viewModel.criteria.value.sortField)
-        assertEquals(SortDirection.Ascending, viewModel.criteria.value.direction)
+        assertEquals(TaskSortField.Title, viewModel.criteria.value!!.sortField)
+        assertEquals(SortDirection.Ascending, viewModel.criteria.value!!.direction)
     }
 
     @Test
-    fun `onToggleSortDirection flips ascending to descending and back`() {
+    fun `onToggleSortDirection flips ascending to descending and back`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
         viewModel.onToggleSortDirection()
-        assertEquals(SortDirection.Descending, viewModel.criteria.value.direction)
+        advanceUntilIdle()
+        assertEquals(SortDirection.Descending, viewModel.criteria.value!!.direction)
 
         viewModel.onToggleSortDirection()
-        assertEquals(SortDirection.Ascending, viewModel.criteria.value.direction)
+        advanceUntilIdle()
+        assertEquals(SortDirection.Ascending, viewModel.criteria.value!!.direction)
     }
 
     @Test
     fun `onGroupAxisChange to Urgency produces a Grouped shaped result`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
+        collectCriteria(viewModel)
         advanceTimeBy(300)
         runCurrent()
 
         viewModel.onGroupAxisChange(TaskGroupAxis.Urgency)
-        runCurrent()
+        advanceUntilIdle()
 
-        assertEquals(TaskGroupAxis.Urgency, viewModel.criteria.value.groupAxis)
+        assertEquals(TaskGroupAxis.Urgency, viewModel.criteria.value!!.groupAxis)
         val state = viewModel.uiState.value
         assertTrue(state is TasksUiState.Content)
         assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Grouped)
@@ -377,14 +410,16 @@ class TasksViewModelTest {
     fun `onGroupAxisChange back to None returns to an ungrouped Flat result`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
+        collectCriteria(viewModel)
         advanceTimeBy(300)
         runCurrent()
 
         viewModel.onGroupAxisChange(TaskGroupAxis.Urgency)
+        advanceUntilIdle()
         viewModel.onGroupAxisChange(TaskGroupAxis.None)
-        runCurrent()
+        advanceUntilIdle()
 
-        assertEquals(TaskGroupAxis.None, viewModel.criteria.value.groupAxis)
+        assertEquals(TaskGroupAxis.None, viewModel.criteria.value!!.groupAxis)
         val state = viewModel.uiState.value
         assertTrue(state is TasksUiState.Content)
         assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Flat)
@@ -394,61 +429,79 @@ class TasksViewModelTest {
     fun `onGroupAxisChange to Priority produces a Grouped shaped result`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
+        collectCriteria(viewModel)
         advanceTimeBy(300)
         runCurrent()
 
         viewModel.onGroupAxisChange(TaskGroupAxis.Priority)
-        runCurrent()
+        advanceUntilIdle()
 
-        assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value.groupAxis)
+        assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value!!.groupAxis)
         val state = viewModel.uiState.value
         assertTrue(state is TasksUiState.Content)
         assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Grouped)
     }
 
     @Test
-    fun `onGroupAxisChange to Priority then Urgency deselects the previous axis, never both at once`() {
+    fun `onGroupAxisChange to Priority then Urgency deselects the previous axis, never both at once`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
         viewModel.onGroupAxisChange(TaskGroupAxis.Priority)
-        assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value.groupAxis)
+        advanceUntilIdle()
+        assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value!!.groupAxis)
 
         viewModel.onGroupAxisChange(TaskGroupAxis.Urgency)
+        advanceUntilIdle()
 
         // TaskGroupAxis is a single field, not two independent booleans, so switching to Urgency
         // is inherently exclusive - this pins that the ViewModel never tries to represent "both".
-        assertEquals(TaskGroupAxis.Urgency, viewModel.criteria.value.groupAxis)
+        assertEquals(TaskGroupAxis.Urgency, viewModel.criteria.value!!.groupAxis)
     }
 
     // Priority filter (D5, US-2 of `priority-sorting`) --------------------------------------------
 
     @Test
-    fun `onPriorityFilterToggle adds a priority to an empty filter set`() {
+    fun `onPriorityFilterToggle adds a priority to an empty filter set`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
+        // Unlike the sort/group setters, onPriorityFilterToggle mutates _priorityFilter directly
+        // (D1/D2 - the filter is never persisted), so no repository round trip is needed here; the
+        // advanceUntilIdle() below is still required to let criteria's own combine/stateIn chain
+        // re-emit the updated value to its collector.
         viewModel.onPriorityFilterToggle(Priority.HIGH)
+        advanceUntilIdle()
 
-        assertEquals(setOf(Priority.HIGH), viewModel.criteria.value.priorityFilter)
+        assertEquals(setOf(Priority.HIGH), viewModel.criteria.value!!.priorityFilter)
     }
 
     @Test
-    fun `onPriorityFilterToggle twice for the same priority returns to no filter`() {
+    fun `onPriorityFilterToggle twice for the same priority returns to no filter`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
         viewModel.onPriorityFilterToggle(Priority.HIGH)
         viewModel.onPriorityFilterToggle(Priority.HIGH)
+        advanceUntilIdle()
 
-        assertEquals(emptySet<Priority>(), viewModel.criteria.value.priorityFilter)
+        assertEquals(emptySet<Priority>(), viewModel.criteria.value!!.priorityFilter)
     }
 
     @Test
-    fun `onPriorityFilterToggle supports multiple priorities active at once`() {
+    fun `onPriorityFilterToggle supports multiple priorities active at once`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
+        collectCriteria(viewModel)
+        advanceUntilIdle()
 
         viewModel.onPriorityFilterToggle(Priority.HIGH)
         viewModel.onPriorityFilterToggle(Priority.MEDIUM)
+        advanceUntilIdle()
 
-        assertEquals(setOf(Priority.HIGH, Priority.MEDIUM), viewModel.criteria.value.priorityFilter)
+        assertEquals(setOf(Priority.HIGH, Priority.MEDIUM), viewModel.criteria.value!!.priorityFilter)
     }
 
     @Test
@@ -469,6 +522,7 @@ class TasksViewModelTest {
         runTest(testDispatcher) {
             val viewModel = TasksViewModel(motionSettings = FakeMotionSettings(), userPreferencesRepository = FakeUserPreferencesRepository(), repository = FakeTaskRepository(listOf(teaTask)))
             collectUiState(viewModel)
+            collectCriteria(viewModel)
             advanceTimeBy(300)
             runCurrent()
 
@@ -485,7 +539,7 @@ class TasksViewModelTest {
             runCurrent()
 
             assertEquals("", viewModel.query.value)
-            assertEquals(emptySet<Priority>(), viewModel.criteria.value.priorityFilter)
+            assertEquals(emptySet<Priority>(), viewModel.criteria.value!!.priorityFilter)
             assertTrue(viewModel.uiState.value is TasksUiState.Content)
         }
 
@@ -674,5 +728,115 @@ class TasksViewModelTest {
             "the running task's state must survive every reduceMotion flip unchanged",
             finalTask.task.isRunning,
         )
+    }
+
+    // `persisted-list-preferences`: durable arrangement, no-flicker restoration --------------------
+
+    /**
+     * AC-5, the most important test in this spec: seeds the fake repository with a **non-default**
+     * arrangement *before* constructing the ViewModel (as if DataStore already held it from a
+     * previous session), then proves `uiState`'s first non-`Loading` emission already reflects it -
+     * never a default-arranged `Content` that would jump a moment later. D3 makes the "not loaded
+     * yet" state `null` (`Loading`), so there is no default-valued frame this test could even catch
+     * mid-flight; what it pins instead is that *every* `Content` emission this ViewModel ever
+     * produces, from the very first one, is already `Grouped` by the seeded axis.
+     */
+    @Test
+    fun `uiState's first non-Loading emission already carries a seeded non-default arrangement`() = runTest(testDispatcher) {
+        val seededArrangement = TaskListCriteria(
+            sortField = TaskSortField.Title,
+            direction = SortDirection.Descending,
+            groupAxis = TaskGroupAxis.Urgency,
+        )
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(taskListArrangement = seededArrangement),
+        )
+        val viewModel = TasksViewModel(
+            motionSettings = FakeMotionSettings(),
+            userPreferencesRepository = userPreferencesRepository,
+            repository = FakeTaskRepository(listOf(teaTask, reportTask)),
+        )
+
+        val emissions = mutableListOf<TasksUiState>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect { emissions.add(it) }
+        }
+        advanceTimeBy(300)
+        runCurrent()
+
+        val nonLoadingEmissions = emissions.filterNot { it is TasksUiState.Loading }
+        assertTrue("expected at least one non-Loading emission", nonLoadingEmissions.isNotEmpty())
+
+        // The very first Content this ViewModel ever produces must already be Grouped by Urgency
+        // (the seeded axis) - if restoration ever raced the first render, this would instead be a
+        // Flat (default groupAxis = None) Content that later flips to Grouped.
+        nonLoadingEmissions.forEach { state ->
+            val content = state as TasksUiState.Content
+            assertTrue(
+                "every Content emission must already reflect the seeded arrangement, never the " +
+                    "default groupAxis = None",
+                content.shaped is ShapedTaskList.Grouped,
+            )
+        }
+
+        collectCriteria(viewModel)
+        advanceUntilIdle()
+        assertEquals(seededArrangement, viewModel.criteria.value)
+    }
+
+    /**
+     * AC-2/D1: `UserPreferences` carries no field at all for the text query or the priority
+     * filter, so construction can only ever start [TasksViewModel.query]/`criteria.priorityFilter`
+     * at their in-memory defaults - proven here against a repository seeded with a deliberately
+     * *non*-default arrangement, so a bug that accidentally widened restoration to the whole
+     * `TaskListCriteria` (rather than just sortField/direction/groupAxis) would show up as a
+     * non-empty `priorityFilter` here.
+     */
+    @Test
+    fun `query and priority filter never restore from storage, regardless of the seeded arrangement`() = runTest(testDispatcher) {
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(
+                taskListArrangement = TaskListCriteria(
+                    sortField = TaskSortField.Priority,
+                    direction = SortDirection.Descending,
+                    groupAxis = TaskGroupAxis.Priority,
+                ),
+            ),
+        )
+        val viewModel = TasksViewModel(
+            motionSettings = FakeMotionSettings(),
+            userPreferencesRepository = userPreferencesRepository,
+            repository = FakeTaskRepository(listOf(teaTask)),
+        )
+        collectCriteria(viewModel)
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.query.value)
+        assertEquals(emptySet<Priority>(), viewModel.criteria.value!!.priorityFilter)
+    }
+
+    /**
+     * AC-6/D3: [TasksViewModel]'s `init {}` only launches the auto-pause and sync-status side-effect
+     * collectors (see its KDoc) - it never seeds `arrangement`/`criteria` itself. This mirrors
+     * `uiState stays at its Loading seed with no collector attached` above: with no collector
+     * anywhere near `criteria`, `SharingStarted.WhileSubscribed` never starts collecting the
+     * repository's flow, so advancing the scheduler changes nothing and `criteria.value` stays at
+     * its `null` seed - even though the fake repository already holds a real, non-default
+     * arrangement the moment it would be read.
+     */
+    @Test
+    fun `criteria stays null with no collector attached - no imperative init seeds it`() {
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(taskListArrangement = TaskListCriteria(sortField = TaskSortField.Title)),
+        )
+        val viewModel = TasksViewModel(
+            motionSettings = FakeMotionSettings(),
+            userPreferencesRepository = userPreferencesRepository,
+            repository = FakeTaskRepository(listOf(teaTask)),
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(null, viewModel.criteria.value)
     }
 }

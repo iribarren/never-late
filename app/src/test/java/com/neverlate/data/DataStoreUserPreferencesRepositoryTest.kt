@@ -1,5 +1,10 @@
 package com.neverlate.data
 
+import com.neverlate.data.tasks.Priority
+import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskGroupAxis
+import com.neverlate.domain.tasks.TaskListCriteria
+import com.neverlate.domain.tasks.TaskSortField
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -105,5 +110,55 @@ class DataStoreUserPreferencesRepositoryTest {
         preferences = repository.userPreferences.first()
         assertEquals("Deva", preferences.name)
         assertEquals(true, preferences.onboarded)
+    }
+
+    /**
+     * `persisted-list-preferences` (D1/D3/D4, AC-3): [DataStoreUserPreferencesRepository.saveTaskListArrangement]
+     * writes exactly `sortField`/`direction`/`groupAxis` and deliberately drops `priorityFilter`
+     * (D1 — a filter *hides* tasks, so it must never survive a restart). Proven two ways against a
+     * real DataStore: (1) the three persisted fields round-trip through a fresh
+     * [DataStoreUserPreferencesRepository] instance backed by the same on-disk file, and (2) a
+     * criteria saved with a **non-empty** `priorityFilter` reads back with `priorityFilter ==
+     * emptySet()` regardless — there is no key this repository could even read a filter back from
+     * (see `Keys` in the production class: only `TASK_SORT_FIELD`/`TASK_SORT_DIRECTION`/
+     * `TASK_GROUP_AXIS` exist), so a non-default filter passed in leaves nothing filter-shaped
+     * behind.
+     */
+    @Test
+    fun `saveTaskListArrangement writes only sortField, direction and groupAxis, never priorityFilter`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = DataStoreUserPreferencesRepository(context)
+
+        // A criteria object carrying a non-empty priorityFilter, exactly the shape AC-3 warns
+        // about: the write path must not have anywhere to put it.
+        val criteria = TaskListCriteria(
+            sortField = TaskSortField.Priority,
+            direction = SortDirection.Descending,
+            groupAxis = TaskGroupAxis.Urgency,
+            priorityFilter = setOf(Priority.HIGH, Priority.MEDIUM),
+        )
+
+        repository.saveTaskListArrangement(criteria)
+
+        val readBack = repository.userPreferences.first().taskListArrangement
+        assertEquals(TaskSortField.Priority, readBack.sortField)
+        assertEquals(SortDirection.Descending, readBack.direction)
+        assertEquals(TaskGroupAxis.Urgency, readBack.groupAxis)
+        assertEquals(
+            "priorityFilter must never round-trip through storage (D1) — a read always reports " +
+                "emptySet(), no matter what was passed to save",
+            emptySet<Priority>(),
+            readBack.priorityFilter,
+        )
+
+        // A second, independent DataStoreUserPreferencesRepository instance against the same
+        // on-disk file sees the identical three-field arrangement — proves the write actually
+        // landed on disk, not just in an in-memory echo of this one instance.
+        val secondRepository = DataStoreUserPreferencesRepository(context)
+        val readBackFromSecondInstance = secondRepository.userPreferences.first().taskListArrangement
+        assertEquals(TaskSortField.Priority, readBackFromSecondInstance.sortField)
+        assertEquals(SortDirection.Descending, readBackFromSecondInstance.direction)
+        assertEquals(TaskGroupAxis.Urgency, readBackFromSecondInstance.groupAxis)
+        assertEquals(emptySet<Priority>(), readBackFromSecondInstance.priorityFilter)
     }
 }
