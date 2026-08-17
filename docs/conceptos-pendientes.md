@@ -40,7 +40,7 @@ posición final en la secuencia.
 
 | Nº | Concepto | Prerrequisitos | Feature propuesta | Estado |
 |----|----------|----------------|-------------------|--------|
-| **03b** ★ | Fundamentos de Kotlin (null-safety, `when`, colecciones, alcance, extensiones) | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos/tareas en memoria | ⬜ pendiente |
+| **03b** ★ | Fundamentos de Kotlin (null-safety, `when`, colecciones, alcance, extensiones) | 03 (`data class`, `sealed`) | Filtro/orden de la lista de artículos/tareas en memoria | ✅ hecho en **feature 03b** |
 | **04b** ★ | Corrutinas y `Flow` a fondo (`debounce`, `combine`, `stateIn`) | 04 (corrutinas, `Flow`, Room) | Buscador de tareas con `debounce` + `combine` | ✅ hecho en **feature 04b** |
 | **04c** ★ | Testing (JVM + Compose UI, `runTest`) | 04 (lógica pura de tiempo) | Pantalla de estadísticas testeable + tests de UI | ✅ hecho en **feature 04c** |
 | **05b** ★ | Temas fuera de Compose: por qué un `CompositionLocal` no cruza a Glance, `GlanceTheme` + `glance-material3`, `ColorProvider(day, night)`, límites de API dentro de un widget y previews | 05 (widget/Glance), 16/17 (paleta y urgencia), 13b (prioridad), 20b (texto compartido) | Rediseño visual del widget de tareas pendientes | ✅ hecho en **feature 05b** |
@@ -57,7 +57,7 @@ posición final en la secuencia.
 | **20b** ★ | Dónde nace el texto de cara al usuario: formateo fuera del dominio, `NumberFormat` + recursos con placeholder, `<plurals>` vs abreviatura, refactor de tipo compartido | 08 (i18n), 04/05/06/19 (cuenta atrás compartida) | Tiempo restante compacto y localizable (`2h 38m` / `1d 12h 10m`) en tarjeta, widget y notificación | ✅ hecho en **feature 20b** |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
-**Pendientes: 3** (03b, 10b, 21). **Ya hechas por sus propias features:** 04b
+**Pendientes: 2** (10b, 21). **Ya hechas por sus propias features:** 03b (fundamentos de Kotlin), 04b
 (corrutinas/`Flow`), 04c (testing), 05b (temas fuera de Compose / Glance), 07b (arquitectura
 nombrada), 13b (migraciones de Room), 13c (paginación), 13d (Hilt), 18b (layouts adaptables) y 20b
 (tiempo restante localizable). **Ya cubiertas

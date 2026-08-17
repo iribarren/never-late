@@ -61,8 +61,10 @@ never-late/
    ├─ arquitectura.md           # Architecture decision log, feature by feature (the "why")
    ├─ mockups/                  # Master visual mockup + slice tracking table
    ├─ specs/                    # Feature specs (project-manager-docs)
-   ├─ prompts/                  # Ready-to-paste session starters — tutorial-track backlog only
+   ├─ prompts/                  # Ready-to-paste session starters — one per feature, shipped and pending
    ├─ conceptos-pendientes.md   # Tutorial-track backlog (learning concepts), NOT the product roadmap
+   ├─ ideillas.md               # Product ideas from the user, each turned into a prompt
+   ├─ diferidos.md              # Backlog of work this project's own specs deferred (Out of Scope / Risks)
    └─ articles-api/             # Article catalog content (now the backend seed source)
 ```
 
@@ -270,9 +272,15 @@ Record the answer in the spec as a `Tutorial:` field. The spec's approval then c
 **If it does not**, no lesson is written, no number is reserved, and the feature simply stays out of
 the tutorial track. Everything else in **Documentation Update** still applies.
 
-`docs/conceptos-pendientes.md` and `docs/prompts/` are the **backlog of the tutorial track** (Kotlin
-concepts still unexplained, with a ready-to-paste session starter each) — they are *not* the product
-roadmap, and their pending slots (03b, 10b, 21) are opportunities, not commitments.
+`docs/conceptos-pendientes.md` is the **backlog of the tutorial track** (Kotlin concepts still
+unexplained, one ready-to-paste session starter each) — it is *not* the product roadmap, and its
+pending slots (**10b, 21**) are opportunities, not commitments.
+
+`docs/prompts/` is broader than that track: it holds a session starter per feature, **shipped and
+pending alike** (shipped prompts are kept, and specs cite them as `Prompt origen`). Three documents
+index it, by where the work came from: `conceptos-pendientes.md` (tutorial slots),
+`docs/ideillas.md` (product ideas from the user) and `docs/diferidos.md` (work this project's own
+specs deferred in their *Out of Scope* / *Risks* sections). None of the three is a commitment.
 
 Independently of any lesson, **keep the code exemplary**: clear names, small functions, and a comment
 in English where a non-obvious concept first appears.
