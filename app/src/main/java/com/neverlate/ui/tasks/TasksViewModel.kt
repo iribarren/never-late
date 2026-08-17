@@ -40,6 +40,20 @@ import kotlinx.coroutines.launch
 data class TaskUiModel(val task: Task, val remainingMillis: Long, val isTimedOut: Boolean)
 
 /**
+ * Maps freshly-observed [Task] rows to their [TaskUiModel] countdown snapshot, all read against a
+ * single [now] so every task in the same tick agrees on "the current instant". Promoted out of
+ * [TasksViewModel] (Modo Foco, `docs/specs/2026-08-18-focus-mode.md`, D10) to a top-level function
+ * so [com.neverlate.ui.focus.FocusViewModel] can reuse the exact same conversion instead of a
+ * second, drift-prone copy — same "one mapping, every consumer reuses it" rule the rest of this
+ * codebase already applies (see `domain/tasks/ColorRole.kt`).
+ */
+fun List<Task>.toTaskUiModels(now: Long = System.currentTimeMillis()): List<TaskUiModel> =
+    map { task ->
+        val remaining = computeRemainingMillis(task, now)
+        TaskUiModel(task = task, remainingMillis = remaining, isTimedOut = remaining == 0L)
+    }
+
+/**
  * Everything the Tasks list screen needs to render itself. [NoResults] (feature 03b, US-4) is
  * deliberately a **separate** state from [Empty], not a flag on [Content]: "you have no tasks"
  * and "your filter matched none of your tasks" call for different messages and a different
@@ -183,7 +197,7 @@ class TasksViewModel @Inject constructor(
                     flowOf(tasks)
                 }
             }
-            .map { tasks -> tasks.toUiModels() }
+            .map { tasks -> tasks.toTaskUiModels() }
 
     /**
      * `debounce` (a new `Flow` time operator, feature 04b's central concept): re-emits a value
@@ -335,13 +349,6 @@ class TasksViewModel @Inject constructor(
         _priorityFilter.value = emptySet()
     }
 
-    /** Maps freshly-observed [Task] rows to their [TaskUiModel] countdown snapshot, all read
-     *  against a single [now] so every task in the same tick agrees on "the current instant". */
-    private fun List<Task>.toUiModels(now: Long = System.currentTimeMillis()): List<TaskUiModel> =
-        map { task ->
-            val remaining = computeRemainingMillis(task, now)
-            TaskUiModel(task = task, remainingMillis = remaining, isTimedOut = remaining == 0L)
-        }
 
     /**
      * The pure derivation [combine] above calls on every emission: no tasks at all is [Empty];
@@ -381,7 +388,7 @@ class TasksViewModel @Inject constructor(
      * `null` (undo) if it was already done. Goes through the normal [TaskRepository.saveTask]
      * path, exactly like editing any other field, so it writes the task row **and** its outbox
      * change row in one transaction (feature 11's decorator chain) with no special-casing here.
-     * [now] follows [toUiModels]'s existing convention (a defaulted parameter rather than an
+     * [now] follows [toTaskUiModels]'s existing convention (a defaulted parameter rather than an
      * inline [System.currentTimeMillis] call) so a test can pin the exact instant.
      */
     fun toggleComplete(task: Task, now: Long = System.currentTimeMillis()) {

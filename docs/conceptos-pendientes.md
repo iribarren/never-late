@@ -56,12 +56,14 @@ posición final en la secuencia.
 | **18b** ★ | Layouts adaptables / tamaños de pantalla (tablet) | 02–07/18 | Layout adaptable en tablet (continúa el repaso de a11y de la 18) | ✅ hecho en **feature 18b** |
 | **20b** ★ | Dónde nace el texto de cara al usuario: formateo fuera del dominio, `NumberFormat` + recursos con placeholder, `<plurals>` vs abreviatura, refactor de tipo compartido | 08 (i18n), 04/05/06/19 (cuenta atrás compartida) | Tiempo restante compacto y localizable (`2h 38m` / `1d 12h 10m`) en tarjeta, widget y notificación | ✅ hecho en **feature 20b** |
 | — | `MotionDurationScale` como `CoroutineContext.Element`, animar vs. refrescar, por qué `LocalAccessibilityManager` no sirve, derogar una instrucción previa con conocimiento de causa | 17 (animaciones), 19 (barra de progreso), 20b (tick del `CountdownTicker`) | Respetar "reducir movimiento" del sistema (ajuste de Accesibilidad → *Quitar animaciones*) | ✅ hecho en **feature reduce-motion** |
+| — | `BackHandler` y su alcance honesto, gestos personalizados con `CustomAccessibilityAction`, las tres capas de estado del ciclo de vida (y cuál se deja sin usar a propósito), diseñar fricción sin diseñar una trampa | 04 (cuenta atrás), 04c (`toggleComplete`), 18 (navegación y accesibilidad), 07 (DataStore `user_prefs`) | Modo Foco: pantalla completa y ritual de salida | ✅ hecho en **feature focus-mode** |
 | **21** ★ | Build variants, R8/ProGuard y firma de release | 11–13 (backend, HTTPS pendiente), 20 | Build `release` firmada con backend HTTPS + minificación | ⬜ pendiente |
 
 **Pendientes: 2** (10b, 21). **Ya hechas por sus propias features:** 03b (fundamentos de Kotlin), 04b
 (corrutinas/`Flow`), 04c (testing), 05b (temas fuera de Compose / Glance), 07b (arquitectura
 nombrada), 13b (migraciones de Room), 13c (paginación), 13d (Hilt), 18b (layouts adaptables), 20b
-(tiempo restante localizable) y 20c (reducir movimiento). **Ya cubiertas
+(tiempo restante localizable), 20c (reducir movimiento) y 20d (Modo Foco: `BackHandler`, gestos
+accesibles, capas de estado, fricción sin trampa). **Ya cubiertas
 por 14–20: 4** (side-effects, animaciones, theming dinámico y el repaso de accesibilidad; ver detalle
 abajo). El slot **21** es el último de este roadmap; cualquier feature futura no listada aquí se
 numeraría a partir de 22.

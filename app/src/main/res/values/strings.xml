@@ -287,4 +287,65 @@
     <!-- Feature priority-sorting (US-5): fourth card, HIGH-priority tasks completed this week. -->
     <string name="stats_high_priority_completed_label">Alta prioridad completadas</string>
     <string name="stats_empty">No hay tareas todavía.</string>
+
+    <!-- Modo Foco (docs/specs/2026-08-18-focus-mode.md): entry point + entry dialog. D8/US-6: the
+         message deliberately avoids lockdown language ("bloquear", "impedir salir") — BackHandler
+         only intercepts this app's own back gesture; Home/recents/the shade all keep working. -->
+    <string name="focus_title">Modo Foco</string>
+    <string name="focus_entry_content_description">Abrir Modo Foco</string>
+    <string name="focus_entry_dialog_message">Verás solo tus tareas pendientes, a pantalla completa. Para salir, termina las tareas, desliza una barra y escribe el código que elijas ahora. El botón Inicio y los últimos usados siguen funcionando en todo momento: esto no bloquea el dispositivo.</string>
+    <string name="focus_entry_dialog_code_label">Código de salida (4 dígitos)</string>
+    <string name="focus_entry_dialog_start_button">Empezar</string>
+    <string name="focus_entry_dialog_cancel_button">Cancelar</string>
+
+    <!-- Modo Foco: top-bar session progress, e.g. "3 de 7 tareas" (AC-V1). A <plurals> so the
+         denominator agrees grammatically. -->
+    <plurals name="focus_progress_state_description">
+        <item quantity="one">%1$d de %2$d tarea</item>
+        <item quantity="other">%1$d de %2$d tareas</item>
+    </plurals>
+
+    <!-- Modo Foco: "nothing pending left" state (reuses MessageState) + the persistent bottom exit
+         action, which doubles as MessageState's own actionLabel (AC-V6). -->
+    <string name="focus_empty_message">Has terminado todo lo que tenías pendiente en esta sesión.</string>
+    <string name="focus_exit_button">Salir del Modo Foco</string>
+
+    <!-- Modo Foco: exit panel checklist (US-3). The tasks requirement is a <plurals> ("5 de 7
+         terminadas"). -->
+    <plurals name="focus_exit_requirement_tasks">
+        <item quantity="one">Tareas terminadas (%1$d de %2$d)</item>
+        <item quantity="other">Tareas terminadas (%1$d de %2$d)</item>
+    </plurals>
+    <string name="focus_exit_requirement_code">Código introducido</string>
+    <string name="focus_exit_requirement_slide">Deslizar para salir</string>
+
+    <!-- Modo Foco: "forgot the code" middle path (D3) — a 60s countdown, then the code in plain
+         text. %1$d in the countdown label is the whole seconds remaining. -->
+    <string name="focus_exit_forgot_code_button">No recuerdo el código</string>
+    <string name="focus_exit_countdown_label">Código visible en %1$d s</string>
+    <string name="focus_exit_code_revealed_label">Tu código es %1$s</string>
+
+    <!-- Modo Foco: the slide-to-unlock bar (D9/US-5) — contentDescription names the control,
+         stateDescription (composed at the call site) names which prerequisite is still missing,
+         and the CustomAccessibilityAction gets its own label. -->
+    <string name="focus_slide_content_description">Barra para salir del Modo Foco</string>
+    <string name="focus_slide_action_label">Desbloquear</string>
+    <string name="focus_slide_state_enabled">Lista para deslizar</string>
+    <string name="focus_slide_state_disabled_tasks">Termina las tareas pendientes para continuar</string>
+    <string name="focus_slide_state_disabled_code">Introduce el código correcto para continuar</string>
+
+    <!-- Modo Foco: the unconditional emergency exit (D3) — never gated on the code or the gesture. -->
+    <string name="focus_abandon_button">Abandonar sesión</string>
+    <string name="focus_abandon_confirm_title">Abandonar sesión</string>
+    <string name="focus_abandon_confirm_message">La sesión se cerrará como abandonada. ¿Seguro que quieres continuar?</string>
+    <string name="focus_abandon_confirm_button">Abandonar</string>
+    <string name="focus_abandon_cancel_button">Cancelar</string>
+
+    <!-- Modo Foco: the exit-outcome snackbar shown back on Tasks (D3), via the same SavedStateHandle
+         result idiom TASK_CREATED_RESULT_KEY already uses. -->
+    <plurals name="focus_snackbar_completed">
+        <item quantity="one">Sesión completada: %1$d tarea terminada</item>
+        <item quantity="other">Sesión completada: %1$d tareas terminadas</item>
+    </plurals>
+    <string name="focus_snackbar_abandoned">Sesión abandonada</string>
 </resources>

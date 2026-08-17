@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.neverlate.domain.tasks.FocusSession
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
 import com.neverlate.domain.tasks.TaskListCriteria
@@ -88,6 +89,18 @@ data class UserPreferences(
      * reassembles the in-memory filter on top of this value.
      */
     val taskListArrangement: TaskListCriteria = TaskListCriteria(),
+    /**
+     * Modo Foco (`docs/specs/2026-08-18-focus-mode.md`): the active focus session, or `null` while
+     * none is running. Lives in this same `user_prefs` file, **never** a second DataStore and
+     * **never** `EncryptedTokenStorage` — [FocusSession.exitCode] is deliberately plaintext (D2 of
+     * the spec): it is friction the person chose for themselves, not a credential, and the exit
+     * ritual's "show me the code" escape hatch (D3) is only buildable because it is readable. Do
+     * not "harden" this by hashing it or moving it to the Keystore-backed store — that would delete
+     * the escape hatch and turn a mitigated trap risk (R2) into a live one. Every read of the three
+     * backing keys fails **open** (D6): unreadable/missing values resolve to "no session" here,
+     * never to a state that is harder to leave.
+     */
+    val focusSession: FocusSession? = null,
 ) {
     companion object {
         /** Default lead time (minutes) a reminder fires before a task's deadline. */
@@ -154,6 +167,21 @@ interface UserPreferencesRepository {
      * [UserPreferences.taskListArrangement].
      */
     suspend fun saveTaskListArrangement(criteria: TaskListCriteria)
+
+    /**
+     * Modo Foco (D4/D5 of the feature spec): persists [session] as the active focus session —
+     * `startedAt`, the plaintext exit code and the frozen roster (D1) — so it survives rotation,
+     * process death and a reboot (see [UserPreferences.focusSession]'s KDoc for why the code is
+     * never hashed or moved to the Keystore).
+     */
+    suspend fun startFocusSession(session: FocusSession)
+
+    /**
+     * Modo Foco: clears the active focus session (all three backing keys), the outcome of either
+     * exit path (D3) — the dignified ritual or the unconditional "Abandonar sesión". A subsequent
+     * read reports [UserPreferences.focusSession] as `null`.
+     */
+    suspend fun endFocusSession()
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -180,6 +208,13 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         val TASK_SORT_FIELD = stringPreferencesKey("task_sort_field")
         val TASK_SORT_DIRECTION = stringPreferencesKey("task_sort_direction")
         val TASK_GROUP_AXIS = stringPreferencesKey("task_group_axis")
+        // Added by the Modo Foco feature — same "user_prefs" file yet again, no second DataStore
+        // (D2/AC-10). The roster is a comma-joined list of ids, not a JSON array: this repository
+        // has no serialization dependency, and a hand-rolled split/parse is enough for a flat set
+        // of Longs — see FOCUS_ROSTER's read/write below for the tolerant per-id parsing (D6/AC-9).
+        val FOCUS_SESSION_STARTED_AT = longPreferencesKey("focus_session_started_at")
+        val FOCUS_EXIT_CODE = stringPreferencesKey("focus_exit_code")
+        val FOCUS_ROSTER = stringPreferencesKey("focus_roster")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -208,6 +243,16 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
                     sortField = TaskSortField.fromStorage(preferences[Keys.TASK_SORT_FIELD]),
                     direction = SortDirection.fromStorage(preferences[Keys.TASK_SORT_DIRECTION]),
                     groupAxis = TaskGroupAxis.fromStorage(preferences[Keys.TASK_GROUP_AXIS]),
+                ),
+                // Modo Foco (D6, fail open on every unreadable value): a missing/zero startedAt
+                // means "no session" — the app opens normally on Tasks (AC-8). A stale/unparseable
+                // roster is never allowed to invalidate the whole session either: focusSessionFrom
+                // below drops individual bad ids one by one (AC-9) rather than treating the whole
+                // preference as corrupt.
+                focusSession = focusSessionFrom(
+                    startedAt = preferences[Keys.FOCUS_SESSION_STARTED_AT] ?: 0L,
+                    exitCode = preferences[Keys.FOCUS_EXIT_CODE] ?: "",
+                    rosterCsv = preferences[Keys.FOCUS_ROSTER] ?: "",
                 ),
             )
         }
@@ -268,4 +313,43 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
             preferences[Keys.TASK_GROUP_AXIS] = criteria.groupAxis.name
         }
     }
+
+    override suspend fun startFocusSession(session: FocusSession) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.FOCUS_SESSION_STARTED_AT] = session.startedAt
+            preferences[Keys.FOCUS_EXIT_CODE] = session.exitCode
+            preferences[Keys.FOCUS_ROSTER] = session.roster.joinToString(",")
+        }
+    }
+
+    override suspend fun endFocusSession() {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences.remove(Keys.FOCUS_SESSION_STARTED_AT)
+            preferences.remove(Keys.FOCUS_EXIT_CODE)
+            preferences.remove(Keys.FOCUS_ROSTER)
+        }
+    }
+}
+
+/**
+ * Modo Foco (D6): turns the three raw stored values back into a [FocusSession], or `null` — the
+ * one place this tolerant parsing happens, shared by every [DataStoreUserPreferencesRepository]
+ * read. [startedAt] `<= 0` (missing key default, or a defensively-rejected non-positive value)
+ * means "no session" (AC-8) regardless of what [exitCode]/[rosterCsv] hold. [rosterCsv] is parsed
+ * id-by-id via [String.toLongOrNull] — a single corrupted entry is silently dropped rather than
+ * discarding every other, otherwise-valid id in the list (AC-9), and an entirely blank/unparseable
+ * roster simply yields an empty [FocusSession.roster] (D1's "empty roster is legal" case, not an
+ * error).
+ *
+ * `internal` (not `private`) so [FocusSessionFromTest][com.neverlate.data.FocusSessionFromTest]
+ * can cover this tolerant parsing directly as a plain JVM test — it has no Android dependency of
+ * its own, so pushing it behind Robolectric/a real DataStore would only make it slower to run for
+ * no extra coverage (same "push logic where it's cheaply testable" rule `domain/` follows).
+ */
+internal fun focusSessionFrom(startedAt: Long, exitCode: String, rosterCsv: String): FocusSession? {
+    if (startedAt <= 0L) return null
+    val roster = rosterCsv.split(",")
+        .mapNotNull { entry -> entry.trim().takeIf { it.isNotEmpty() }?.toLongOrNull() }
+        .toSet()
+    return FocusSession(startedAt = startedAt, exitCode = exitCode, roster = roster)
 }
