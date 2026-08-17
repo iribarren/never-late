@@ -116,9 +116,9 @@ por `debounce` + `combine` con la lista de Room para filtrar en caliente. **Ubic
 
 ### 3. Testing (hueco grande — ninguna lección lo enseña a fondo) → lección **04c**
 
-El proyecto ya tiene `src/test` (JVM) y `src/androidTest` (instrumentado), el flujo menciona un
-`qa-engineer` y varias features escriben tests, pero **ninguna lección enseña a escribir tests** como
-tema propio. Es probablemente el básico más importante que falta.
+El proyecto ya tiene `src/test` (JVM) y `src/androidTest` (instrumentado), el flujo delega los tests
+al agente `android-engineer` y varias features escriben tests, pero **ninguna lección enseña a
+escribir tests** como tema propio. Es probablemente el básico más importante que falta.
 
 - **Tests unitarios JVM con JUnit** y aserciones (Truth/JUnit assertions), *test doubles*/fakes.
   Doc: [Test basics](https://developer.android.com/training/testing/fundamentals) ·

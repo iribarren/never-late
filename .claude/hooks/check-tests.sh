@@ -1,7 +1,7 @@
 #!/bin/bash
 # Hook: Stop
 # If the last assistant turn edited source files (multi-stack) without running
-# tests or delegating to the qa-engineer agent, prints a reminder.
+# tests or delegating to the android-engineer agent, prints a reminder.
 # Outputs nothing when the condition is not met.
 #
 # Tuned to this project: Kotlin sources and Gradle test tasks. It started life as a portable
@@ -65,7 +65,7 @@ for block in content:
     if tool in ('Agent', 'Task'):
         subagent = inp.get('subagent_type', '')
         prompt = inp.get('prompt', '')
-        if any(a in subagent or a in prompt for a in ('android-engineer', 'qa-engineer')):
+        if 'android-engineer' in subagent or 'android-engineer' in prompt:
             had_tests = True
 
 if had_code_edit and not had_tests:

@@ -1,6 +1,6 @@
 # Never Late Again — Workspace
 
-<!-- Installed by setup-claude.sh — project type: mobile · agents: project-manager-docs, android-engineer, devops-security-engineer, backend-engineer (+ qa-engineer, mobile-engineer: superseded by android-engineer for app work, kept for /test and architecture questions) -->
+<!-- Installed by setup-claude.sh — project type: mobile · agents: project-manager-docs, android-engineer, devops-security-engineer, backend-engineer -->
 
 ## Overview
 
@@ -373,11 +373,12 @@ here exists because its absence produced a stuck run.
 - **A timeout is a blocker, not a retry.** If a command hits its `timeout`, report it and stop —
   see **Execution Policy** above. Relaunching it blindly is how a session burns an hour.
 
-> **`android-engineer` supersedes the old pair.** Specs and session starters written before this
-> change (most of `docs/prompts/`) end with an `Agentes:` line naming `mobile-engineer` for the code
-> and `qa-engineer` for the tests. Read that as **`android-engineer` for both** — those two agents
-> are kept on disk (`qa-engineer` still backs `/test` for an independent pass, `mobile-engineer` for
-> mobile-architecture questions), but app work is no longer split between them.
+> **`android-engineer` replaced the old pair.** Specs and session starters written before this
+> change (most of `docs/specs/` and `docs/prompts/`) end with an `Agentes:` line naming
+> `mobile-engineer` for the code and `qa-engineer` for the tests. Those two agents no longer exist —
+> read every such line as **`android-engineer` for both**. Those historical lines are left untouched
+> on purpose: they record how a shipped feature was built, not what to do today. `/test` routes to
+> `android-engineer` as well, as a deliberate test-only pass.
 
 ### Bug Fix Workflow
 
