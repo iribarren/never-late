@@ -1,8 +1,8 @@
 # Version catalog — single source of truth for dependency versions.
 # Referenced from build.gradle.kts as libs.<alias>.
 [versions]
-agp = "8.13.2"
-kotlin = "2.1.0"
+agp = "9.3.0"
+kotlin = "2.3.20"
 coreKtx = "1.15.0"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
@@ -16,7 +16,10 @@ kotlinxCoroutinesTest = "1.9.0"
 kotlinxCoroutines = "1.9.0"
 kotlinxSerializationJson = "1.7.3"
 room = "2.7.1"
-ksp = "2.1.0-1.0.29"
+# KSP switched to independent versioning with 2.3.0 (it no longer tracks Kotlin as
+# <kotlin>-<ksp>). Pinned to 2.3.11, the latest release, verified against Maven Central at
+# gradle9-agp9-jdk25 migration time — required minimum for AGP 9/Kotlin 2.3.20 is 2.2.10-2.0.2.
+ksp = "2.3.11"
 glance = "1.1.1"
 workManager = "2.10.0"
 # Core library desugaring: back-ports java.time (used by feature 08's locale-aware date
@@ -45,23 +48,32 @@ robolectric = "4.16.1"
 paging = "3.5.0"
 # Feature 13d: Hilt, the project's dependency-injection container (see `di/` package). KSP support
 # has been stable since Hilt 2.48, so — like Room above — Hilt's annotation processor runs through
-# KSP here too, one single annotation-processing pipeline, no kapt needed. Pinned to 2.58 (not the
-# newest release) because Hilt 2.59 made its Gradle plugin require AGP 9 — this project is still on
-# AGP 8.13.2 (see `agp` above), and upgrading AGP is out of scope for this DI-only refactor.
-hilt = "2.58"
+# KSP here too, one single annotation-processing pipeline, no kapt needed. Pinned to 2.60.1
+# (gradle9-agp9-jdk25 migration), deliberately skipping 2.59/2.59.1: 2.59 is the first release
+# whose Gradle plugin supports AGP 9 (and the first that *requires* AGP 9.0+/Gradle 9.1+, dropping
+# AGP 8 — there is no version that serves both), but it shipped with a real bug (ComponentTreeDeps
+# missing from runtime artifacts, google/dagger#5099), fixed in 2.59.1/2.59.2. 2.60.1 is the latest
+# stable as of this migration.
+hilt = "2.60.1"
 # androidx.hilt is versioned separately from com.google.dagger:hilt-android itself: it only adds
-# the `hiltViewModel()` Compose/Navigation integration on top of the core container. Pinned to
-# 1.2.0 (not the newest release) for the same AGP-8-compatibility reason as `hilt` above — 1.3.0+
-# pulls in a newer androidx.lifecycle that itself requires AGP 9.1+/compileSdk 37.
+# the `hiltViewModel()` Compose/Navigation integration on top of the core container. Re-verified at
+# gradle9-agp9-jdk25 migration time (the old comment's "AGP 8 compatibility" reason no longer
+# applies — this project is on AGP 9.3.0): 1.2.0 stays pinned regardless, because 1.3.0 moves the
+# `hiltViewModel()` Compose APIs into a separate artifact (`hilt-lifecycle-viewmodel-compose`),
+# which would require an import/source change in every screen that calls `hiltViewModel()` — out of
+# scope for a tooling-only migration. Independently, 1.4.0+ raises Compose's `compileSdk` to API 37
+# (minimum AGP 9.2.0), which this project cannot take either: `compileSdk` stays 36 (D5, product
+# commitment, see CLAUDE.md). Revisit this pin only alongside a deliberate `compileSdk` 37 decision.
 hiltNavigationCompose = "1.2.0"
 # Feature 18b: the named list-detail adaptive API (ListDetailPaneScaffold). This artifact group
 # (androidx.compose.material3.adaptive:*) is versioned INDEPENDENTLY of the Compose BOM above
 # (composeBom = 2024.12.01) — unlike material3-window-size-class below, which the BOM manages with
-# no explicit version. Pinned to 1.0.0 (the first stable release), not the newer 1.1.0+/1.3.0-rc
-# line, for the same AGP-8.13.2-era compatibility reason `hilt`/`hiltNavigationCompose` above are
-# pinned below their newest releases: newer adaptive releases target newer Compose Foundation/AGP
-# baselines than this project's BOM reliably supports. Revisit this pin whenever the project's
-# Compose BOM is upgraded.
+# no explicit version. Re-verified at gradle9-agp9-jdk25 migration time (the old comment's
+# "AGP 8.13.2 era" reason no longer applies): stays pinned to 1.0.0, not the newer 1.1.0-1.3.0 line,
+# because the chain (AGP/Gradle/Kotlin/KSP/Hilt) does not genuinely require a bump — nothing in this
+# migration forces newer Compose Foundation/adaptive APIs — and this migration declares zero visual
+# change (see the spec's Visual & UX Design section), so pulling in an unrelated Compose library
+# bump is out of scope. Revisit this pin as its own decision, together with the Compose BOM.
 composeMaterial3Adaptive = "1.0.0"
 
 [libraries]
@@ -131,7 +143,6 @@ androidx-compose-material3-adaptive-navigation = { group = "androidx.compose.mat
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

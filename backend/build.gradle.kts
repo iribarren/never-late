@@ -7,10 +7,9 @@ plugins {
     application
     // Bundles the app + all dependencies into a single runnable "fat" jar (`shadowJar` task),
     // which is what the Dockerfile packages — no need to ship a JRE-less classpath by hand.
-    // Pinned to 9.2.2, not the latest 9.5.x: shadow 9.3.0+ requires Gradle 9.0, but this project
-    // pins Gradle 8.13 (gradle/wrapper/gradle-wrapper.properties) to match the root app build.
-    // 9.2.2 is the newest release still compatible with Gradle 8.11+.
-    id("com.gradleup.shadow") version "9.2.2"
+    // Version lives in gradle/libs.versions.toml, like every other dependency here — it was only
+    // hardcoded before because shadow 9.3.0+ requires Gradle 9.0, which this project didn't have yet.
+    alias(libs.plugins.shadow)
 }
 
 group = "com.neverlate.backend"
@@ -59,7 +58,9 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(21)
+    // The JDK this machine actually has installed (D4 of docs/specs/2026-08-17-gradle9-agp9-jdk25.md):
+    // no toolchain auto-provisioning, no foojay resolver — just the system JDK, LTS to LTS (21 -> 25).
+    jvmToolchain(25)
 }
 
 tasks.test {

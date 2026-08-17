@@ -32,7 +32,7 @@ Cada fila tiene su prompt listo para pegar en una sesión nueva con `/feature` (
 | 8 | El orden, el agrupado y la búsqueda se pierden al cerrar la app (y al morir el proceso) | [`preferencias-lista-persistentes.md`](prompts/preferencias-lista-persistentes.md) | Papercut | S |
 | ~~9~~ | ~~El widget monta su repositorio a mano y hay dos mapeos de color gemelos que pueden desincronizarse~~ **Hecho** (`docs/specs/2026-08-17-widget-hilt-color-token.md`) | [`widget-hilt-y-token-color.md`](prompts/widget-hilt-y-token-color.md) | Arquitectura | M |
 | 10 | Un fallo en un móvil ajeno es invisible: no hay informe de errores de ningún tipo | [`informe-de-fallos.md`](prompts/informe-de-fallos.md) | Infra | L |
-| 11 | El JDK del sistema ya es 25 y **Gradle 8.13 no arranca con él**; hoy lo tapa un JDK pinchado a mano fuera del repo | [`actualizacion-agp9-gradle9-jdk25.md`](prompts/actualizacion-agp9-gradle9-jdk25.md) | Infra | L |
+| ~~11~~ | ~~El JDK del sistema ya es 25 y **Gradle 8.13 no arranca con él**; hoy lo tapa un JDK pinchado a mano fuera del repo~~ **Hecho** (`docs/specs/2026-08-17-gradle9-agp9-jdk25.md`) | [`actualizacion-agp9-gradle9-jdk25.md`](prompts/actualizacion-agp9-gradle9-jdk25.md) | Infra | L |
 
 > El **11** es el único que no sale de una sección *Out of Scope* ni de una nota en código: apareció
 > solo, cuando el JDK del sistema se actualizó por debajo del proyecto. Se anota aquí igualmente
@@ -54,6 +54,33 @@ Solo hay dos, y ambas son reales, no preferencias de estilo:
   prerrequisito del 1 queda cubierto; sus acciones por fila pueden implementarse.
 
 El resto son independientes entre sí.
+
+## Diferido por `gradle9-agp9-jdk25` (agosto 2026)
+
+Lo que la subida a Gradle 9 / AGP 9 / JDK 25 dejó **a su vez** pendiente, por disciplina de alcance:
+
+- **`jansi` avisa en cada arranque del backend sobre JVM 25.** Al pasar el runtime a
+  `eclipse-temurin:25-jre`, el contenedor imprime cuatro `WARNING` de `java.lang.System::load` llamado
+  por `org.fusesource.jansi` (entra transitivamente por `logback-classic`, para colorear consola —
+  algo que a un backend en Docker no le sirve de nada). **Hoy son avisos, no errores**, y el servicio
+  arranca y responde con normalidad; pero el propio mensaje dice que *"restricted methods will be
+  blocked in a future release"*, así que esto **se convierte en un fallo de arranque** en un JDK
+  futuro. Arreglo real: excluir `jansi` de `logback-classic` (lo correcto, no se usa) o añadir
+  `--enable-native-access=ALL-UNNAMED` al `ENTRYPOINT` (lo cosmético, silencia el aviso sin quitar la
+  causa). No se hizo aquí porque era un cambio de dependencias fuera de la cadena
+  AGP/Gradle/Kotlin/KSP/Hilt.
+- **`sun.misc.Unsafe` en los tests unitarios de la app.** `androidx.datastore.preferences.protobuf`
+  llama a métodos terminalmente deprecados; los tests pasan (455/455) pero el aviso saldrá hasta que
+  DataStore publique una versión que no los use. Es de una dependencia ajena: se espera, no se parchea.
+- **`sourceSets.getByName("androidTest").assets.srcDir(...)`** emite un aviso de deprecación de Gradle
+  (`use directories instead`). Sigue siendo funcionalmente correcto; cambiarlo no lo forzaba nada.
+- **Caché de configuración** (D6 de la spec): sigue apagada a propósito. Adoptarla con KSP + Hilt +
+  Room detrás es su propia feature.
+- **`compileSdk` 37 y `hilt-navigation-compose` 1.3.0+/1.4.0+**: la 1.3.0 mueve `hiltViewModel()` a
+  otro artefacto (tocaría imports de cuatro pantallas) y la 1.4.0 exige de verdad `compileSdk` 37.
+  Subir el `compileSdk` es decisión de producto con su propia verificación.
+- **Kotlin 2.4.x**: existe y es estable, pero se eligió 2.3.20 a propósito (es la línea que la matriz
+  de AGP 9 recomienda). Subir es otra decisión, para otro día.
 
 ## Qué se dejó fuera a propósito
 
