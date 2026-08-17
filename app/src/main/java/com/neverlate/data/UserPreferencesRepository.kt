@@ -97,6 +97,18 @@ interface UserPreferencesRepository {
     /** Persists the onboarding step: the (trimmed) name, and marks the user as onboarded. */
     suspend fun saveOnboarding(name: String)
 
+    /**
+     * Persists only the (trimmed) display name, leaving the `onboarded` flag untouched.
+     *
+     * Kept separate from [saveOnboarding] on purpose (editable-profile-name spec, D4): that method
+     * is a promise about *when* it is called — "complete the onboarding step" — not just about
+     * which keys it writes. Calling [saveOnboarding] from a rename flow would silently redefine its
+     * contract to "write the name, and also (re-)assert onboarding", which is harmless today only
+     * because the user is already onboarded — a trap for the next person who changes what onboarding
+     * completion means. This method exists so a rename from Settings can never touch `onboarded`.
+     */
+    suspend fun saveName(name: String)
+
     /** Persists the app-wide theme choice. */
     suspend fun saveThemeMode(mode: ThemeMode)
 
@@ -169,6 +181,14 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         context.userPrefsDataStore.edit { preferences ->
             preferences[Keys.NAME] = name.trim()
             preferences[Keys.ONBOARDED] = true
+        }
+    }
+
+    override suspend fun saveName(name: String) {
+        // Deliberately its own `edit {}`, touching only Keys.NAME — see the interface KDoc for why
+        // this must never also write Keys.ONBOARDED.
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.NAME] = name.trim()
         }
     }
 

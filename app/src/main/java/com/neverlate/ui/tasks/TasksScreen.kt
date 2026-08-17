@@ -136,6 +136,7 @@ fun TasksRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val criteria by viewModel.criteria.collectAsStateWithLifecycle()
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
     // Feature 04b: collected separately from criteria above — the field reads this StateFlow
     // directly so every keystroke shows up immediately, while criteria's sort/group values are
     // the only ones still bundled together (see TasksViewModel's KDoc).
@@ -170,6 +171,7 @@ fun TasksRoute(
         syncStatus = syncStatus,
         criteria = criteria,
         query = query,
+        userName = userName,
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
         onAddTaskClick = onAddTaskClick,
@@ -207,6 +209,7 @@ fun TasksScreen(
     syncStatus: SyncStatus,
     criteria: TaskListCriteria,
     query: String,
+    userName: String = "",
     onRefresh: () -> Unit,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
@@ -305,7 +308,15 @@ fun TasksScreen(
                     // actionLabel and onAction are supplied here.
                     is TasksUiState.Empty -> MessageState(
                         icon = Icons.AutoMirrored.Filled.Assignment,
-                        message = stringResource(R.string.tasks_empty),
+                        // editable-profile-name spec (D1/D7): personalized only when a name is
+                        // actually stored, falling back to the original generic string otherwise —
+                        // never a stray "Nada pendiente, ." for a blank/pre-existing install.
+                        message = if (userName.isNotBlank()) {
+                            stringResource(R.string.tasks_empty_personalized, userName)
+                        } else {
+                            stringResource(R.string.tasks_empty)
+                        },
+                        messageMaxLines = 2,
                         actionLabel = stringResource(R.string.tasks_empty_action),
                         onAction = onAddTaskClick,
                         modifier = Modifier.fillMaxSize(),

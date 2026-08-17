@@ -48,8 +48,16 @@ private class FakeUserPreferencesRepository(
     /** Every dynamic-color on/off value this fake has been asked to save, in call order. */
     val savedDynamicColor = mutableListOf<Boolean>()
 
+    /** Every (name) argument this fake has been asked to save via [saveName], in call order. */
+    val savedNames = mutableListOf<String>()
+
     override suspend fun saveOnboarding(name: String) {
         userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
+    }
+
+    override suspend fun saveName(name: String) {
+        savedNames.add(name)
+        userPreferences.value = userPreferences.value.copy(name = name.trim())
     }
 
     override suspend fun saveThemeMode(mode: ThemeMode) {
@@ -325,6 +333,67 @@ class SettingsViewModelTest {
         assertEquals(1, authRepository.logoutCallCount)
         // Feature 13 (PD-2): logout lands in Guest (a usable, empty local mode), not LoggedOut.
         assertEquals(AuthState.Guest, authRepository.authState.value)
+    }
+
+    // Editable profile name (editable-profile-name spec, D2-D4/US-2/US-3) ------------------------
+
+    @Test
+    fun `initial state reflects the persisted name`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(name = "Ada"))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Ada", viewModel.uiState.value.name)
+    }
+
+    @Test
+    fun `onNameChanged persists the trimmed name via saveName and updates the state`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(name = "Ada"))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onNameChanged("  Bea  ")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // D4: renaming must go through saveName, never saveOnboarding — saveOnboarding would also
+        // (re-)assert onboarded, which a rename must never touch.
+        assertEquals(listOf("  Bea  "), repository.savedNames)
+        assertEquals("Bea", repository.userPreferences.value.name)
+        assertEquals("Bea", viewModel.uiState.value.name)
+    }
+
+    @Test
+    fun `onNameChanged with a blank name is a no-op`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(name = "Ada"))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onNameChanged("   ")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(
+            "a blank/whitespace-only name must never reach the repository",
+            repository.savedNames.isEmpty(),
+        )
+        assertEquals("Ada", repository.userPreferences.value.name)
+        assertEquals("Ada", viewModel.uiState.value.name)
+    }
+
+    @Test
+    fun `name composes alongside themeMode in the same uiState without clobbering it`() = runTest {
+        repository = FakeUserPreferencesRepository(UserPreferences(name = "Ada", themeMode = ThemeMode.DARK))
+        viewModel = SettingsViewModel(repository, taskRepository, reminderScheduler, authRepository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onNameChanged("Bea")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Bea", viewModel.uiState.value.name)
+        assertEquals(
+            "changing the name must not disturb the already-observed themeMode",
+            ThemeMode.DARK,
+            viewModel.uiState.value.themeMode,
+        )
     }
 
     // authState mirroring (feature 13) --------------------------------------------------------------

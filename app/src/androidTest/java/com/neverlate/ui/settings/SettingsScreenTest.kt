@@ -1,8 +1,10 @@
 package com.neverlate.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isToggleable
@@ -11,6 +13,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import com.neverlate.R
 import com.neverlate.data.ThemeMode
@@ -54,6 +58,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = {},
                     onBack = {},
@@ -81,6 +86,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = {},
                     onBack = {},
@@ -111,6 +117,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = {},
                     onBack = {},
@@ -137,6 +144,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = { newValue = it },
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = {},
                     onBack = {},
@@ -167,6 +175,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = { signInClicked = true },
                     onBack = {},
@@ -210,6 +219,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = { logoutClicked = true },
                     onSignInClick = {},
                     onBack = {},
@@ -241,6 +251,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = { logoutClicked = true },
                     onSignInClick = {},
                     onBack = {},
@@ -274,6 +285,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = { logoutClicked = true },
                     onSignInClick = {},
                     onBack = {},
@@ -308,6 +320,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = {},
                     onBack = null,
@@ -329,6 +342,7 @@ class SettingsScreenTest {
                     onRemindersEnabledChanged = {},
                     onReminderLeadMinutesSelected = {},
                     onDynamicColorChanged = {},
+                    onNameChanged = {},
                     onLogoutClick = {},
                     onSignInClick = {},
                     onBack = {},
@@ -338,5 +352,164 @@ class SettingsScreenTest {
 
         composeTestRule.onNodeWithContentDescription(string(R.string.settings_back_content_description))
             .assertIsDisplayed()
+    }
+
+    // Editable profile name (editable-profile-name spec, D2/D3/US-2) -----------------------------
+
+    /**
+     * The rename dialog's [androidx.compose.material3.OutlinedTextField], scoped by
+     * [hasSetTextAction] rather than by its label text alone — `settings_name_field_label` and
+     * `settings_name_dialog_title` deliberately render the same string ("Tu nombre"/"Your name"),
+     * so a plain [onNodeWithText] on the label would match both the dialog title and the field.
+     */
+    private fun nameDialogField() =
+        composeTestRule.onNode(hasText(string(R.string.settings_name_field_label)) and hasSetTextAction())
+
+    private fun nameUiState(name: String) = SettingsUiState(
+        themeMode = ThemeMode.SYSTEM,
+        remindersEnabled = false,
+        authState = AuthState.LoggedIn(userId = 1L, email = "user@example.com"),
+        name = name,
+    )
+
+    @Test
+    fun nameRow_tappingCambiar_opensDialogPrefilledWithCurrentName() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = nameUiState("Ada"),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onNameChanged = {},
+                    onLogoutClick = {},
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        // No dialog until Cambiar is tapped.
+        composeTestRule.onNodeWithText(string(R.string.settings_name_dialog_title)).assertDoesNotExist()
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_edit_button))
+            .performScrollTo()
+            .performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_dialog_title)).assertIsDisplayed()
+        // Pre-filled: the OutlinedTextField's value is the current name. Scoped to the dialog's
+        // editable field (hasSetTextAction) because the Settings row behind the dialog also shows
+        // "Ada" as its own value text — matching on text alone would find both.
+        composeTestRule.onNode(hasText("Ada") and hasSetTextAction() and hasAnyAncestor(isDialog()))
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun nameDialog_blankField_disablesGuardar() {
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = nameUiState("Ada"),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onNameChanged = {},
+                    onLogoutClick = {},
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_edit_button))
+            .performScrollTo()
+            .performClick()
+
+        nameDialogField().performTextClearance()
+
+        composeTestRule.onNode(
+            hasText(string(R.string.settings_name_save_button))
+                and hasClickAction()
+                and hasAnyAncestor(isDialog()),
+        ).assertIsNotEnabled()
+
+        // D3/V8: the accessible error is shown as supporting text, not just a disabled button.
+        composeTestRule.onNodeWithText(string(R.string.settings_name_error_empty)).assertIsDisplayed()
+    }
+
+    @Test
+    fun nameDialog_cancelar_dismissesWithoutInvokingOnNameChanged() {
+        var newName: String? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = nameUiState("Ada"),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onNameChanged = { newName = it },
+                    onLogoutClick = {},
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_edit_button))
+            .performScrollTo()
+            .performClick()
+
+        nameDialogField().performTextClearance()
+        nameDialogField().performTextInput("Bea")
+
+        composeTestRule.onNode(
+            hasText(string(R.string.settings_name_cancel_button))
+                and hasClickAction()
+                and hasAnyAncestor(isDialog()),
+        ).performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_dialog_title)).assertDoesNotExist()
+        assert(newName == null) { "Cancelar must not invoke onNameChanged, got $newName" }
+    }
+
+    @Test
+    fun nameDialog_guardar_invokesOnNameChangedWithTrimmedValue() {
+        var newName: String? = null
+
+        composeTestRule.setContent {
+            NeverLateTheme {
+                SettingsScreen(
+                    uiState = nameUiState("Ada"),
+                    onThemeModeSelected = {},
+                    onRemindersEnabledChanged = {},
+                    onReminderLeadMinutesSelected = {},
+                    onDynamicColorChanged = {},
+                    onNameChanged = { newName = it },
+                    onLogoutClick = {},
+                    onSignInClick = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_edit_button))
+            .performScrollTo()
+            .performClick()
+
+        nameDialogField().performTextClearance()
+        nameDialogField().performTextInput("  Bea  ")
+
+        composeTestRule.onNode(
+            hasText(string(R.string.settings_name_save_button))
+                and hasClickAction()
+                and hasAnyAncestor(isDialog()),
+        ).performClick()
+
+        composeTestRule.onNodeWithText(string(R.string.settings_name_dialog_title)).assertDoesNotExist()
+        assert(newName == "Bea") { "Guardar must invoke onNameChanged with the trimmed value, got $newName" }
     }
 }

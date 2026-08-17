@@ -66,6 +66,9 @@
     <!-- The action button on the empty state already invites the user to add a task (feature 17),
          so this message stays purely informational rather than repeating "Tap +". -->
     <string name="tasks_empty">You have no tasks yet.</string>
+    <!-- editable-profile-name spec (D1/D7): shown instead of tasks_empty when a name is stored;
+         falls back to the generic string when blank. -->
+    <string name="tasks_empty_personalized">Nothing pending, %1$s.</string>
     <string name="tasks_empty_action">Add task</string>
     <string name="tasks_add_content_description">Add task</string>
     <!-- One-shot snackbar (feature 17), shown once after creating a task — see AppNavHost's
@@ -235,6 +238,18 @@
     <string name="settings_logout_confirm_message">This will end your session and clear the tasks saved on this device. Are you sure you want to continue?</string>
     <string name="settings_logout_confirm_button">Log out</string>
     <string name="settings_logout_cancel_button">Cancel</string>
+
+    <!-- Settings screen: editable display name (editable-profile-name spec). Deliberately NOT
+         shared with onboarding_name_label / settings_logout_cancel_button — see the spec's note on
+         why string reuse across screens couples their copy forever. -->
+    <string name="settings_name_label">Name</string>
+    <string name="settings_name_not_set">Not set</string>
+    <string name="settings_name_edit_button">Change</string>
+    <string name="settings_name_dialog_title">Your name</string>
+    <string name="settings_name_field_label">Your name</string>
+    <string name="settings_name_error_empty">The name can\'t be empty.</string>
+    <string name="settings_name_save_button">Save</string>
+    <string name="settings_name_cancel_button">Cancel</string>
 
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Offline. Changes will sync later.</string>

@@ -61,6 +61,9 @@
     <!-- The action button on the empty state already invites the user to add a task (feature 17),
          so this message stays purely informational rather than repeating "Pulsa +". -->
     <string name="tasks_empty">No tienes tareas todavía.</string>
+    <!-- editable-profile-name spec (D1/D7): shown instead of tasks_empty when a name is stored;
+         falls back to the generic string when blank. -->
+    <string name="tasks_empty_personalized">Nada pendiente, %1$s.</string>
     <string name="tasks_empty_action">Añadir tarea</string>
     <string name="tasks_add_content_description">Añadir tarea</string>
     <!-- One-shot snackbar (feature 17), shown once after creating a task — see AppNavHost's
@@ -234,6 +237,18 @@
     <string name="settings_logout_confirm_message">Se cerrará tu sesión y se borrarán las tareas guardadas en este dispositivo. ¿Seguro que quieres continuar?</string>
     <string name="settings_logout_confirm_button">Cerrar sesión</string>
     <string name="settings_logout_cancel_button">Cancelar</string>
+
+    <!-- Settings screen: editable display name (editable-profile-name spec). Deliberately NOT
+         shared with onboarding_name_label / settings_logout_cancel_button — see the spec's note on
+         why string reuse across screens couples their copy forever. -->
+    <string name="settings_name_label">Nombre</string>
+    <string name="settings_name_not_set">Sin definir</string>
+    <string name="settings_name_edit_button">Cambiar</string>
+    <string name="settings_name_dialog_title">Tu nombre</string>
+    <string name="settings_name_field_label">Tu nombre</string>
+    <string name="settings_name_error_empty">El nombre no puede estar vacío.</string>
+    <string name="settings_name_save_button">Guardar</string>
+    <string name="settings_name_cancel_button">Cancelar</string>
 
     <!-- Tasks list screen: minimal sync status hint (feature 11, OQ-1) -->
     <string name="tasks_sync_offline">Sin conexión. Los cambios se sincronizarán más tarde.</string>

@@ -32,6 +32,9 @@ data class SettingsUiState(
     val authState: AuthState = AuthState.Guest,
     /** Material You / dynamic color opt-in (feature 16) — see [UserPreferences.dynamicColor]. */
     val dynamicColor: Boolean = false,
+    /** The stored display name (editable-profile-name spec), fed by the same preferences collector
+     *  as every other field above — never a second flow. Blank means "not set". */
+    val name: String = "",
 )
 
 /**
@@ -85,6 +88,7 @@ class SettingsViewModel @Inject constructor(
                         remindersEnabled = preferences.remindersEnabled,
                         reminderLeadMinutes = preferences.reminderLeadMinutes,
                         dynamicColor = preferences.dynamicColor,
+                        name = preferences.name,
                     )
                 }
             }
@@ -142,6 +146,20 @@ class SettingsViewModel @Inject constructor(
     fun onDynamicColorChanged(enabled: Boolean) {
         viewModelScope.launch {
             repository.saveDynamicColor(enabled)
+        }
+    }
+
+    /**
+     * Persists the (trimmed) display name (editable-profile-name spec, D4/US-2). Ignores a blank
+     * argument defensively, mirroring [com.neverlate.ui.onboarding.OnboardingViewModel.save]'s own
+     * `if (name.isBlank()) return` — the dialog's Guardar button should already be disabled in that
+     * case, this is just the same belt-and-braces guard. The UI updates reactively once the write
+     * is observed, same as [onThemeModeSelected].
+     */
+    fun onNameChanged(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            repository.saveName(name)
         }
     }
 
