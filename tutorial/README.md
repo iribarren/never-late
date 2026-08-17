@@ -66,6 +66,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 13b | [migraciones-room](13b-migraciones-room.md) | Migraciones de Room reales + `TypeConverter` | ✅ |
 | 13c | [paginacion](13c-paginacion.md) | Paginación con Paging 3 (red + Room) | ✅ |
 | 13d | [hilt-di](13d-hilt-di.md) | Inyección de dependencias con Hilt (migrar la DI manual) | ✅ |
+| 13e | [entrypoint-token-color](13e-entrypoint-token-color.md) | `@EntryPoint`/`EntryPointAccessors` para clases que Hilt no construye (el widget), y duplicar un valor frente a duplicar una decisión (token de rol de color) | ✅ |
 
 ## Bloque 4 — Diseño e identidad visual
 

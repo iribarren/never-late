@@ -510,11 +510,11 @@ comparación visual antes/después).
 - [x] `CLAUDE.md` — actualizar el mapa de módulos: `di/` gana `WidgetEntryPoint.kt`; la fila de
       `ui/widget/` deja de decir que monta el repositorio a mano; la nota de los gemelos de color en
       `WidgetColors.kt` se sustituye por la del token compartido.
-- [ ] `tutorial/NN-*.md` (español) **sí**, porque el campo `Tutorial:` lo pide — más su estado en
-      `tutorial/README.md` y `docs/conceptos-pendientes.md`.
-- [ ] `docs/api/contract.md` — **no aplica** (sin cambio de wire).
-- [ ] `gradle/libs.versions.toml` — **no aplica** (sin dependencia nueva).
-- [ ] Esquema Room / migración — **no aplica**.
+- [x] `tutorial/13e-entrypoint-token-color.md` (español), reflejado en `tutorial/README.md` y
+      `docs/conceptos-pendientes.md`.
+- [x] `docs/api/contract.md` — **no aplica** (sin cambio de wire).
+- [x] `gradle/libs.versions.toml` — **no aplica** (sin dependencia nueva).
+- [x] Esquema Room / migración — **no aplica**.
 
 ---
 
