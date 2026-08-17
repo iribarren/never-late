@@ -549,6 +549,52 @@ decided against above).
 
 ---
 
+## Feature `editable-profile` — Giving the onboarding name somewhere to live
+
+**The bug was that nothing read it.** Onboarding (feature 02) has asked for a name since the app's
+first version and persisted it via `UserPreferencesRepository.saveOnboarding(name)`; its only consumer
+was the Home screen greeting, which feature 18 deleted when bottom navigation replaced the hub. Since
+then the app asked a personal question on first launch and used the answer nowhere
+(`docs/specs/2026-08-17-editable-profile-name.md`, D1). Two consumers close that loop: the Tasks
+screen's `Empty` state (`Nada pendiente, <name>.`, the one purely-tonal moment in the app) and a
+`Nombre` row in Settings' existing **Cuenta** `SettingsSectionCard` — extended, not replaced — with a
+dialog editor. Deliberately **not** a top-app-bar greeting: that slot is the screen-identity label for
+a peer tab (feature 18) and part of feature 20's unified branded chrome, and personalizing it would
+require a two-line `TopAppBar` variant no other screen uses.
+
+**D — `saveName(name)` is a new method, not a reuse or a split of `saveOnboarding`.**
+`saveOnboarding` writes `Keys.NAME` and `Keys.ONBOARDED` atomically in one `edit {}` — it is a promise
+about *when* it runs ("complete onboarding"), not only about which keys it touches. Renaming from
+Settings calling `saveOnboarding` would be harmless today (the user is already onboarded) and that is
+exactly the trap: it would silently redefine the method's contract for the next person who changes
+what onboarding completion means. Splitting `saveOnboarding` into `saveName` + `markOnboarded` was
+also rejected — turning one atomic transaction into two opens a crash window where `onboarded = true`
+lands durable with no name written, stranding a first-run user on Tasks with no route back to the
+screen that asks for one. `saveName` is therefore fully separate, writing only `Keys.NAME` in its own
+`edit {}`; `saveOnboarding` is untouched, byte for byte.
+
+**Local-only, on purpose.** The name is not synced — `docs/api/contract.md` has no profile resource
+and this branch does not add one. It is device personalization, not account identity (the registered
+email already owns that role and is out of scope). It survives `logout()`
+(`AuthRepository.clearLocalSession()` wipes tokens/tasks/outbox/`syncCursor` — all backend-owned,
+account-scoped data; the name is neither) and behaves identically in guest mode, rendered outside the
+`AuthState.LoggedIn` branch in the Account card. Accepted consequence: a second person signing in on a
+shared device sees the first person's name — mitigated by the feature itself, since the name is now
+visible and changeable in two taps where before it was neither.
+
+**Validation is onboarding's rule, verbatim** — non-blank, trimmed — deliberately not a stricter one
+(e.g. a length cap), so the same name can't be valid at first launch and rejected on rename. Long
+names are a display concern instead: single-line ellipsis on the Settings value row, two-line ellipsis
+cap on the Tasks empty-state message, so neither surface's layout can be pushed off-screen by a
+pathological name.
+
+No backend, contract, DB-version, or permission change; no new Gradle dependency; nine new string
+pairs (ES/EN), listed in the spec, deliberately not sharing keys with `onboarding_*` or
+`settings_logout_*` even where the current wording coincides — string reuse across screens would
+couple their copy forever.
+
+---
+
 ## Transversal — Permisos y manifest
 
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime

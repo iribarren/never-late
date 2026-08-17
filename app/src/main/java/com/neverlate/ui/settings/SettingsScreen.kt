@@ -28,6 +28,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -83,6 +85,7 @@ fun SettingsRoute(
         onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
         onReminderLeadMinutesSelected = viewModel::onReminderLeadMinutesSelected,
         onDynamicColorChanged = viewModel::onDynamicColorChanged,
+        onNameChanged = viewModel::onNameChanged,
         onLogoutClick = viewModel::logout,
         onSignInClick = onSignInClick,
         onBack = onBack,
@@ -118,6 +121,7 @@ fun SettingsScreen(
     onRemindersEnabledChanged: (Boolean) -> Unit,
     onReminderLeadMinutesSelected: (Int) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
+    onNameChanged: (String) -> Unit,
     onLogoutClick: () -> Unit,
     onSignInClick: () -> Unit,
     onBack: (() -> Unit)? = null,
@@ -248,6 +252,46 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_account_section),
                 icon = Icons.Filled.AccountCircle,
             ) {
+                // editable-profile-name spec (D5): rendered outside the authState branch below —
+                // present for both Guest and LoggedIn, only the button underneath still switches.
+                var showEditName by remember { mutableStateOf(false) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_name_label),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = uiState.name.ifBlank { stringResource(R.string.settings_name_not_set) },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 16.dp),
+                    )
+                    TextButton(onClick = { showEditName = true }) {
+                        Text(stringResource(R.string.settings_name_edit_button))
+                    }
+                }
+
+                if (showEditName) {
+                    EditNameDialog(
+                        currentName = uiState.name,
+                        onConfirm = { newName ->
+                            showEditName = false
+                            onNameChanged(newName)
+                        },
+                        onDismiss = { showEditName = false },
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
                 if (uiState.authState is AuthState.LoggedIn) {
                     // Whether the confirmation dialog is showing is purely local UI state — it
                     // never needs to survive beyond this composition, so it lives here via
@@ -361,6 +405,63 @@ private fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 }
 
 /**
+ * editable-profile-name spec (D2/D3): the rename dialog, modelled on [LogoutConfirmDialog]'s shape
+ * (title / content / confirm+dismiss [TextButton]s) with an [OutlinedTextField] in the content slot.
+ *
+ * Validation reuses [com.neverlate.ui.onboarding.OnboardingViewModel]'s exact rule verbatim
+ * (D3): **Guardar** is enabled iff the draft is non-blank, and the trimmed value is what gets
+ * written — trimming happens once, in [SettingsViewModel.onNameChanged] /
+ * [com.neverlate.data.DataStoreUserPreferencesRepository.saveName], not here. The one addition over
+ * onboarding is accessibility (D3/V8): while the draft is blank *and* has been touched, a localized
+ * error shows as the field's supporting text in addition to disabling Guardar, so a screen reader
+ * gets the reason, not just "disabled".
+ *
+ * Draft text and "has the field been touched" are local `remember` state — same precedent as
+ * `showLogoutConfirm` above — since neither needs to outlive this composition: Cancelar, a back
+ * press, or a tap outside all dismiss via [onDismiss] with nothing persisted.
+ */
+@Composable
+private fun EditNameDialog(currentName: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var draft by remember { mutableStateOf(currentName) }
+    var touched by remember { mutableStateOf(false) }
+    val isBlank = draft.isBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_name_dialog_title)) },
+        text = {
+            OutlinedTextField(
+                value = draft,
+                onValueChange = {
+                    draft = it
+                    touched = true
+                },
+                label = { Text(stringResource(R.string.settings_name_field_label)) },
+                isError = touched && isBlank,
+                supportingText = {
+                    if (touched && isBlank) {
+                        Text(
+                            text = stringResource(R.string.settings_name_error_empty),
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(draft.trim()) }, enabled = !isBlank) {
+                Text(stringResource(R.string.settings_name_save_button))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_name_cancel_button)) }
+        },
+    )
+}
+
+/**
  * US-5 (approved, minimal scope): on API 31+, if the exact-alarm permission is not currently
  * granted, explains the trade-off and offers a shortcut to the system screen that grants it
  * (`ACTION_REQUEST_SCHEDULE_EXACT_ALARM`). On API < 31, or once the permission is already granted,
@@ -404,6 +505,7 @@ private fun SettingsScreenPreview() {
             onRemindersEnabledChanged = {},
             onReminderLeadMinutesSelected = {},
             onDynamicColorChanged = {},
+            onNameChanged = {},
             onLogoutClick = {},
             onSignInClick = {},
             onBack = null,

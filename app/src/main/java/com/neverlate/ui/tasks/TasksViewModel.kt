@@ -2,6 +2,7 @@ package com.neverlate.ui.tasks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Priority
@@ -85,7 +86,18 @@ sealed interface TasksUiState {
 class TasksViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val motionSettings: MotionSettings,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
+
+    /**
+     * editable-profile-name spec (D1/US-1): the stored display name, as its own [StateFlow] rather
+     * than folded into [TasksUiState] (AC-10) — the name is not task-list state, and mixing it in
+     * would rebuild the sealed state on every unrelated preference emission (e.g. a theme change).
+     * Hilt resolves [userPreferencesRepository] from `di/StorageModule.kt` with no new wiring.
+     */
+    val userName: StateFlow<String> = userPreferencesRepository.userPreferences
+        .map { it.name }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
     /**
      * Feature 04b: the search field's raw text, as its **own** [MutableStateFlow] — deliberately

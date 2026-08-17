@@ -8,11 +8,16 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.neverlate.R
+import com.neverlate.data.ThemeMode
+import com.neverlate.data.UserPreferences
+import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.theme.NeverLateTheme
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -40,6 +45,26 @@ private class NoopTaskRepository : TaskRepository {
     override suspend fun startTimer(id: Long) = Unit
     override suspend fun pauseTimer(id: Long) = Unit
     override fun observeSyncStatus(): Flow<SyncStatus> = flowOf(SyncStatus.Idle)
+}
+
+/** No-op [MotionSettings]: this test never exercises reduce-motion, so "full motion, always". */
+private class NoopMotionSettings : MotionSettings {
+    override val reduceMotion: Flow<Boolean> = flowOf(false)
+}
+
+/**
+ * No-op [UserPreferencesRepository]: this test never exercises the display name
+ * (editable-profile-name spec) — only satisfies [TasksViewModel]'s constructor.
+ */
+private class NoopUserPreferencesRepository : UserPreferencesRepository {
+    override val userPreferences = MutableStateFlow(UserPreferences())
+    override suspend fun saveOnboarding(name: String) = Unit
+    override suspend fun saveName(name: String) = Unit
+    override suspend fun saveThemeMode(mode: ThemeMode) = Unit
+    override suspend fun saveRemindersEnabled(enabled: Boolean) = Unit
+    override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
+    override suspend fun saveSyncCursor(cursor: Long) = Unit
+    override suspend fun saveDynamicColor(enabled: Boolean) = Unit
 }
 
 /**
@@ -73,7 +98,11 @@ class TasksRouteSnackbarTest {
             NeverLateTheme {
                 key(remountKey.value) {
                     TasksRoute(
-                        viewModel = TasksViewModel(NoopTaskRepository()),
+                        viewModel = TasksViewModel(
+                            repository = NoopTaskRepository(),
+                            motionSettings = NoopMotionSettings(),
+                            userPreferencesRepository = NoopUserPreferencesRepository(),
+                        ),
                         onAddTaskClick = {},
                         onTaskClick = {},
                         onBack = {},
@@ -116,7 +145,11 @@ class TasksRouteSnackbarTest {
         composeTestRule.setContent {
             NeverLateTheme {
                 TasksRoute(
-                    viewModel = TasksViewModel(NoopTaskRepository()),
+                    viewModel = TasksViewModel(
+                        repository = NoopTaskRepository(),
+                        motionSettings = NoopMotionSettings(),
+                        userPreferencesRepository = NoopUserPreferencesRepository(),
+                    ),
                     onAddTaskClick = {},
                     onTaskClick = {},
                     onBack = {},

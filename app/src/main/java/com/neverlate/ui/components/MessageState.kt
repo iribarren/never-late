@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.neverlate.ui.theme.NeverLateTheme
@@ -46,6 +47,13 @@ fun MessageState(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    /**
+     * editable-profile-name spec (D6/V2): defaults to unlimited so every existing caller is
+     * unaffected. The Tasks empty state passes `2` for its personalized message — body copy that
+     * may wrap with a long name, capped with an ellipsis so the icon/action below it can never be
+     * pushed off-screen.
+     */
+    messageMaxLines: Int = Int.MAX_VALUE,
 ) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
@@ -64,6 +72,8 @@ fun MessageState(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
+                maxLines = messageMaxLines,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 16.dp),
             )
             if (actionLabel != null && onAction != null) {

@@ -35,6 +35,16 @@ private class FakeUserPreferencesRepository(
         userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
     }
 
+    /** Every (name) argument this fake has been asked to save via [saveName], in call order —
+     *  kept separate from [savedNames] (which only [saveOnboarding] appends to) so a test can
+     *  assert onboarding never calls [saveName]. */
+    val savedNamesViaSaveName = mutableListOf<String>()
+
+    override suspend fun saveName(name: String) {
+        savedNamesViaSaveName.add(name)
+        userPreferences.value = userPreferences.value.copy(name = name.trim())
+    }
+
     override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) {
         userPreferences.value = userPreferences.value.copy(themeMode = mode)
     }
@@ -118,6 +128,27 @@ class OnboardingViewModelTest {
         assertEquals("Ada", repository.userPreferences.value.name)
         assertTrue(repository.userPreferences.value.onboarded)
         assertTrue(onSavedCalled)
+    }
+
+    /**
+     * editable-profile-name spec (AC-4/D4): [OnboardingViewModel.save] must keep calling
+     * [saveOnboarding] — never [com.neverlate.data.UserPreferencesRepository.saveName], which
+     * deliberately leaves `onboarded` untouched and would strand a first-run user on Tasks with no
+     * `onboarded` flag ever set. Worth its own explicit assertion per the spec, not just an
+     * incidental byproduct of the round-trip test above.
+     */
+    @Test
+    fun `save never calls saveName, only saveOnboarding`() = runTest {
+        viewModel.onNameChange("Ada")
+
+        viewModel.save {}
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(listOf("Ada"), repository.savedNames)
+        assertTrue(
+            "onboarding must never call saveName — that would leave onboarded unset",
+            repository.savedNamesViaSaveName.isEmpty(),
+        )
     }
 
     @Test

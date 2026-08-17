@@ -54,4 +54,56 @@ class DataStoreUserPreferencesRepositoryTest {
         assertEquals(ThemeMode.DARK, preferences.themeMode)
         assertEquals(true, preferences.dynamicColor)
     }
+
+    /**
+     * editable-profile-name spec (D4/AC-2): [DataStoreUserPreferencesRepository.saveName] must
+     * write only `Keys.NAME`, never touching `Keys.ONBOARDED` — proven against a real DataStore
+     * (not the in-memory `FakeUserPreferencesRepository`, which can't exercise the actual `edit {}`
+     * key isolation) in both starting states of `onboarded`. Also guards the sibling contract:
+     * [saveOnboarding] still writes both keys atomically in one `edit {}`.
+     *
+     * Uses a fresh, distinct instance of [RuntimeEnvironment.getApplication] context per assertion
+     * step within this single method, following the same "one test method, exact order" discipline
+     * documented on the class above, since the `user_prefs` DataStore is a process-wide singleton
+     * shared with the other `@Test` method in this class.
+     */
+    @Test
+    fun `saveName writes only the name and leaves onboarded untouched in both starting states`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = DataStoreUserPreferencesRepository(context)
+
+        // Starting state: onboarded == false (fresh install default).
+        assertEquals(false, repository.userPreferences.first().onboarded)
+
+        repository.saveName("Ada")
+        var preferences = repository.userPreferences.first()
+        assertEquals("Ada", preferences.name)
+        assertEquals(
+            "saveName must not flip onboarded from its false starting state",
+            false,
+            preferences.onboarded,
+        )
+
+        // Now flip onboarded to true via saveOnboarding, and prove saveName leaves it there too.
+        repository.saveOnboarding("Bea")
+        preferences = repository.userPreferences.first()
+        assertEquals("Bea", preferences.name)
+        assertEquals(true, preferences.onboarded)
+
+        repository.saveName("  Cova  ")
+        preferences = repository.userPreferences.first()
+        assertEquals("saveName must trim the value it writes", "Cova", preferences.name)
+        assertEquals(
+            "saveName must not disturb onboarded once it is true",
+            true,
+            preferences.onboarded,
+        )
+
+        // Sibling contract (regression guard): saveOnboarding still writes both keys atomically —
+        // a fresh name AND onboarded = true in one edit{}, even starting from onboarded == true.
+        repository.saveOnboarding("  Deva  ")
+        preferences = repository.userPreferences.first()
+        assertEquals("Deva", preferences.name)
+        assertEquals(true, preferences.onboarded)
+    }
 }

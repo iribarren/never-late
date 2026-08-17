@@ -25,6 +25,10 @@ private class FakeUserPreferencesRepository(
 
     override suspend fun saveOnboarding(name: String) {}
 
+    override suspend fun saveName(name: String) {
+        userPreferences.value = userPreferences.value.copy(name = name.trim())
+    }
+
     override suspend fun saveThemeMode(mode: ThemeMode) {}
 
     override suspend fun saveRemindersEnabled(enabled: Boolean) {
