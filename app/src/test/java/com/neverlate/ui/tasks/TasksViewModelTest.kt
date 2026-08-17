@@ -1,10 +1,12 @@
 package com.neverlate.ui.tasks
 
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.computeRemainingMillis
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskGroupAxis
 import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.domain.tasks.TaskSortField
 import kotlinx.coroutines.Dispatchers
@@ -284,37 +286,136 @@ class TasksViewModelTest {
     }
 
     @Test
-    fun `onToggleGrouping flips the grouped flag and produces a Grouped shaped result`() = runTest(testDispatcher) {
+    fun `onGroupAxisChange to Urgency produces a Grouped shaped result`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
 
-        viewModel.onToggleGrouping()
+        viewModel.onGroupAxisChange(TaskGroupAxis.Urgency)
         runCurrent()
 
-        assertTrue(viewModel.criteria.value.grouped)
+        assertEquals(TaskGroupAxis.Urgency, viewModel.criteria.value.groupAxis)
         val state = viewModel.uiState.value
         assertTrue(state is TasksUiState.Content)
         assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Grouped)
     }
 
     @Test
-    fun `onToggleGrouping twice returns to an ungrouped Flat result`() = runTest(testDispatcher) {
+    fun `onGroupAxisChange back to None returns to an ungrouped Flat result`() = runTest(testDispatcher) {
         val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
         collectUiState(viewModel)
         advanceTimeBy(300)
         runCurrent()
 
-        viewModel.onToggleGrouping()
-        viewModel.onToggleGrouping()
+        viewModel.onGroupAxisChange(TaskGroupAxis.Urgency)
+        viewModel.onGroupAxisChange(TaskGroupAxis.None)
         runCurrent()
 
-        assertFalse(viewModel.criteria.value.grouped)
+        assertEquals(TaskGroupAxis.None, viewModel.criteria.value.groupAxis)
         val state = viewModel.uiState.value
         assertTrue(state is TasksUiState.Content)
         assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Flat)
     }
+
+    @Test
+    fun `onGroupAxisChange to Priority produces a Grouped shaped result`() = runTest(testDispatcher) {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+        collectUiState(viewModel)
+        advanceTimeBy(300)
+        runCurrent()
+
+        viewModel.onGroupAxisChange(TaskGroupAxis.Priority)
+        runCurrent()
+
+        assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value.groupAxis)
+        val state = viewModel.uiState.value
+        assertTrue(state is TasksUiState.Content)
+        assertTrue((state as TasksUiState.Content).shaped is ShapedTaskList.Grouped)
+    }
+
+    @Test
+    fun `onGroupAxisChange to Priority then Urgency deselects the previous axis, never both at once`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        viewModel.onGroupAxisChange(TaskGroupAxis.Priority)
+        assertEquals(TaskGroupAxis.Priority, viewModel.criteria.value.groupAxis)
+
+        viewModel.onGroupAxisChange(TaskGroupAxis.Urgency)
+
+        // TaskGroupAxis is a single field, not two independent booleans, so switching to Urgency
+        // is inherently exclusive - this pins that the ViewModel never tries to represent "both".
+        assertEquals(TaskGroupAxis.Urgency, viewModel.criteria.value.groupAxis)
+    }
+
+    // Priority filter (D5, US-2 of `priority-sorting`) --------------------------------------------
+
+    @Test
+    fun `onPriorityFilterToggle adds a priority to an empty filter set`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        viewModel.onPriorityFilterToggle(Priority.HIGH)
+
+        assertEquals(setOf(Priority.HIGH), viewModel.criteria.value.priorityFilter)
+    }
+
+    @Test
+    fun `onPriorityFilterToggle twice for the same priority returns to no filter`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        viewModel.onPriorityFilterToggle(Priority.HIGH)
+        viewModel.onPriorityFilterToggle(Priority.HIGH)
+
+        assertEquals(emptySet<Priority>(), viewModel.criteria.value.priorityFilter)
+    }
+
+    @Test
+    fun `onPriorityFilterToggle supports multiple priorities active at once`() {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+
+        viewModel.onPriorityFilterToggle(Priority.HIGH)
+        viewModel.onPriorityFilterToggle(Priority.MEDIUM)
+
+        assertEquals(setOf(Priority.HIGH, Priority.MEDIUM), viewModel.criteria.value.priorityFilter)
+    }
+
+    @Test
+    fun `a priority filter that matches nothing produces NoResults`() = runTest(testDispatcher) {
+        val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask))) // teaTask defaults to Priority.NONE
+        collectUiState(viewModel)
+        advanceTimeBy(300)
+        runCurrent()
+
+        viewModel.onPriorityFilterToggle(Priority.HIGH)
+        runCurrent()
+
+        assertTrue(viewModel.uiState.value is TasksUiState.NoResults)
+    }
+
+    @Test
+    fun `onClearFilters clears both the text query and the priority filter, escaping NoResults`() =
+        runTest(testDispatcher) {
+            val viewModel = TasksViewModel(FakeTaskRepository(listOf(teaTask)))
+            collectUiState(viewModel)
+            advanceTimeBy(300)
+            runCurrent()
+
+            // Strand the user in NoResults via BOTH filters at once (R2): a query that matches
+            // nothing AND a priority filter that excludes the one task that would otherwise match.
+            viewModel.onQueryChange("xyz no existe")
+            viewModel.onPriorityFilterToggle(Priority.HIGH)
+            advanceTimeBy(300)
+            runCurrent()
+            assertTrue(viewModel.uiState.value is TasksUiState.NoResults)
+
+            viewModel.onClearFilters()
+            advanceTimeBy(300)
+            runCurrent()
+
+            assertEquals("", viewModel.query.value)
+            assertEquals(emptySet<Priority>(), viewModel.criteria.value.priorityFilter)
+            assertTrue(viewModel.uiState.value is TasksUiState.Content)
+        }
 
     // Feature 04b: reactive search - debounce, combine, distinctUntilChanged, cancellation --------
 

@@ -104,9 +104,13 @@
     <string name="tasks_filter_clear_content_description">Borrar búsqueda</string>
     <string name="tasks_sort_deadline">Plazo</string>
     <string name="tasks_sort_title">Título</string>
+    <!-- Feature priority-sorting (US-1): third sort field. -->
+    <string name="tasks_sort_priority">Prioridad</string>
     <string name="tasks_sort_direction_ascending">Orden ascendente</string>
     <string name="tasks_sort_direction_descending">Orden descendente</string>
     <string name="tasks_group_by_urgency">Agrupar por urgencia</string>
+    <!-- Feature priority-sorting (US-3): second, independently-toggleable grouping chip. -->
+    <string name="tasks_group_by_priority">Agrupar por prioridad</string>
     <!-- Section headers, shown only while grouping is active, in this fixed order (most urgent
          first) regardless of UrgencyLevel's own declaration order. -->
     <string name="tasks_section_overdue">Vencidas</string>
@@ -144,12 +148,14 @@
     <string name="widget_pending_tasks_title">Tareas pendientes</string>
     <string name="widget_pending_tasks_empty">No tienes tareas pendientes.</string>
     <string name="widget_pending_tasks_description">Muestra tus tareas pendientes y el tiempo restante de cada una.</string>
-    <!-- Feature 05b: priority marker glyphs, a repetition-count cue (not just color) leading a
-         row's title. String resources rather than literals so a locale that reads "!!!"
-         differently can change them without touching Kotlin. -->
-    <string name="widget_priority_marker_low">!</string>
-    <string name="widget_priority_marker_medium">!!</string>
-    <string name="widget_priority_marker_high">!!!</string>
+    <!-- Feature 05b, renamed by priority-sorting (D8): priority marker glyphs, a repetition-count
+         cue (not just color) leading a row's title. No longer widget-specific — the task card and
+         the notification (feature priority-sorting) read the same three strings, via the single
+         shared Priority.markerRes() mapping (ui/tasks/PriorityUi.kt). String resources rather than
+         literals so a locale that reads "!!!" differently can change them without touching Kotlin. -->
+    <string name="priority_marker_low">!</string>
+    <string name="priority_marker_medium">!!</string>
+    <string name="priority_marker_high">!!!</string>
     <!-- Feature 05b: sample task titles shown in the widget-picker preview (res/layout/widget_preview.xml,
          res/drawable/widget_preview_image.xml) — illustrative only, never read from a real task. -->
     <string name="widget_preview_task_first">Enviar informe</string>
@@ -169,6 +175,11 @@
     <string name="notification_content_text_format">%1$s · %2$s</string>
     <!-- One expanded InboxStyle row: task title + remaining time. -->
     <string name="notification_row_format">%1$s · %2$s</string>
+    <!-- Feature priority-sorting (D7): same row, plus a trailing compact priority marker
+         (!/!!/!!!), used ONLY for a non-NONE-priority task — a NONE-priority row keeps using
+         notification_row_format above, unchanged. The marker is placed LAST so system truncation
+         eats it before it ever eats the title or the remaining time. -->
+    <string name="notification_row_format_priority">%1$s — %2$s %3$s</string>
     <!-- Redacted public (lock-screen) summary: count + most urgent remaining time, no titles.
          A <plurals> resource so the count agrees grammatically ("1 tarea" vs "3 tareas"); %1$d is
          the count (locale-formatted by the resource system) and %2$s the most urgent remaining
@@ -238,6 +249,11 @@
     <string name="priority_low">Baja</string>
     <string name="priority_medium">Media</string>
     <string name="priority_high">Alta</string>
+    <!-- Feature priority-sorting (US-3): the priority-axis section header for TaskGroupKey.ByPriority
+         (Priority.NONE) only — a distinct concern from priority_none above (chip/description/marker
+         label "Ninguna"). A section heading reads as a noun phrase, parallel to how the urgency
+         section headers are phrased, not as an adjective on a chip. -->
+    <string name="tasks_priority_section_none">Sin prioridad</string>
     <string name="tasks_priority_content_description">Prioridad: %1$s</string>
 
     <!-- Statistics screen (feature 04c): three single-number cards for the current week. -->
@@ -249,5 +265,7 @@
          to compute a ratio from — never "0%", which would misleadingly read as "always late". -->
     <string name="stats_on_time_undefined">—</string>
     <string name="stats_due_soon_label">Vencen pronto</string>
+    <!-- Feature priority-sorting (US-5): fourth card, HIGH-priority tasks completed this week. -->
+    <string name="stats_high_priority_completed_label">Alta prioridad completadas</string>
     <string name="stats_empty">No hay tareas todavía.</string>
 </resources>

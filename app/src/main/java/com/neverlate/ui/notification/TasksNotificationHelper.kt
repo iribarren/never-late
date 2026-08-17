@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.neverlate.MainActivity
 import com.neverlate.R
 import com.neverlate.ui.components.formatRemainingLabel
+import com.neverlate.ui.tasks.markerRes
 
 /** Id of the one notification channel this feature ever posts to (API 26+, see [ensureChannel]). */
 const val TASKS_NOTIFICATION_CHANNEL_ID = "tasks_pending"
@@ -91,7 +92,7 @@ object TasksNotificationHelper {
 
         val inboxStyle = NotificationCompat.InboxStyle()
         model.rows.forEach { row ->
-            inboxStyle.addLine(context.getString(R.string.notification_row_format, row.title, remainingLabel(context, row)))
+            inboxStyle.addLine(notificationRowLine(context, row))
         }
 
         return NotificationCompat.Builder(context, TASKS_NOTIFICATION_CHANNEL_ID)
@@ -198,4 +199,23 @@ object TasksNotificationHelper {
      */
     private fun remainingLabel(context: Context, row: com.neverlate.domain.tasks.PendingTaskRow): String =
         formatRemainingLabel(context, row.remainingMillis)
+
+    /**
+     * D7 (`priority-sorting`): one [InboxStyle] line for [row]. A [Priority.NONE] row (the
+     * pre-feature default) renders **byte-for-byte the same line as today** via the unchanged
+     * [R.string.notification_row_format] — that code path is untouched. A non-`NONE` row instead
+     * uses [R.string.notification_row_format_priority], which appends the compact
+     * [com.neverlate.ui.tasks.markerRes] glyph (`!`/`!!`/`!!!`) as a **trailing** token: system
+     * truncation eats the tail of a line first, so the marker — never the title or the remaining
+     * time — is what a long line sacrifices.
+     */
+    private fun notificationRowLine(context: Context, row: com.neverlate.domain.tasks.PendingTaskRow): String {
+        val label = remainingLabel(context, row)
+        val markerRes = row.priority.markerRes()
+        return if (markerRes == null) {
+            context.getString(R.string.notification_row_format, row.title, label)
+        } else {
+            context.getString(R.string.notification_row_format_priority, row.title, label, context.getString(markerRes))
+        }
+    }
 }

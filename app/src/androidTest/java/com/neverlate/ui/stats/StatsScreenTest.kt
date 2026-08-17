@@ -38,7 +38,7 @@ class StatsScreenTest {
 
     @Test
     fun content_showsAllThreeStatNumbersAndLabels() {
-        val stats = WeeklyTaskStats(completedThisWeek = 5, onTimePercent = 80, dueSoon = 2)
+        val stats = WeeklyTaskStats(completedThisWeek = 5, onTimePercent = 80, dueSoon = 2, highPriorityCompletedThisWeek = 3)
 
         composeTestRule.setContent {
             NeverLateTheme {
@@ -58,7 +58,7 @@ class StatsScreenTest {
      *  never "0%" — a real 0% would misleadingly read as "always late". */
     @Test
     fun content_undefinedOnTimePercent_rendersTheNeutralPlaceholder() {
-        val stats = WeeklyTaskStats(completedThisWeek = 1, onTimePercent = null, dueSoon = 0)
+        val stats = WeeklyTaskStats(completedThisWeek = 1, onTimePercent = null, dueSoon = 0, highPriorityCompletedThisWeek = 0)
 
         composeTestRule.setContent {
             NeverLateTheme {

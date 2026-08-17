@@ -3,11 +3,13 @@ package com.neverlate.ui.tasks
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neverlate.data.sync.SyncStatus
+import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.computeRemainingMillis
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
+import com.neverlate.domain.tasks.TaskGroupAxis
 import com.neverlate.domain.tasks.TaskListCriteria
 import com.neverlate.domain.tasks.TaskSortField
 import com.neverlate.domain.tasks.isEmpty
@@ -212,9 +214,37 @@ class TasksViewModel @Inject constructor(private val repository: TaskRepository)
         _criteria.value = current.copy(direction = flipped)
     }
 
-    /** US-3: turns the urgency-section grouping on/off. */
-    fun onToggleGrouping() {
-        _criteria.value = _criteria.value.copy(grouped = !_criteria.value.grouped)
+    /**
+     * US-3 (`priority-sorting`): switches the group axis. Called with [TaskGroupAxis.Urgency] or
+     * [TaskGroupAxis.Priority] when the corresponding chip is tapped, and with
+     * [TaskGroupAxis.None] when the currently-active chip is tapped again — [TasksScreen] decides
+     * which of the three to pass, this setter just applies it.
+     */
+    fun onGroupAxisChange(axis: TaskGroupAxis) {
+        _criteria.value = _criteria.value.copy(groupAxis = axis)
+    }
+
+    /**
+     * D5/US-2 (`priority-sorting`): flips [priority]'s membership in the filter set — the same
+     * "flip a `Set` member via `.copy(...)`" pattern every other multi-select control in this
+     * codebase would use. An empty set (every priority absent) means "no filter", so tapping the
+     * last active chip off returns to showing everything.
+     */
+    fun onPriorityFilterToggle(priority: Priority) {
+        val current = _criteria.value.priorityFilter
+        val updated = if (priority in current) current - priority else current + priority
+        _criteria.value = _criteria.value.copy(priorityFilter = updated)
+    }
+
+    /**
+     * US-2 (`priority-sorting`, R2): [TasksUiState.NoResults]' clear action must never strand the
+     * user in a state whose only escape leaves a filter active — clears **both** the text query
+     * and the priority filter in one call, unlike [onQueryChange]/[onPriorityFilterToggle] which
+     * each touch only their own slice of state.
+     */
+    fun onClearFilters() {
+        _query.value = ""
+        _criteria.value = _criteria.value.copy(priorityFilter = emptySet())
     }
 
     /** Maps freshly-observed [Task] rows to their [TaskUiModel] countdown snapshot, all read

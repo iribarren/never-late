@@ -131,7 +131,7 @@ class StatsViewModelTest {
             val state = viewModel.uiState.value
             assertTrue(state is StatsUiState.Content)
             assertEquals(
-                WeeklyTaskStats(completedThisWeek = 1, onTimePercent = 100, dueSoon = 1),
+                WeeklyTaskStats(completedThisWeek = 1, onTimePercent = 100, dueSoon = 1, highPriorityCompletedThisWeek = 0),
                 (state as StatsUiState.Content).stats,
             )
         }

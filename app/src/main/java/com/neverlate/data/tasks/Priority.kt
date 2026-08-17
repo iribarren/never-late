@@ -11,26 +11,30 @@ import kotlinx.serialization.Serializable
  * persisted through a `@TypeConverter` (see [com.neverlate.data.sync.Converters.fromPriority]):
  * Room stores [name] as `TEXT`. The constants are ordered least → most important, but nothing
  * relies on that ordinal: the converter stores the *name*, so reordering or inserting a constant
- * later never corrupts existing rows.
+ * later never corrupts existing rows. Feature `priority-sorting` (D1) makes that guarantee
+ * explicit: the ordering channel is the constructor property [rank], never [Enum.ordinal] — code
+ * that needs to compare priorities (sort, precedence) compares [rank].
  *
  * [NONE] is the default for a brand-new task and, crucially, the value every pre-13b row is given
  * by the `MIGRATION_4_5` migration (`... DEFAULT 'NONE'`) — see [NeverLateDatabase].
  *
  * `@Serializable` lets it cross the wire directly inside [com.neverlate.data.sync.TaskDto]:
  * kotlinx.serialization encodes an enum by its constant [name] by default, which is exactly the
- * `"NONE"`/`"LOW"`/... string the API contract (§4) specifies.
+ * `"NONE"`/`"LOW"`/... string the API contract (§4) specifies. [rank] is a plain constructor
+ * parameter, invisible to both kotlinx.serialization and the Room converter, so declaring it is a
+ * **no-op** for persistence and the wire format: no contract change, no migration.
  */
 @Serializable
-enum class Priority {
+enum class Priority(val rank: Int) {
     /** No priority set — the default. Shows no indicator on the task list. */
-    NONE,
+    NONE(0),
 
     /** Low importance. */
-    LOW,
+    LOW(1),
 
     /** Medium importance. */
-    MEDIUM,
+    MEDIUM(2),
 
     /** High importance — the most prominent indicator. */
-    HIGH,
+    HIGH(3),
 }
