@@ -164,6 +164,28 @@ dependencies {
 
     // Compose BOM: aligns all Compose library versions.
     implementation(platform(libs.androidx.compose.bom))
+    // The Compose BOM's constraints are advisory (implementation(platform(...)), not
+    // enforcedPlatform), so a transitive dependency can still outbid them on ONE classpath and not
+    // the other. androidx.lifecycle publishes a Gradle "atomic group" alignment that pulls every
+    // androidx.lifecycle:* artifact — including lifecycle-viewmodel-compose — up to whatever
+    // version is requested anywhere in the graph; something reachable only through the runtime
+    // graph (lifecycle-service/-process, dragged in transitively by WorkManager/Glance, both
+    // `implementation`-only so it never reaches debugCompileClasspath) requests 2.9.x, whose
+    // lifecycle-viewmodel-compose in turn requires compose-ui >= 1.9.0. That bumped
+    // debugRuntimeClasspath's androidx.compose.ui/animation/foundation family to 1.10.0 while
+    // debugCompileClasspath — never seeing that runtime-only requester — stayed on the BOM's 1.7.x.
+    // The Compose compiler picks call-site overloads from the compile classpath, so code compiled
+    // against 1.7.x's FlowRow (no `verticalAlignment` param) crashed with NoSuchMethodError against
+    // the 1.9.0+ FlowRow actually bundled at runtime. These constraints force both classpaths to
+    // agree on the version already winning at runtime, closing the gap without bumping the BOM
+    // itself (which would also force androidx.compose.material3.adaptive past the 1.0.0 pin — see
+    // that version catalog comment).
+    constraints {
+        implementation(libs.androidx.compose.ui.runtime.constraint)
+        implementation(libs.androidx.compose.animation.runtime.constraint)
+        implementation(libs.androidx.compose.foundation.runtime.constraint)
+        implementation(libs.androidx.compose.foundation.layout.runtime.constraint)
+    }
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
