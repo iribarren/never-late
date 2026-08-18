@@ -244,9 +244,15 @@ Rebuild/reinstall after changing `local.properties` (Gradle only re-reads it on 
 The product bar. A feature is done when **all** of these hold — this list replaced the tutorial
 lesson as the criterion for "finished".
 
-- **Tests pass.** Pure logic (`domain/`) has JVM unit tests; UI/DB behaviour that can only be proven
-  on a device has an instrumented test. `timeout 600 ./gradlew :app:testDebugUnitTest --console=plain`
+- **Tests pass, and `androidTest/` compiles.** Pure logic (`domain/`) has JVM unit tests; UI/DB
+  behaviour that can only be proven on a device has an instrumented test.
+  `timeout 600 ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin --console=plain`
   is green before committing — run once, by the orchestrator (see **Build & test execution**).
+  Compiling `androidTest/` is cheap (no device needed) and is part of the gate precisely because
+  `testDebugUnitTest` alone never touches that source set — an instrumented test that stops
+  compiling is otherwise indistinguishable from one that was never written (see
+  `bugfix/instrumented-tests-drift`, 2026-08-18). *Running* the instrumented suite on a device still
+  stays the user's job (see **Execution Policy**).
 - **Migrations are additive and tested.** Any Room schema change bumps the version, ships a
   hand-written `Migration`, commits the exported `app/schemas/N.json`, and proves data survival with a
   `MigrationTestHelper` test. **Never** fall back to a destructive migration: guest-mode tasks exist
@@ -371,15 +377,19 @@ here exists because its absence produced a stuck run.
   the system JDK is the only one either build needs. Pointing Gradle at a different JDK on some
   invocations makes it treat the running daemon as incompatible and fork a fresh 2 GB one, throwing
   away every warm cache.
-- **The full suite runs exactly once**, by the orchestrator, as the gate before committing:
+- **The full suite runs exactly once**, by the orchestrator, as the gate before committing. It also
+  compiles (never runs) the instrumented source set, so a signature drift between `androidTest/` and
+  the screens it exercises can't silently disappear from coverage the way it did before
+  `bugfix/instrumented-tests-drift`:
 
   ```bash
-  timeout 600 ./gradlew :app:testDebugUnitTest --console=plain
+  timeout 600 ./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin --console=plain
   ```
 
-  Subagents only ever run scoped, foreground runs filtered with `--tests`. Gradle itself will now
-  kill any single test task that runs longer than ten minutes (`app/build.gradle.kts`), so a hang
-  fails the build instead of stalling the session.
+  Subagents only ever run scoped, foreground runs filtered with `--tests` (or, for a compile-only
+  check, `:app:compileDebugAndroidTestKotlin` on its own). Gradle itself will now kill any single test
+  task that runs longer than ten minutes (`app/build.gradle.kts`), so a hang fails the build instead
+  of stalling the session.
 - **A timeout is a blocker, not a retry.** If a command hits its `timeout`, report it and stop —
   see **Execution Policy** above. Relaunching it blindly is how a session burns an hour.
 

@@ -63,7 +63,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -98,7 +100,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -135,7 +139,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = null,
                 )
             }
@@ -164,7 +170,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -219,7 +227,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -255,7 +265,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -296,7 +308,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -338,7 +352,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -380,7 +396,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -420,7 +438,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -466,7 +486,9 @@ class TasksScreenTest {
                     onQueryChange = { lastQuery = it },
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -480,10 +502,15 @@ class TasksScreenTest {
     /**
      * US-4: [TasksUiState.NoResults] shows a distinct "no matches" message via [MessageState][com.neverlate.ui.components.MessageState],
      * and its action clears the filter (rather than offering to create a task, [TasksUiState.Empty]'s action).
+     *
+     * `priority-sorting` (D5, R2): the action now clears BOTH the text query and the priority
+     * filter in one shot, so [TasksScreen] wires it to the dedicated [onClearFilters] callback
+     * rather than to [onQueryChange] with an empty string — asserted here via a call counter
+     * instead of the old `lastQuery == ""` check, which no longer reflects what this button does.
      */
     @Test
-    fun noResults_showsNoResultsMessage_andActionInvokesOnQueryChangeWithEmptyString() {
-        var lastQuery: String? = "unchanged"
+    fun noResults_showsNoResultsMessage_andActionInvokesOnClearFilters() {
+        var clearFiltersInvocations = 0
 
         composeTestRule.setContent {
             NeverLateTheme {
@@ -499,10 +526,12 @@ class TasksScreenTest {
                     onStartClick = {},
                     onPauseClick = {},
                     onDeleteClick = {},
-                    onQueryChange = { lastQuery = it },
+                    onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = { clearFiltersInvocations++ },
                     onBack = {},
                 )
             }
@@ -511,7 +540,9 @@ class TasksScreenTest {
         composeTestRule.onNodeWithText(string(R.string.tasks_no_results)).assertExists()
         composeTestRule.onNodeWithText(string(R.string.tasks_no_results_clear_filter)).performClick()
 
-        assert(lastQuery == "") { "Expected the NoResults action to clear the filter, got $lastQuery" }
+        assert(clearFiltersInvocations == 1) {
+            "Expected the NoResults action to invoke onClearFilters exactly once, was $clearFiltersInvocations"
+        }
     }
 
     // Feature 04c: mark-done checkbox -------------------------------------------------------------
@@ -546,7 +577,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -586,7 +619,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
@@ -635,7 +670,9 @@ class TasksScreenTest {
                     onQueryChange = {},
                     onSortFieldChange = {},
                     onToggleSortDirection = {},
-                    onToggleGrouping = {},
+                    onGroupAxisChange = {},
+                    onPriorityFilterToggle = {},
+                    onClearFilters = {},
                     onBack = {},
                 )
             }
