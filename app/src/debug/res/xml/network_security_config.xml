@@ -22,5 +22,8 @@
         <!-- localhost, for the (less common) case of running the app on the host itself, or a
              test harness that talks to the backend via loopback instead of the emulator alias. -->
         <domain includeSubdomains="false">localhost</domain>
+        <!-- Per-developer LAN IP for testing on a physical device over Wi-Fi (see CLAUDE.md's
+             "Testing on a physical device"). Do not commit this entry upstream. -->
+        <domain includeSubdomains="false">192.168.1.137</domain>
     </domain-config>
 </network-security-config>
