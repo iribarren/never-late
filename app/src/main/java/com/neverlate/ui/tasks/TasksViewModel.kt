@@ -9,6 +9,7 @@ import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.data.tasks.computeRemainingMillis
+import com.neverlate.domain.focus.FocusShieldOptions
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
@@ -112,6 +113,16 @@ class TasksViewModel @Inject constructor(
     val userName: StateFlow<String> = userPreferencesRepository.userPreferences
         .map { it.name }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    /**
+     * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D11/AC-29): the
+     * person's last choice for the three optional device measures, pre-filling the entry dialog's
+     * switches on the next session. Same "own `StateFlow`, not folded into `TasksUiState`" shape
+     * as [userName] above, for the same reason — this is not task-list state.
+     */
+    val focusShieldOptions: StateFlow<FocusShieldOptions> = userPreferencesRepository.userPreferences
+        .map { it.focusShieldOptions }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusShieldOptions())
 
     /**
      * Feature 04b: the search field's raw text, as its **own** [MutableStateFlow] — deliberately

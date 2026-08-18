@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.neverlate.domain.focus.FocusShieldOptions
 import com.neverlate.domain.tasks.FocusSession
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
@@ -101,6 +102,23 @@ data class UserPreferences(
      * never to a state that is harder to leave.
      */
     val focusSession: FocusSession? = null,
+    /**
+     * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D11): the person's
+     * last choice for the three optional device measures, pre-filling the entry dialog on the
+     * next session. Defaults follow D11's rule — a measure defaults on only if it cannot outlive
+     * the session — so a fresh install starts with [FocusShieldOptions.keepScreenOn] on and the
+     * other two off.
+     */
+    val focusShieldOptions: FocusShieldOptions = FocusShieldOptions(),
+    /**
+     * Modo Foco blindaje (D4): the write-ahead receipt — the interruption filter that was in
+     * effect right before the shield applied Do Not Disturb, or `null` when there is nothing to
+     * undo. **Presence of this key is the receipt itself** (D4): there is deliberately no separate
+     * "did we apply it" boolean, timestamp, or options blob — every extra field is another way for
+     * the record to disagree with itself. Lives in this same `user_prefs` DataStore, never a
+     * second DataStore, exactly like [focusSession] above.
+     */
+    val focusShieldPriorFilter: Int? = null,
 ) {
     companion object {
         /** Default lead time (minutes) a reminder fires before a task's deadline. */
@@ -182,6 +200,21 @@ interface UserPreferencesRepository {
      * read reports [UserPreferences.focusSession] as `null`.
      */
     suspend fun endFocusSession()
+
+    /**
+     * Modo Foco blindaje (D11): persists the person's choice for the three optional device
+     * measures, so the entry dialog pre-fills with it next time.
+     */
+    suspend fun saveFocusShieldOptions(options: FocusShieldOptions)
+
+    /**
+     * Modo Foco blindaje (D4): persists the write-ahead receipt — the interruption filter to
+     * restore once the session ends. `null` clears it (used both when there is nothing to undo
+     * and once a restore has completed). Callers must write this **before** applying the Do Not
+     * Disturb effect, and clear it only **after** a successful restore (D4's ordering; see
+     * [com.neverlate.ui.focus.FocusShieldController]'s KDoc for the full sequence).
+     */
+    suspend fun saveFocusShieldPriorFilter(filter: Int?)
 }
 
 /** Real implementation, backed by Jetpack DataStore (Preferences). */
@@ -215,6 +248,15 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
         val FOCUS_SESSION_STARTED_AT = longPreferencesKey("focus_session_started_at")
         val FOCUS_EXIT_CODE = stringPreferencesKey("focus_exit_code")
         val FOCUS_ROSTER = stringPreferencesKey("focus_roster")
+        // Added by the focus-mode-shielding feature (D11/D12) — same "user_prefs" file yet again,
+        // no second DataStore. Three booleans for the three independent switches (D1: never one
+        // combined key, they are never restored/reasoned about together).
+        val FOCUS_SHIELD_KEEP_SCREEN_ON = booleanPreferencesKey("focus_shield_keep_screen_on")
+        val FOCUS_SHIELD_DO_NOT_DISTURB = booleanPreferencesKey("focus_shield_do_not_disturb")
+        val FOCUS_SHIELD_SCREEN_PINNING = booleanPreferencesKey("focus_shield_screen_pinning")
+        // The write-ahead receipt (D4) — presence of this key *is* the receipt, see
+        // UserPreferences.focusShieldPriorFilter's KDoc.
+        val FOCUS_SHIELD_PRIOR_FILTER = intPreferencesKey("focus_shield_prior_filter")
     }
 
     override val userPreferences: Flow<UserPreferences> =
@@ -254,6 +296,19 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
                     exitCode = preferences[Keys.FOCUS_EXIT_CODE] ?: "",
                     rosterCsv = preferences[Keys.FOCUS_ROSTER] ?: "",
                 ),
+                // D11 defaults double as the fail-open fallback (AC-13): a missing key (fresh
+                // install) or any read failure both resolve to FocusShieldOptions()'s own
+                // defaults, never a crash — same tolerant-read pattern as every key above.
+                focusShieldOptions = FocusShieldOptions(
+                    keepScreenOn = preferences[Keys.FOCUS_SHIELD_KEEP_SCREEN_ON]
+                        ?: FocusShieldOptions().keepScreenOn,
+                    doNotDisturb = preferences[Keys.FOCUS_SHIELD_DO_NOT_DISTURB]
+                        ?: FocusShieldOptions().doNotDisturb,
+                    screenPinning = preferences[Keys.FOCUS_SHIELD_SCREEN_PINNING]
+                        ?: FocusShieldOptions().screenPinning,
+                ),
+                // D4/AC-13: an absent key reads as "no receipt" (null), never a crash.
+                focusShieldPriorFilter = preferences[Keys.FOCUS_SHIELD_PRIOR_FILTER],
             )
         }
 
@@ -327,6 +382,24 @@ class DataStoreUserPreferencesRepository(private val context: Context) : UserPre
             preferences.remove(Keys.FOCUS_SESSION_STARTED_AT)
             preferences.remove(Keys.FOCUS_EXIT_CODE)
             preferences.remove(Keys.FOCUS_ROSTER)
+        }
+    }
+
+    override suspend fun saveFocusShieldOptions(options: FocusShieldOptions) {
+        context.userPrefsDataStore.edit { preferences ->
+            preferences[Keys.FOCUS_SHIELD_KEEP_SCREEN_ON] = options.keepScreenOn
+            preferences[Keys.FOCUS_SHIELD_DO_NOT_DISTURB] = options.doNotDisturb
+            preferences[Keys.FOCUS_SHIELD_SCREEN_PINNING] = options.screenPinning
+        }
+    }
+
+    override suspend fun saveFocusShieldPriorFilter(filter: Int?) {
+        context.userPrefsDataStore.edit { preferences ->
+            if (filter == null) {
+                preferences.remove(Keys.FOCUS_SHIELD_PRIOR_FILTER)
+            } else {
+                preferences[Keys.FOCUS_SHIELD_PRIOR_FILTER] = filter
+            }
         }
     }
 }

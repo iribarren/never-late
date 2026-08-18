@@ -35,6 +35,15 @@
          once there is a network to push/pull against. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`). ACCESS_NOTIFICATION_POLICY
+         is a *special access*, never a runtime permission dialog: the app checks
+         NotificationManager.isNotificationPolicyAccessGranted() and, if it is false, sends the
+         person to Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS via the shared
+         SpecialAccessNotice — the same check-explain-send-to-Settings idiom feature 09's
+         SCHEDULE_EXACT_ALARM already uses. A denied/revoked grant never blocks the session (D10):
+         the Do Not Disturb measure is simply not applied, with no crash and no repeated prompt. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <application
         android:name=".NeverLateApplication"
         android:allowBackup="true"

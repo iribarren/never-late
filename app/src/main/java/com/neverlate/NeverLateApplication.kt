@@ -1,6 +1,7 @@
 package com.neverlate
 
 import android.app.Application
+import com.neverlate.ui.focus.FocusShieldRestoreWorker
 import com.neverlate.ui.notification.BootRescheduleWorker
 import dagger.hilt.android.HiltAndroidApp
 
@@ -20,6 +21,13 @@ import dagger.hilt.android.HiltAndroidApp
  * Times-up-alert feature (D10): also enqueues [BootRescheduleWorker] on every cold start, not just
  * after `BOOT_COMPLETED` (see that worker's KDoc for why a reboot alone leaves a real hole). The
  * worker is idempotent, so enqueuing it unconditionally here is safe.
+ *
+ * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D6/AC-16): also enqueues an
+ * immediate [FocusShieldRestoreWorker] check on every cold start — the second of the three
+ * Do-Not-Disturb restore triggers, covering "killed from recents / by memory pressure, then
+ * reopened" (the *common* case, not an edge case). The worker itself decides whether there is
+ * anything to restore; enqueuing it unconditionally here is as safe as [BootRescheduleWorker]'s
+ * own unconditional enqueue above.
  */
 @HiltAndroidApp
 class NeverLateApplication : Application() {
@@ -36,6 +44,11 @@ class NeverLateApplication : Application() {
             BootRescheduleWorker.enqueue(this)
         } catch (_: IllegalStateException) {
             // WorkManager not initialized in this process (see above) — nothing to reschedule yet.
+        }
+        try {
+            FocusShieldRestoreWorker.enqueueColdStartCheck(this)
+        } catch (_: IllegalStateException) {
+            // WorkManager not initialized in this process (see above) — nothing to restore yet.
         }
     }
 }

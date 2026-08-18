@@ -8,16 +8,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.neverlate.R
-import com.neverlate.data.ThemeMode
-import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.theme.NeverLateTheme
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -52,23 +49,9 @@ private class NoopMotionSettings : MotionSettings {
     override val reduceMotion: Flow<Boolean> = flowOf(false)
 }
 
-/**
- * No-op [UserPreferencesRepository]: this test never exercises the display name
- * (editable-profile-name spec) — only satisfies [TasksViewModel]'s constructor.
- */
-private class NoopUserPreferencesRepository : UserPreferencesRepository {
-    override val userPreferences = MutableStateFlow(UserPreferences())
-    override suspend fun saveOnboarding(name: String) = Unit
-    override suspend fun saveName(name: String) = Unit
-    override suspend fun saveThemeMode(mode: ThemeMode) = Unit
-    override suspend fun saveRemindersEnabled(enabled: Boolean) = Unit
-    override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
-    override suspend fun saveSyncCursor(cursor: Long) = Unit
-    override suspend fun saveDynamicColor(enabled: Boolean) = Unit
-    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) = Unit
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) = Unit
-    override suspend fun endFocusSession() = Unit
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md) — this test never exercises the display
+// name (editable-profile-name spec), only satisfies [TasksViewModel]'s constructor.
 
 /**
  * Covers feature 17's US-3 one-shot "task created" snackbar at the level it actually lives:
@@ -104,7 +87,7 @@ class TasksRouteSnackbarTest {
                         viewModel = TasksViewModel(
                             repository = NoopTaskRepository(),
                             motionSettings = NoopMotionSettings(),
-                            userPreferencesRepository = NoopUserPreferencesRepository(),
+                            userPreferencesRepository = FakeUserPreferencesRepository(),
                         ),
                         onAddTaskClick = {},
                         onTaskClick = {},
@@ -151,7 +134,7 @@ class TasksRouteSnackbarTest {
                     viewModel = TasksViewModel(
                         repository = NoopTaskRepository(),
                         motionSettings = NoopMotionSettings(),
-                        userPreferencesRepository = NoopUserPreferencesRepository(),
+                        userPreferencesRepository = FakeUserPreferencesRepository(),
                     ),
                     onAddTaskClick = {},
                     onTaskClick = {},

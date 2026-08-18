@@ -50,6 +50,25 @@ sealed interface FocusUiState {
         val rows: List<TaskUiModel>,
         val progress: FocusProgress,
         val exitPanel: ExitPanelUiState,
+        /**
+         * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D7/AC-V4): whether
+         * the Do-Not-Disturb measure is **verified** active right now, for the in-session
+         * indicator. Derived from the write-ahead receipt's presence
+         * ([com.neverlate.data.UserPreferences.focusShieldPriorFilter] `!= null`) rather than the
+         * entry dialog's requested option — the receipt is only ever written once
+         * [FocusShieldController.applyDoNotDisturb] has actually succeeded (see
+         * [com.neverlate.ui.focus.applyFocusShieldOnSessionStart]), so its presence *is* the
+         * verified signal, with no second query needed.
+         */
+        val doNotDisturbActive: Boolean,
+        /**
+         * D8: whether the session's own choice was "Pantalla siempre encendida" — [FocusScreen]
+         * reads this to decide whether to apply the immersive/keep-screen-on `DisposableEffect` at
+         * all. Sourced from the same [com.neverlate.data.UserPreferences.focusShieldOptions] the
+         * entry dialog just persisted at session start (D4's start sequence saves it first, before
+         * anything else), never re-asked at every recomposition.
+         */
+        val keepScreenOn: Boolean,
     ) : FocusUiState
 }
 
@@ -117,6 +136,7 @@ private data class ExitPanelInputs(
 class FocusViewModel @Inject constructor(
     private val repository: TaskRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val focusShieldController: FocusShieldController,
 ) : ViewModel() {
 
     private val _exitPanelOpen = MutableStateFlow(false)
@@ -136,6 +156,20 @@ class FocusViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Modo Foco blindaje (D7): the write-ahead receipt's presence, doubling as the verified
+     *  "is Do Not Disturb on right now" signal the in-session indicator reads — see
+     *  [FocusUiState.Content.doNotDisturbActive]'s KDoc. */
+    private val doNotDisturbActiveFlow: StateFlow<Boolean> = userPreferencesRepository.userPreferences
+        .map { it.focusShieldPriorFilter != null }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** D8: the session's own "keep screen on" choice — see [FocusUiState.Content.keepScreenOn]. */
+    private val keepScreenOnFlow: StateFlow<Boolean> = userPreferencesRepository.userPreferences
+        .map { it.focusShieldOptions.keepScreenOn }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     private val exitPanelInputs: StateFlow<ExitPanelInputs> = combine(
         _exitPanelOpen, _enteredCode, _reveal, _showAbandonConfirm,
     ) { isOpen, enteredCode, reveal, showAbandonConfirm ->
@@ -147,14 +181,17 @@ class FocusViewModel @Inject constructor(
     )
 
     val uiState: StateFlow<FocusUiState> = combine(
-        sessionFlow, repository.observeTasks(), exitPanelInputs,
-    ) { session, tasks, panel -> buildUiState(session, tasks, panel) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusUiState.Loading)
+        sessionFlow, repository.observeTasks(), exitPanelInputs, doNotDisturbActiveFlow, keepScreenOnFlow,
+    ) { session, tasks, panel, doNotDisturbActive, keepScreenOn ->
+        buildUiState(session, tasks, panel, doNotDisturbActive, keepScreenOn)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FocusUiState.Loading)
 
     private fun buildUiState(
         session: FocusSession?,
         tasks: List<Task>,
         panel: ExitPanelInputs,
+        doNotDisturbActive: Boolean,
+        keepScreenOn: Boolean,
         now: Long = System.currentTimeMillis(),
     ): FocusUiState {
         // D7/D6: an inactive (expired, absent, or fail-open-null) session shows nothing here —
@@ -185,6 +222,8 @@ class FocusViewModel @Inject constructor(
                 revealedCode = if (panel.reveal is RevealState.Revealed) storedCode else null,
                 showAbandonConfirm = panel.showAbandonConfirm,
             ),
+            doNotDisturbActive = doNotDisturbActive,
+            keepScreenOn = keepScreenOn,
         )
     }
 
@@ -236,7 +275,7 @@ class FocusViewModel @Inject constructor(
         if (state !is FocusUiState.Content || !state.exitPanel.slideEnabled) return
         val completedCount = state.progress.done
         viewModelScope.launch {
-            userPreferencesRepository.endFocusSession()
+            endSessionWithShieldTeardown()
             _exitEvents.send(FocusExitEvent.Completed(completedCount))
         }
     }
@@ -256,9 +295,26 @@ class FocusViewModel @Inject constructor(
     fun onAbandonConfirm() {
         _showAbandonConfirm.value = false
         viewModelScope.launch {
-            userPreferencesRepository.endFocusSession()
+            endSessionWithShieldTeardown()
             _exitEvents.send(FocusExitEvent.Abandoned)
         }
+    }
+
+    /**
+     * Modo Foco blindaje (D6/AC-15): both deliberate exits run through this one function —
+     * [FocusShieldController.restore] (the Do-Not-Disturb decision, D5) and
+     * [FocusShieldController.cancelBackstop] (D6 — a completed session needs no 12h backstop),
+     * **both before** [UserPreferencesRepository.endFocusSession]. `sessionActive = false` here is
+     * correct precisely because this function only ever runs once the exit has already been
+     * decided (the ritual's gate passed, or abandon confirmed) — the session is over in every
+     * sense but the DataStore write, which happens last on purpose (D4's end sequence). Screen
+     * pinning's own `stopLockTask()` is Activity-scoped and therefore **not** here — see
+     * [FocusRoute]'s `exitEvents` collector, which runs it before navigating away (AC-22).
+     */
+    private suspend fun endSessionWithShieldTeardown() {
+        focusShieldController.restore(sessionActive = false)
+        focusShieldController.cancelBackstop()
+        userPreferencesRepository.endFocusSession()
     }
 
     /**

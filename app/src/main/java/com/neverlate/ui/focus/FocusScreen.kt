@@ -1,5 +1,8 @@
 package com.neverlate.ui.focus
 
+import android.app.Activity
+import android.app.ActivityManager
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +35,8 @@ import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +55,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -59,6 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -75,6 +83,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neverlate.R
@@ -104,6 +115,20 @@ import kotlin.math.roundToInt
  * destination. This is the repo's only other use of the idiom
  * ([com.neverlate.ui.articles.ArticlesListDetailPane]'s two-pane back handling) applied to a single
  * screen instead of a nested navigator.
+ *
+ * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`) adds three things here, all
+ * Activity-scoped (D1) and therefore living in this Route rather than [FocusViewModel]:
+ * - **AC-21/D7**: [screenPinningActive] is read back from `ActivityManager.getLockTaskModeState()`
+ *   once, on first composition — the `startLockTask()` *request* already happened in
+ *   `AppNavHost`'s `onFocusClick`, right before navigating here, so by the time this composable
+ *   runs the system already knows the answer (no receipt, only a query).
+ * - **AC-22**: the `exitEvents` collector releases pinning (`stopLockTask()`, if verified active)
+ *   **before** invoking [onSessionCompleted]/[onSessionAbandoned] — i.e. before navigating away.
+ * - **D8/AC-26/AC-27**: a `DisposableEffect` applies immersive system bars (always recoverable by
+ *   a swipe, `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`) and `FLAG_KEEP_SCREEN_ON` while
+ *   [FocusUiState.Content.keepScreenOn] is true, reverting both in `onDispose` — so leaving this
+ *   screen by *any* route (ritual, abandon, process death, back+overview while pinned) reverts
+ *   them for free, with no receipt and no worker (D1).
  */
 @Composable
 fun FocusRoute(
@@ -114,9 +139,26 @@ fun FocusRoute(
     viewModel: FocusViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activity = LocalContext.current as? Activity
+
+    // AC-21/D7: verified once, right as this screen appears — see this function's KDoc.
+    val screenPinningActive = remember {
+        val activityManager = activity?.getSystemService(ActivityManager::class.java)
+        activityManager?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
+    }
 
     LaunchedEffect(Unit) {
         viewModel.exitEvents.collect { event ->
+            // AC-22: release pinning before navigating away — Activity-scoped, so it cannot live
+            // in FocusViewModel (see FocusViewModel.endSessionWithShieldTeardown's KDoc).
+            val activityManager = activity?.getSystemService(ActivityManager::class.java)
+            if (activityManager?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE) {
+                try {
+                    activity?.stopLockTask()
+                } catch (_: IllegalStateException) {
+                    // D10: not actually pinned by the time this runs — nothing to release.
+                }
+            }
             when (event) {
                 is FocusExitEvent.Completed -> onSessionCompleted(event.completedCount)
                 FocusExitEvent.Abandoned -> onSessionAbandoned()
@@ -126,8 +168,29 @@ fun FocusRoute(
 
     BackHandler(enabled = true) { viewModel.onExitPanelToggle() }
 
+    // D8: composable-scoped, no undo machinery needed (D1) — applied here, never
+    // MainActivity.onCreate (which stays limited to enableEdgeToEdge()), and reverted on dispose.
+    val keepScreenOn = (uiState as? FocusUiState.Content)?.keepScreenOn ?: false
+    DisposableEffect(activity, keepScreenOn) {
+        val window = activity?.window
+        if (window == null || !keepScreenOn) return@DisposableEffect onDispose {}
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        // AC-27/D8: a swipe must always bring the bars back temporarily — a hard requirement, not
+        // a default, so nobody is trapped behind a hidden status bar.
+        insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        insetsController.hide(WindowInsetsCompat.Type.systemBars())
+
+        onDispose {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     FocusScreen(
         uiState = uiState,
+        screenPinningActive = screenPinningActive,
         onToggleComplete = viewModel::toggleComplete,
         onExitButtonClick = viewModel::onExitPanelToggle,
         onPanelDismiss = viewModel::onExitPanelDismiss,
@@ -160,6 +223,7 @@ fun FocusRoute(
 @Composable
 fun FocusScreen(
     uiState: FocusUiState,
+    screenPinningActive: Boolean,
     onToggleComplete: (Task) -> Unit,
     onExitButtonClick: () -> Unit,
     onPanelDismiss: () -> Unit,
@@ -203,9 +267,11 @@ fun FocusScreen(
             bottomBar = {
                 // The only action in the chrome besides per-row checkboxes (mockup slice, AC-V3):
                 // opens the exit panel, exactly like the system back gesture (D8) and MessageState's
-                // own action below.
+                // own action below. AC-V6: navigationBarsPadding() keeps this button clear of the
+                // gesture area while immersive — nothing needed to leave the session is ever hidden
+                // by the immersive state.
                 if (uiState is FocusUiState.Content) {
-                    Surface(tonalElevation = 3.dp) {
+                    Surface(tonalElevation = 3.dp, modifier = Modifier.navigationBarsPadding()) {
                         TextButton(
                             onClick = onExitButtonClick,
                             modifier = Modifier
@@ -223,15 +289,23 @@ fun FocusScreen(
                 // Nothing to show yet — AppNavHost's own routing (D4) means this is expected to be
                 // near-instantaneous; same "no one-frame flash" reasoning as TasksUiState.Loading.
                 is FocusUiState.Loading -> Unit
-                is FocusUiState.Content -> FocusContent(
-                    state = uiState,
-                    onToggleComplete = onToggleComplete,
-                    onExitButtonClick = onExitButtonClick,
-                    widthSizeClass = widthSizeClass,
+                is FocusUiState.Content -> Column(
                     modifier = Modifier
                         .padding(innerPadding)
                         .fillMaxSize(),
-                )
+                ) {
+                    FocusShieldIndicatorRow(
+                        doNotDisturbActive = uiState.doNotDisturbActive,
+                        screenPinningActive = screenPinningActive,
+                    )
+                    FocusContent(
+                        state = uiState,
+                        onToggleComplete = onToggleComplete,
+                        onExitButtonClick = onExitButtonClick,
+                        widthSizeClass = widthSizeClass,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
 
@@ -248,6 +322,70 @@ fun FocusScreen(
                 onDismiss = onPanelDismiss,
             )
         }
+    }
+}
+
+/**
+ * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D7/AC-V4/AC-V5/AC-36): the
+ * compact, non-interactive strip directly under the top bar, listing only the **verified**-active
+ * device measures — never merely what was requested (D7). "Pantalla siempre encendida" is
+ * deliberately **not** shown here even when active: while looking at this very screen, the fact
+ * that its own screen is on is not information — the indicator exists for the two measures whose
+ * effects are otherwise invisible (US-6).
+ *
+ * Absent entirely (renders nothing) when neither measure is active (AC-V5) — an empty strip would
+ * be visual noise on a screen whose entire premise is the absence of noise. Text **and** icon for
+ * each active measure (AC-36) — never icon or colour alone.
+ */
+@Composable
+private fun FocusShieldIndicatorRow(
+    doNotDisturbActive: Boolean,
+    screenPinningActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!doNotDisturbActive && !screenPinningActive) return
+
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (doNotDisturbActive) {
+                FocusShieldIndicatorChip(
+                    icon = Icons.Filled.NotificationsOff,
+                    label = stringResource(R.string.focus_shield_indicator_do_not_disturb),
+                )
+            }
+            if (screenPinningActive) {
+                FocusShieldIndicatorChip(
+                    icon = Icons.Filled.PushPin,
+                    label = stringResource(R.string.focus_shield_indicator_screen_pinning),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FocusShieldIndicatorChip(icon: ImageVector, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            // Decorative: the label Text right next to it carries the same meaning for a screen
+            // reader (AC-36 — text, not icon alone).
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

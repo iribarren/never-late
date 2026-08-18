@@ -1,9 +1,10 @@
 package com.neverlate.ui.focus
 
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
+import com.neverlate.domain.focus.FocusShieldOptions
 import com.neverlate.domain.tasks.FocusSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,28 +55,8 @@ private class FakeTaskRepository(initialTasks: List<Task> = emptyList()) : TaskR
     override suspend fun pauseTimer(id: Long) = Unit
 }
 
-/** In-memory [UserPreferencesRepository] fake, same "mutate the backing MutableStateFlow" pattern
- *  every other fake in this codebase uses for [startFocusSession]/[endFocusSession]. */
-private class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()) : UserPreferencesRepository {
-    override val userPreferences = MutableStateFlow(initial)
-
-    override suspend fun saveOnboarding(name: String) = Unit
-    override suspend fun saveName(name: String) = Unit
-    override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) = Unit
-    override suspend fun saveRemindersEnabled(enabled: Boolean) = Unit
-    override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
-    override suspend fun saveSyncCursor(cursor: Long) = Unit
-    override suspend fun saveDynamicColor(enabled: Boolean) = Unit
-    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) = Unit
-
-    override suspend fun startFocusSession(session: FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md).
 
 private val pendingTask = Task(id = 1, title = "Preparar la presentación", deadline = 10_000L)
 private val secondPendingTask = Task(id = 2, title = "Enviar el informe", deadline = 20_000L)
@@ -133,7 +114,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(exitCode = "1234", roster = setOf(pendingTask.id))),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -158,7 +139,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(exitCode = "1234", roster = setOf(pendingTask.id))),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -181,7 +162,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(exitCode = "1234", roster = emptySet())),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         val exitEvents = collectExitEvents(viewModel)
         advanceUntilIdle()
@@ -215,7 +196,7 @@ class FocusViewModelTest {
                 focusSession = sessionWith(exitCode = "1234", roster = setOf(pendingTask.id, secondPendingTask.id)),
             ),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         val exitEvents = collectExitEvents(viewModel)
         advanceUntilIdle()
@@ -244,7 +225,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(exitCode = "1234", roster = setOf(pendingTask.id))),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         val exitEvents = collectExitEvents(viewModel)
         advanceUntilIdle()
@@ -268,7 +249,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(roster = setOf(pendingTask.id))),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
 
         viewModel.toggleComplete(pendingTask, now = 42_000L)
         advanceUntilIdle()
@@ -283,7 +264,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(exitCode = "", roster = emptySet())),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -301,7 +282,7 @@ class FocusViewModelTest {
         val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(focusSession = sessionWith(startedAt = 0L, roster = setOf(pendingTask.id))),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
         collectUiState(viewModel)
         advanceUntilIdle()
 
@@ -309,5 +290,127 @@ class FocusViewModelTest {
         // past a session started at epoch 0L) — no fake clock needed to prove this boundary.
         assertTrue(twelveHoursMillis < System.currentTimeMillis())
         assertEquals(FocusUiState.Loading, viewModel.uiState.value)
+    }
+
+    // Modo Foco blindaje (docs/specs/2026-08-18-focus-mode-shielding.md) ------------------------
+
+    @Test
+    fun `completing the slide runs the shield restore and cancels the backstop before ending the session - AC-15`() =
+        runTest {
+            val taskRepository = FakeTaskRepository(listOf(pendingTask))
+            val controller = FakeFocusShieldController()
+            val userPreferencesRepository = FakeUserPreferencesRepository(
+                UserPreferences(focusSession = sessionWith(exitCode = "", roster = setOf(pendingTask.id))),
+            )
+            val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, controller)
+            collectUiState(viewModel)
+            val exitEvents = collectExitEvents(viewModel)
+            advanceUntilIdle()
+
+            viewModel.toggleComplete(pendingTask, now = 2_000L)
+            advanceUntilIdle()
+
+            viewModel.onSlideComplete()
+            advanceUntilIdle()
+
+            assertEquals(1, exitEvents.size)
+            // AC-15: restore() ran with sessionActive = false, and the backstop was cancelled —
+            // both are FocusShieldController calls, asserted here against the fake this ViewModel
+            // was constructed with (endSessionWithShieldTeardown's KDoc documents the exact order:
+            // restore, then cancelBackstop, then endFocusSession — all three in one straight-line
+            // suspend function body with no dispatcher hop between them).
+            assertEquals(listOf(false), controller.restoreCalls)
+            assertEquals(1, controller.cancelBackstopCallCount)
+            assertEquals(1, userPreferencesRepository.endFocusSessionCallCount)
+        }
+
+    @Test
+    fun `abandoning runs the shield restore and cancels the backstop before ending the session - AC-15`() = runTest {
+        val taskRepository = FakeTaskRepository(listOf(pendingTask))
+        val controller = FakeFocusShieldController()
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(focusSession = sessionWith(exitCode = "1234", roster = setOf(pendingTask.id))),
+        )
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, controller)
+        collectUiState(viewModel)
+        val exitEvents = collectExitEvents(viewModel)
+        advanceUntilIdle()
+
+        // Deliberately does NOT satisfy the ritual gate first — abandon must work regardless (D3).
+        viewModel.onAbandonClick()
+        viewModel.onAbandonConfirm()
+        advanceUntilIdle()
+
+        assertEquals(listOf(FocusExitEvent.Abandoned), exitEvents)
+        assertEquals(listOf(false), controller.restoreCalls)
+        assertEquals(1, controller.cancelBackstopCallCount)
+        assertEquals(1, userPreferencesRepository.endFocusSessionCallCount)
+    }
+
+    @Test
+    fun `the abandon flow is enabled regardless of the shield's active measures - AC-32`() = runTest {
+        // Regression for the núcleo's D3 guarantee: nothing about the shield (a granted/denied
+        // DND receipt, a verified/unverified pinning state) ever gates onAbandonClick/onAbandonConfirm
+        // — the ViewModel exposes no such condition anywhere in this path.
+        val taskRepository = FakeTaskRepository(listOf(pendingTask))
+        val controller = FakeFocusShieldController().apply { setPolicyAccessGranted(false) }
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(
+                focusSession = sessionWith(exitCode = "1234", roster = setOf(pendingTask.id)),
+                focusShieldPriorFilter = 7, // simulates DND having been successfully applied
+            ),
+        )
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, controller)
+        collectUiState(viewModel)
+        val exitEvents = collectExitEvents(viewModel)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as FocusUiState.Content
+        // The indicator would show DND as active here (doNotDisturbActive derives from the
+        // receipt's presence), yet abandon must still work unconditionally.
+        assertTrue(state.doNotDisturbActive)
+
+        viewModel.onAbandonClick()
+        advanceUntilIdle()
+        assertTrue((viewModel.uiState.value as FocusUiState.Content).exitPanel.showAbandonConfirm)
+        viewModel.onAbandonConfirm()
+        advanceUntilIdle()
+
+        assertEquals(listOf(FocusExitEvent.Abandoned), exitEvents)
+    }
+
+    @Test
+    fun `doNotDisturbActive reflects the write-ahead receipt's presence, not the requested option`() = runTest {
+        val taskRepository = FakeTaskRepository(listOf(pendingTask))
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(focusSession = sessionWith(roster = setOf(pendingTask.id)), focusShieldPriorFilter = 2),
+        )
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
+        collectUiState(viewModel)
+        advanceUntilIdle()
+
+        assertTrue((viewModel.uiState.value as FocusUiState.Content).doNotDisturbActive)
+
+        // The receipt is cleared (as a real restore would do) — the indicator must follow it live.
+        userPreferencesRepository.saveFocusShieldPriorFilter(null)
+        advanceUntilIdle()
+
+        assertFalse((viewModel.uiState.value as FocusUiState.Content).doNotDisturbActive)
+    }
+
+    @Test
+    fun `keepScreenOn mirrors the persisted focusShieldOptions choice`() = runTest {
+        val taskRepository = FakeTaskRepository(listOf(pendingTask))
+        val userPreferencesRepository = FakeUserPreferencesRepository(
+            UserPreferences(
+                focusSession = sessionWith(roster = setOf(pendingTask.id)),
+                focusShieldOptions = FocusShieldOptions(keepScreenOn = false),
+            ),
+        )
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
+        collectUiState(viewModel)
+        advanceUntilIdle()
+
+        assertFalse((viewModel.uiState.value as FocusUiState.Content).keepScreenOn)
     }
 }

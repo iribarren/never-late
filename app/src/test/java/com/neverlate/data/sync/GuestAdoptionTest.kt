@@ -1,5 +1,6 @@
 package com.neverlate.data.sync
 
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.auth.AuthNetwork
 import com.neverlate.data.auth.AuthRepositoryImpl
 import com.neverlate.data.auth.AuthState

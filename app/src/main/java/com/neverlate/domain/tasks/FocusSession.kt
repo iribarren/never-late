@@ -39,8 +39,13 @@ data class FocusProgress(val total: Int, val done: Int) {
     val isComplete: Boolean get() = done >= total
 }
 
-/** D7: a session older than this is treated as ended — see [isFocusSessionActive]. */
-private const val FOCUS_SESSION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
+/**
+ * D7: a session older than this is treated as ended — see [isFocusSessionActive]. `internal`
+ * (not `private`) since the focus-mode-shielding feature's `FocusShieldRestoreWorker` reads this
+ * same constant for its 12h backstop delay (D6 of that spec) — two constants that must always
+ * agree is one constant, not two independently-maintained "12 hours" literals.
+ */
+internal const val FOCUS_SESSION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
 
 /**
  * D1: the ids of every currently-pending (`completedAt == null`) task — the frozen roster a new

@@ -1,6 +1,6 @@
 package com.neverlate.di
 
-import com.neverlate.data.sync.FakeUserPreferencesRepository
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.ui.notification.FakeReminderScheduler
 import com.neverlate.ui.notification.FakeTaskRepository
 import com.neverlate.ui.notification.ReminderSchedulingRepository

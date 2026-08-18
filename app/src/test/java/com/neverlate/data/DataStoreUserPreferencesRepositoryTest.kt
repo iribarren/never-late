@@ -1,6 +1,7 @@
 package com.neverlate.data
 
 import com.neverlate.data.tasks.Priority
+import com.neverlate.domain.focus.FocusShieldOptions
 import com.neverlate.domain.tasks.FocusSession
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
@@ -198,5 +199,58 @@ class DataStoreUserPreferencesRepositoryTest {
             repository.userPreferences.first().focusSession,
         )
         assertNull(secondRepository.userPreferences.first().focusSession)
+    }
+
+    /**
+     * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`): [UserPreferences.focusShieldOptions]
+     * on a fresh install defaults to [FocusShieldOptions]'s own defaults (AC-30 — D11: keepScreenOn
+     * on, the other two off), round-trips through [DataStoreUserPreferencesRepository.saveFocusShieldOptions]
+     * (AC-29), and composes independently of the write-ahead receipt (AC-12: both keys live in
+     * this same `user_prefs` file).
+     */
+    @Test
+    fun `focusShieldOptions defaults per D11 on a fresh install and round-trips through save`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = DataStoreUserPreferencesRepository(context)
+
+        val freshInstallDefaults = repository.userPreferences.first().focusShieldOptions
+        assertEquals(FocusShieldOptions(), freshInstallDefaults)
+        assertEquals("D11: keepScreenOn defaults on", true, freshInstallDefaults.keepScreenOn)
+        assertEquals("D11: doNotDisturb defaults off", false, freshInstallDefaults.doNotDisturb)
+        assertEquals("D11: screenPinning defaults off", false, freshInstallDefaults.screenPinning)
+
+        val chosen = FocusShieldOptions(keepScreenOn = false, doNotDisturb = true, screenPinning = true)
+        repository.saveFocusShieldOptions(chosen)
+        assertEquals(chosen, repository.userPreferences.first().focusShieldOptions)
+
+        // A second, independent instance against the same on-disk file sees it too.
+        val secondRepository = DataStoreUserPreferencesRepository(context)
+        assertEquals(chosen, secondRepository.userPreferences.first().focusShieldOptions)
+    }
+
+    /**
+     * Modo Foco blindaje (D4): [UserPreferences.focusShieldPriorFilter] — the write-ahead receipt
+     * — reads as `null` ("no receipt") when never written (AC-13's fail-open tolerance for a
+     * fresh install), round-trips a real filter value, and `saveFocusShieldPriorFilter(null)`
+     * clears it back to absent (D4: "presence of this key is the receipt itself").
+     */
+    @Test
+    fun `focusShieldPriorFilter reads null when absent, round-trips, and null clears it`() = runTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = DataStoreUserPreferencesRepository(context)
+
+        assertNull(
+            "fresh install / no receipt ever written",
+            repository.userPreferences.first().focusShieldPriorFilter,
+        )
+
+        repository.saveFocusShieldPriorFilter(2)
+        assertEquals(2, repository.userPreferences.first().focusShieldPriorFilter)
+
+        repository.saveFocusShieldPriorFilter(null)
+        assertNull(
+            "null must clear the key, not merely be ignored",
+            repository.userPreferences.first().focusShieldPriorFilter,
+        )
     }
 }
