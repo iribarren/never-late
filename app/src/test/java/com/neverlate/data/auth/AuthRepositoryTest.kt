@@ -1,7 +1,7 @@
 package com.neverlate.data.auth
 
 import com.neverlate.data.sync.FakeTokenStorage
-import com.neverlate.data.sync.FakeUserPreferencesRepository
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.sync.OutboxEntity
 import com.neverlate.data.sync.OutboxOperation
 import com.neverlate.data.tasks.NeverLateDatabase

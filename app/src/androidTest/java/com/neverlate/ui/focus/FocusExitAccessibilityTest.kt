@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
 import com.neverlate.R
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
 import com.neverlate.data.tasks.Task
 import com.neverlate.domain.tasks.FocusSession
@@ -58,7 +59,7 @@ class FocusExitAccessibilityTest {
     @Test
     fun ritualExit_completesUsingOnlySemanticsActions_noSlideDragGesture() {
         val taskRepository = FakeFocusTaskRepository(listOf(pendingTask))
-        val userPreferencesRepository = FakeFocusUserPreferencesRepository(activeSessionPreferences())
+        val userPreferencesRepository = FakeUserPreferencesRepository(activeSessionPreferences())
         val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
 
         var completedCount: Int? = null
@@ -103,7 +104,7 @@ class FocusExitAccessibilityTest {
     @Test
     fun abandon_completesUsingOnlySemanticsActions_neverGatedOnCodeOrTasks() {
         val taskRepository = FakeFocusTaskRepository(listOf(pendingTask))
-        val userPreferencesRepository = FakeFocusUserPreferencesRepository(activeSessionPreferences())
+        val userPreferencesRepository = FakeUserPreferencesRepository(activeSessionPreferences())
         val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
 
         var abandoned = false

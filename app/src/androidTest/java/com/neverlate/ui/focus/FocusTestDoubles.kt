@@ -1,13 +1,8 @@
 package com.neverlate.ui.focus
 
-import com.neverlate.data.ThemeMode
-import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
-import com.neverlate.domain.tasks.FocusSession
-import com.neverlate.domain.tasks.TaskListCriteria
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -44,26 +39,7 @@ internal class FakeFocusTaskRepository(initialTasks: List<Task> = emptyList()) :
     override fun observeSyncStatus(): Flow<SyncStatus> = flowOf(SyncStatus.Idle)
 }
 
-/** In-memory [UserPreferencesRepository] fake seeded with an active [FocusSession] — the same
- *  "mutate the backing MutableStateFlow" pattern every hand-written fake in this codebase uses for
- *  [startFocusSession]/[endFocusSession] (see e.g. `SyncTestDoubles.kt`'s `FakeUserPreferencesRepository`). */
-internal class FakeFocusUserPreferencesRepository(initial: UserPreferences) : UserPreferencesRepository {
-    override val userPreferences = MutableStateFlow(initial)
-
-    override suspend fun saveOnboarding(name: String) = Unit
-    override suspend fun saveName(name: String) = Unit
-    override suspend fun saveThemeMode(mode: ThemeMode) = Unit
-    override suspend fun saveRemindersEnabled(enabled: Boolean) = Unit
-    override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
-    override suspend fun saveSyncCursor(cursor: Long) = Unit
-    override suspend fun saveDynamicColor(enabled: Boolean) = Unit
-    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) = Unit
-
-    override suspend fun startFocusSession(session: FocusSession) {
-        userPreferences.update { it.copy(focusSession = session) }
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.update { it.copy(focusSession = null) }
-    }
-}
+// The UserPreferencesRepository fake seeded with an active FocusSession is now the shared
+// com.neverlate.data.FakeUserPreferencesRepository (D12 of
+// docs/specs/2026-08-18-focus-mode-shielding.md) — callers pass the seeded UserPreferences
+// straight to its constructor, e.g. FakeUserPreferencesRepository(activeSessionPreferences()).

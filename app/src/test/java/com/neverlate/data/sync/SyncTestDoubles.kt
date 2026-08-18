@@ -2,13 +2,8 @@ package com.neverlate.data.sync
 
 import android.app.Application
 import androidx.room.Room
-import com.neverlate.data.ThemeMode
-import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.TokenStorage
 import com.neverlate.data.tasks.NeverLateDatabase
-import com.neverlate.domain.tasks.TaskListCriteria
-import kotlinx.coroutines.flow.MutableStateFlow
 import org.robolectric.RuntimeEnvironment
 
 /**
@@ -75,52 +70,8 @@ class FakeTokenStorage(
     }
 }
 
-/**
- * In-memory [UserPreferencesRepository] fake — same shape as the private one in
- * `ReminderSchedulingRepositoryTest`, duplicated here (rather than promoted/shared across
- * packages) since that one is `private` to its own file and this project's convention only
- * promotes a fake to a shared file when *two callers in the same package* need it (see
- * `ReminderTestDoubles.kt`'s own KDoc).
- */
-class FakeUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
-
-    override val userPreferences = MutableStateFlow(initial)
-
-    override suspend fun saveOnboarding(name: String) {}
-
-    override suspend fun saveName(name: String) {
-        userPreferences.value = userPreferences.value.copy(name = name.trim())
-    }
-
-    override suspend fun saveThemeMode(mode: ThemeMode) {}
-
-    override suspend fun saveRemindersEnabled(enabled: Boolean) {
-        userPreferences.value = userPreferences.value.copy(remindersEnabled = enabled)
-    }
-
-    override suspend fun saveReminderLeadMinutes(minutes: Int) {
-        userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
-    }
-
-    override suspend fun saveSyncCursor(cursor: Long) {
-        userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
-    }
-
-    override suspend fun saveDynamicColor(enabled: Boolean) {
-        userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
-    }
-
-    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
-        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
-    }
-
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md) — every caller in this file and its
+// consumers (SyncEngineTest, AuthRepositoryTest, OutboxTaskRepositoryTest, GuestAdoptionTest,
+// CompleteTaskActionCallbackTest, WidgetEntryPointTest) now imports it from there instead of a
+// package-local copy.

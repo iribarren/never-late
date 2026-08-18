@@ -1,7 +1,7 @@
 package com.neverlate.ui.tasks
 
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
@@ -119,32 +119,10 @@ private class FakeMotionSettings(initial: Boolean = false) : MotionSettings {
     override val reduceMotion: Flow<Boolean> = reduceMotionFlow
 }
 
-/**
- * Minimal in-memory [UserPreferencesRepository] fake for [TasksViewModel]'s new [TasksViewModel.userName]
- * (editable-profile-name spec) — this test file only cares that TasksViewModel compiles/constructs
- * against a working repository; the name-specific behaviour itself is covered separately.
- */
-private class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()) : UserPreferencesRepository {
-    override val userPreferences = MutableStateFlow(initial)
-    override suspend fun saveOnboarding(name: String) {}
-    override suspend fun saveName(name: String) {}
-    override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) {}
-    override suspend fun saveRemindersEnabled(enabled: Boolean) {}
-    override suspend fun saveReminderLeadMinutes(minutes: Int) {}
-    override suspend fun saveSyncCursor(cursor: Long) {}
-    override suspend fun saveDynamicColor(enabled: Boolean) {}
-    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
-        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
-    }
-
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md) — this test file only cares that
+// TasksViewModel compiles/constructs against a working repository; the name-specific behaviour
+// itself is covered separately.
 
 private val teaTask = Task(id = 1, title = "Preparar té", estimatedDurationMillis = 5 * 60_000L)
 private val reportTask = Task(id = 2, title = "Enviar informe", estimatedDurationMillis = 10 * 60_000L)

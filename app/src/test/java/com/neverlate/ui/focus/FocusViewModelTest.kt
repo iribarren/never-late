@@ -1,7 +1,7 @@
 package com.neverlate.ui.focus
 
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.domain.tasks.FocusSession
@@ -54,28 +54,8 @@ private class FakeTaskRepository(initialTasks: List<Task> = emptyList()) : TaskR
     override suspend fun pauseTimer(id: Long) = Unit
 }
 
-/** In-memory [UserPreferencesRepository] fake, same "mutate the backing MutableStateFlow" pattern
- *  every other fake in this codebase uses for [startFocusSession]/[endFocusSession]. */
-private class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()) : UserPreferencesRepository {
-    override val userPreferences = MutableStateFlow(initial)
-
-    override suspend fun saveOnboarding(name: String) = Unit
-    override suspend fun saveName(name: String) = Unit
-    override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) = Unit
-    override suspend fun saveRemindersEnabled(enabled: Boolean) = Unit
-    override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
-    override suspend fun saveSyncCursor(cursor: Long) = Unit
-    override suspend fun saveDynamicColor(enabled: Boolean) = Unit
-    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) = Unit
-
-    override suspend fun startFocusSession(session: FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md).
 
 private val pendingTask = Task(id = 1, title = "Preparar la presentación", deadline = 10_000L)
 private val secondPendingTask = Task(id = 2, title = "Enviar el informe", deadline = 20_000L)

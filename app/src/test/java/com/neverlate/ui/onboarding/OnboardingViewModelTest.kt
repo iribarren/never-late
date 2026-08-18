@@ -1,7 +1,6 @@
 package com.neverlate.ui.onboarding
 
-import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
+import com.neverlate.data.FakeUserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,67 +15,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/**
- * In-memory fake for [UserPreferencesRepository]. Records every call to [saveOnboarding] so
- * tests can assert on exactly what the ViewModel persisted, without touching real DataStore
- * (which needs an Android runtime and would not run in a plain JVM unit test).
- */
-private class FakeUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
-
-    override val userPreferences = MutableStateFlow(initial)
-
-    /** Every (name) argument this fake has been asked to save, in call order. */
-    val savedNames = mutableListOf<String>()
-
-    override suspend fun saveOnboarding(name: String) {
-        savedNames.add(name)
-        userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
-    }
-
-    /** Every (name) argument this fake has been asked to save via [saveName], in call order —
-     *  kept separate from [savedNames] (which only [saveOnboarding] appends to) so a test can
-     *  assert onboarding never calls [saveName]. */
-    val savedNamesViaSaveName = mutableListOf<String>()
-
-    override suspend fun saveName(name: String) {
-        savedNamesViaSaveName.add(name)
-        userPreferences.value = userPreferences.value.copy(name = name.trim())
-    }
-
-    override suspend fun saveThemeMode(mode: com.neverlate.data.ThemeMode) {
-        userPreferences.value = userPreferences.value.copy(themeMode = mode)
-    }
-
-    override suspend fun saveRemindersEnabled(enabled: Boolean) {
-        userPreferences.value = userPreferences.value.copy(remindersEnabled = enabled)
-    }
-
-    override suspend fun saveReminderLeadMinutes(minutes: Int) {
-        userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
-    }
-
-    override suspend fun saveSyncCursor(cursor: Long) {
-        userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
-    }
-
-    override suspend fun saveDynamicColor(enabled: Boolean) {
-        userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
-    }
-
-    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) {
-        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
-    }
-
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md) — savedNames tracks saveOnboarding calls,
+// savedNamesViaSaveName tracks saveName calls, matching the naming this file established.
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class OnboardingViewModelTest {

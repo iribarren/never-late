@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
 import com.neverlate.data.tasks.Task
 import com.neverlate.domain.tasks.FocusSession
@@ -47,7 +48,7 @@ class FocusScreenChromeTest {
 
     private fun setFocusScreen(widthDp: Int, widthSizeClass: WindowWidthSizeClass) {
         val taskRepository = FakeFocusTaskRepository(listOf(pendingTask))
-        val userPreferencesRepository = FakeFocusUserPreferencesRepository(
+        val userPreferencesRepository = FakeUserPreferencesRepository(
             UserPreferences(
                 focusSession = FocusSession(
                     startedAt = System.currentTimeMillis(),

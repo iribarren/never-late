@@ -5,15 +5,13 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.platform.app.InstrumentationRegistry
 import com.neverlate.R
-import com.neverlate.data.ThemeMode
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.sync.SyncStatus
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.theme.NeverLateTheme
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import org.junit.Rule
@@ -37,35 +35,18 @@ private class EmptyStateNoopMotionSettings : com.neverlate.data.settings.MotionS
     override val reduceMotion: Flow<Boolean> = flowOf(false)
 }
 
-/**
- * A **mutable** in-memory [UserPreferencesRepository] fake — unlike the `Noop*` fakes elsewhere in
- * this package, [userPreferences] here is a live [MutableStateFlow] a test can push new values
- * into, which is exactly the point: it lets this test simulate "the user just renamed themselves
- * in Settings" without going through [DataStoreUserPreferencesRepository][com.neverlate.data.DataStoreUserPreferencesRepository]
- * at all.
- */
-private class MutableUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
-    override val userPreferences = MutableStateFlow(initial)
-    override suspend fun saveOnboarding(name: String) = Unit
-    override suspend fun saveName(name: String) = Unit
-    override suspend fun saveThemeMode(mode: ThemeMode) = Unit
-    override suspend fun saveRemindersEnabled(enabled: Boolean) = Unit
-    override suspend fun saveReminderLeadMinutes(minutes: Int) = Unit
-    override suspend fun saveSyncCursor(cursor: Long) = Unit
-    override suspend fun saveDynamicColor(enabled: Boolean) = Unit
-    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) = Unit
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) = Unit
-    override suspend fun endFocusSession() = Unit
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md). Its [userPreferences] is a live
+// MutableStateFlow a test can push new values into, which is exactly the point here: it lets this
+// test simulate "the user just renamed themselves in Settings" without going through
+// [DataStoreUserPreferencesRepository][com.neverlate.data.DataStoreUserPreferencesRepository] at all.
 
 /**
  * editable-profile-name spec (US-3): proves the Tasks empty state's personalized message reflects
  * a name change **live**, with no remount of [TasksRoute] and no process restart — the instrumented
  * counterpart the spec explicitly asked for ("test instrumentado de que el cambio se refleja sin
  * reiniciar"). [TasksViewModel.userName] is `UserPreferencesRepository.userPreferences.map { it.name
- * }.stateIn(...)`, so pushing a new value into the same [MutableUserPreferencesRepository] instance
+ * }.stateIn(...)`, so pushing a new value into the same [com.neverlate.data.FakeUserPreferencesRepository] instance
  * this composition was built with is the direct, minimal way to exercise that reactivity end to end
  * (ViewModel → Route → Screen), one level above what [TasksScreenTest] can reach by driving the
  * stateless [TasksScreen] with a fixed `userName` parameter.
@@ -88,7 +69,7 @@ class TasksEmptyStatePersonalizationTest {
 
     @Test
     fun emptyState_reflectsANameChange_immediately_withNoRestart() {
-        val userPreferencesRepository = MutableUserPreferencesRepository(UserPreferences(name = ""))
+        val userPreferencesRepository = FakeUserPreferencesRepository(UserPreferences(name = ""))
 
         composeTestRule.setContent {
             NeverLateTheme {

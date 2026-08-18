@@ -1,8 +1,8 @@
 package com.neverlate.ui.settings
 
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.auth.AuthRepository
 import com.neverlate.data.auth.AuthResult
 import com.neverlate.data.auth.AuthState
@@ -25,77 +25,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/**
- * In-memory fake for [UserPreferencesRepository]. Records every [saveThemeMode] call and updates
- * the exposed [userPreferences] flow, so tests can assert both what was persisted and that the
- * ViewModel re-observes it — without touching real DataStore (which needs an Android runtime).
- */
-private class FakeUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
-
-    override val userPreferences = MutableStateFlow(initial)
-
-    /** Every theme mode this fake has been asked to save, in call order. */
-    val savedThemeModes = mutableListOf<ThemeMode>()
-
-    /** Every on/off value this fake has been asked to save, in call order. */
-    val savedRemindersEnabled = mutableListOf<Boolean>()
-
-    /** Every lead-time (minutes) value this fake has been asked to save, in call order. */
-    val savedReminderLeadMinutes = mutableListOf<Int>()
-
-    /** Every dynamic-color on/off value this fake has been asked to save, in call order. */
-    val savedDynamicColor = mutableListOf<Boolean>()
-
-    /** Every (name) argument this fake has been asked to save via [saveName], in call order. */
-    val savedNames = mutableListOf<String>()
-
-    override suspend fun saveOnboarding(name: String) {
-        userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
-    }
-
-    override suspend fun saveName(name: String) {
-        savedNames.add(name)
-        userPreferences.value = userPreferences.value.copy(name = name.trim())
-    }
-
-    override suspend fun saveThemeMode(mode: ThemeMode) {
-        savedThemeModes.add(mode)
-        userPreferences.value = userPreferences.value.copy(themeMode = mode)
-    }
-
-    override suspend fun saveRemindersEnabled(enabled: Boolean) {
-        savedRemindersEnabled.add(enabled)
-        userPreferences.value = userPreferences.value.copy(remindersEnabled = enabled)
-    }
-
-    override suspend fun saveReminderLeadMinutes(minutes: Int) {
-        savedReminderLeadMinutes.add(minutes)
-        userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
-    }
-
-    override suspend fun saveSyncCursor(cursor: Long) {
-        userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
-    }
-
-    override suspend fun saveDynamicColor(enabled: Boolean) {
-        savedDynamicColor.add(enabled)
-        userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
-    }
-
-    override suspend fun saveTaskListArrangement(criteria: com.neverlate.domain.tasks.TaskListCriteria) {
-        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
-    }
-
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md). Its saveName-call tracking list is named
+// savedNamesViaSaveName there (kept distinct from savedNames, which tracks saveOnboarding calls) —
+// every assertion below that used to read repository.savedNames for a rename now reads
+// repository.savedNamesViaSaveName.
 
 // FakeTaskRepository and FakeReminderScheduler are promoted to
 // com.neverlate.ui.notification.ReminderTestDoubles.kt (imported above) since
@@ -369,7 +303,7 @@ class SettingsViewModelTest {
 
         // D4: renaming must go through saveName, never saveOnboarding — saveOnboarding would also
         // (re-)assert onboarded, which a rename must never touch.
-        assertEquals(listOf("  Bea  "), repository.savedNames)
+        assertEquals(listOf("  Bea  "), repository.savedNamesViaSaveName)
         assertEquals("Bea", repository.userPreferences.value.name)
         assertEquals("Bea", viewModel.uiState.value.name)
     }
@@ -385,7 +319,7 @@ class SettingsViewModelTest {
 
         assertTrue(
             "a blank/whitespace-only name must never reach the repository",
-            repository.savedNames.isEmpty(),
+            repository.savedNamesViaSaveName.isEmpty(),
         )
         assertEquals("Ada", repository.userPreferences.value.name)
         assertEquals("Ada", viewModel.uiState.value.name)

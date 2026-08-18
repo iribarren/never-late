@@ -1,6 +1,6 @@
 package com.neverlate.ui.widget
 
-import com.neverlate.data.sync.FakeUserPreferencesRepository
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.TaskRepository
 import com.neverlate.ui.notification.FakeReminderScheduler

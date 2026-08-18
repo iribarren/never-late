@@ -1,5 +1,6 @@
 package com.neverlate.data.sync
 
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.tasks.NeverLateDatabase
 import com.neverlate.data.tasks.SyncState
 import com.neverlate.data.tasks.Task

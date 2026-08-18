@@ -1,65 +1,16 @@
 package com.neverlate.ui.notification
 
-import com.neverlate.data.ThemeMode
+import com.neverlate.data.FakeUserPreferencesRepository
 import com.neverlate.data.UserPreferences
-import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.tasks.Task
-import com.neverlate.domain.tasks.TaskListCriteria
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * In-memory [UserPreferencesRepository] fake local to this file: unlike [FakeTaskRepository] and
- * [FakeReminderScheduler] (promoted to [ReminderTestDoubles.kt] because two different test files
- * need them), only this decorator's tests need a preferences fake, so it stays here rather than
- * being promoted for a single caller.
- */
-private class FakeUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
-
-    override val userPreferences = MutableStateFlow(initial)
-
-    override suspend fun saveOnboarding(name: String) {}
-
-    override suspend fun saveName(name: String) {
-        userPreferences.value = userPreferences.value.copy(name = name.trim())
-    }
-
-    override suspend fun saveThemeMode(mode: ThemeMode) {}
-
-    override suspend fun saveRemindersEnabled(enabled: Boolean) {
-        userPreferences.value = userPreferences.value.copy(remindersEnabled = enabled)
-    }
-
-    override suspend fun saveReminderLeadMinutes(minutes: Int) {
-        userPreferences.value = userPreferences.value.copy(reminderLeadMinutes = minutes)
-    }
-
-    override suspend fun saveSyncCursor(cursor: Long) {
-        userPreferences.value = userPreferences.value.copy(syncCursor = cursor)
-    }
-
-    override suspend fun saveDynamicColor(enabled: Boolean) {
-        userPreferences.value = userPreferences.value.copy(dynamicColor = enabled)
-    }
-
-    override suspend fun saveTaskListArrangement(criteria: TaskListCriteria) {
-        userPreferences.value = userPreferences.value.copy(taskListArrangement = criteria)
-    }
-
-    override suspend fun startFocusSession(session: com.neverlate.domain.tasks.FocusSession) {
-        userPreferences.value = userPreferences.value.copy(focusSession = session)
-    }
-
-    override suspend fun endFocusSession() {
-        userPreferences.value = userPreferences.value.copy(focusSession = null)
-    }
-}
+// FakeUserPreferencesRepository is the shared fake at com.neverlate.data.FakeUserPreferencesRepository
+// (D12 of docs/specs/2026-08-18-focus-mode-shielding.md).
 
 /**
  * These tests focus on the pre-existing [ReminderKind.LEAD_TIME] behaviour (filtering [Call]s down
