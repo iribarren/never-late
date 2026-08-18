@@ -60,7 +60,7 @@ class FocusExitAccessibilityTest {
     fun ritualExit_completesUsingOnlySemanticsActions_noSlideDragGesture() {
         val taskRepository = FakeFocusTaskRepository(listOf(pendingTask))
         val userPreferencesRepository = FakeUserPreferencesRepository(activeSessionPreferences())
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
 
         var completedCount: Int? = null
         composeTestRule.setContent {
@@ -105,7 +105,7 @@ class FocusExitAccessibilityTest {
     fun abandon_completesUsingOnlySemanticsActions_neverGatedOnCodeOrTasks() {
         val taskRepository = FakeFocusTaskRepository(listOf(pendingTask))
         val userPreferencesRepository = FakeUserPreferencesRepository(activeSessionPreferences())
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
 
         var abandoned = false
         composeTestRule.setContent {
@@ -128,5 +128,42 @@ class FocusExitAccessibilityTest {
 
         assertTrue("abandoning must end the session", abandoned)
         assertTrue("abandoning must never write any task (AC-23)", taskRepository.savedTasks.isEmpty())
+    }
+
+    /**
+     * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, AC-32): regression for
+     * the núcleo's D3 guarantee, now with the shield's indicator actually showing an active
+     * measure (a present [com.neverlate.data.UserPreferences.focusShieldPriorFilter] receipt, as a
+     * real session would have after a successful Do-Not-Disturb apply) — the abandon flow must
+     * still complete using only semantics actions, exactly as when no measure is active.
+     */
+    @Test
+    fun abandon_stillCompletesUsingOnlySemanticsActions_withTheShieldIndicatorShowing() {
+        val taskRepository = FakeFocusTaskRepository(listOf(pendingTask))
+        val preferencesWithShieldActive = activeSessionPreferences().copy(focusShieldPriorFilter = 2)
+        val userPreferencesRepository = FakeUserPreferencesRepository(preferencesWithShieldActive)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
+
+        var abandoned = false
+        composeTestRule.setContent {
+            NeverLateTheme {
+                FocusRoute(
+                    viewModel = viewModel,
+                    onSessionCompleted = { throw AssertionError("must not complete") },
+                    onSessionAbandoned = { abandoned = true },
+                    widthSizeClass = WindowWidthSizeClass.Compact,
+                )
+            }
+        }
+
+        // The indicator row is now showing (AC-V4) — confirm it, then prove abandon still works.
+        composeTestRule.onNodeWithText(string(R.string.focus_shield_indicator_do_not_disturb)).assertExists()
+
+        composeTestRule.onNodeWithText(string(R.string.focus_exit_button)).performClick()
+        composeTestRule.onNodeWithText(string(R.string.focus_abandon_button)).performClick()
+        composeTestRule.onNodeWithText(string(R.string.focus_abandon_confirm_button)).performClick()
+        composeTestRule.waitForIdle()
+
+        assertTrue("abandoning must still work with the shield indicator visible", abandoned)
     }
 }

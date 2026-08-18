@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neverlate.R
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.auth.AuthState
+import com.neverlate.ui.components.SpecialAccessNotice
 import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.theme.NeverLateTheme
 
@@ -467,32 +468,28 @@ private fun EditNameDialog(currentName: String, onConfirm: (String) -> Unit, onD
  * (`ACTION_REQUEST_SCHEDULE_EXACT_ALARM`). On API < 31, or once the permission is already granted,
  * this renders nothing.
  *
- * The check runs once per composition (there is no callback for "the user came back from system
- * settings and changed this"), so leaving and reopening this screen re-evaluates it — good enough
- * for this minimal, informational notice.
+ * A thin resolver over the shared [SpecialAccessNotice] (`docs/specs/2026-08-18-focus-mode-shielding.md`,
+ * D9) — this used to be a self-contained composable (`ExactAlarmPermissionNotice`) with its own
+ * grant-check and its own `TextButton`; extracting the shared shape is a behaviour-preserving move
+ * (R9 of that spec) that also fixes a real staleness bug this notice used to have: returning from
+ * system Settings after granting the permission now clears the notice immediately (on `ON_RESUME`)
+ * instead of only on the next full recomposition of this screen.
  */
 @Composable
 private fun ExactAlarmPermissionNotice(modifier: Modifier = Modifier) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
 
     val context = LocalContext.current
-    val alarmManager = context.getSystemService(AlarmManager::class.java)
-    if (alarmManager == null || alarmManager.canScheduleExactAlarms()) return
-
-    Column(modifier = modifier) {
-        Text(
-            text = stringResource(R.string.settings_exact_alarm_notice),
-            style = MaterialTheme.typography.bodySmall,
-        )
-        TextButton(
-            onClick = {
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
-                context.startActivity(intent)
-            },
-        ) {
-            Text(stringResource(R.string.settings_exact_alarm_action))
-        }
-    }
+    SpecialAccessNotice(
+        isGranted = {
+            val alarmManager = context.getSystemService(AlarmManager::class.java)
+            alarmManager == null || alarmManager.canScheduleExactAlarms()
+        },
+        message = stringResource(R.string.settings_exact_alarm_notice),
+        actionLabel = stringResource(R.string.settings_exact_alarm_action),
+        settingsIntent = { Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")) },
+        modifier = modifier,
+    )
 }
 
 @Preview(showBackground = true)

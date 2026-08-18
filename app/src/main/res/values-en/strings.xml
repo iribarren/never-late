@@ -349,4 +349,24 @@
         <item quantity="other">Session completed: %1$d tasks done</item>
     </plurals>
     <string name="focus_snackbar_abandoned">Session abandoned</string>
+
+    <!-- Modo Foco blindaje (docs/specs/2026-08-18-focus-mode-shielding.md): the entry dialog's
+         three optional device measures (AC-V1/AC-V2). Every description states what the measure
+         does NOT do (US-6's honesty budget) — never claim to block anything Android will not
+         actually block. -->
+    <string name="focus_entry_dialog_shield_section_title">During the session</string>
+    <string name="focus_shield_keep_screen_on_label">Keep screen on</string>
+    <string name="focus_shield_keep_screen_on_description">The screen stays on and the system bars are hidden. Swipe to bring them back.</string>
+    <string name="focus_shield_do_not_disturb_label">Do not disturb</string>
+    <string name="focus_shield_do_not_disturb_description">Silences calls and notifications for the length of the session. System alarms always ring; your own reminders may not if the system does not allow it.</string>
+    <string name="focus_shield_do_not_disturb_access_notice">Needs the system\'s Do Not Disturb permission.</string>
+    <string name="focus_shield_do_not_disturb_access_action">Grant access</string>
+    <string name="focus_shield_screen_pinning_label">Pin the screen</string>
+    <string name="focus_shield_screen_pinning_description">Adds friction to leaving the app. It is not a lock: you can release it by holding Back and Overview.</string>
+
+    <!-- Modo Foco blindaje: the in-session indicator (D7/AC-36) — text alongside each icon, never
+         icon or colour alone. "Keep screen on" is deliberately not shown here (see
+         FocusShieldIndicatorRow's KDoc). -->
+    <string name="focus_shield_indicator_do_not_disturb">Do not disturb</string>
+    <string name="focus_shield_indicator_screen_pinning">Screen pinned</string>
 </resources>

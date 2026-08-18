@@ -1,5 +1,6 @@
 package com.neverlate.ui.navigation
 
+import android.app.Activity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +54,9 @@ import com.neverlate.ui.auth.LoginRoute
 import com.neverlate.ui.auth.RegisterRoute
 import com.neverlate.ui.components.ReadableWidthContainer
 import com.neverlate.ui.focus.FocusRoute
+import com.neverlate.ui.focus.FocusShieldController
+import com.neverlate.ui.focus.FocusShieldRestoreWorker
+import com.neverlate.ui.focus.applyFocusShieldOnSessionStart
 import com.neverlate.ui.onboarding.OnboardingRoute
 import com.neverlate.ui.settings.SettingsRoute
 import com.neverlate.ui.stats.StatsRoute
@@ -147,6 +152,7 @@ fun AppNavHost(
     repository: UserPreferencesRepository,
     articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
+    focusShieldController: FocusShieldController,
     openTasksOnStart: Boolean = false,
     widthSizeClass: WindowWidthSizeClass,
 ) {
@@ -159,6 +165,7 @@ fun AppNavHost(
             repository = repository,
             articleRepository = articleRepository,
             taskRepository = taskRepository,
+            focusShieldController = focusShieldController,
             openTasksOnStart = openTasksOnStart,
             widthSizeClass = widthSizeClass,
         )
@@ -167,6 +174,7 @@ fun AppNavHost(
             repository = repository,
             articleRepository = articleRepository,
             taskRepository = taskRepository,
+            focusShieldController = focusShieldController,
             openTasksOnStart = openTasksOnStart,
             widthSizeClass = widthSizeClass,
         )
@@ -244,6 +252,7 @@ private fun MainAppNavHost(
     repository: UserPreferencesRepository,
     articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
+    focusShieldController: FocusShieldController,
     navController: NavHostController = rememberNavController(),
     openTasksOnStart: Boolean = false,
     widthSizeClass: WindowWidthSizeClass,
@@ -303,6 +312,7 @@ private fun MainAppNavHost(
                         articleRepository = articleRepository,
                         taskRepository = taskRepository,
                         userPreferencesRepository = repository,
+                        focusShieldController = focusShieldController,
                         widthSizeClass = widthSizeClass,
                         modifier = Modifier.padding(innerPadding),
                     )
@@ -324,6 +334,7 @@ private fun MainAppNavHost(
                         articleRepository = articleRepository,
                         taskRepository = taskRepository,
                         userPreferencesRepository = repository,
+                        focusShieldController = focusShieldController,
                         widthSizeClass = widthSizeClass,
                         modifier = Modifier.weight(1f),
                     )
@@ -351,7 +362,11 @@ private fun MainAppNavHost(
  * `Routes.TASKS` composable's `onFocusClick`, below — freezing the roster ([focusRosterFor]) and
  * persisting the session ([UserPreferencesRepository.startFocusSession]) happen here, right before
  * navigating, exactly as the feature spec's session-lifecycle diagram shows, rather than adding a
- * new method to [com.neverlate.ui.tasks.TasksViewModel] for a one-off write.
+ * new method to [com.neverlate.ui.tasks.TasksViewModel] for a one-off write. Modo Foco blindaje
+ * (`docs/specs/2026-08-18-focus-mode-shielding.md`, D4) adds [focusShieldController]: `onFocusClick`
+ * now also runs the write-ahead Do-Not-Disturb start sequence and, since screen pinning needs an
+ * `Activity` (D1/D7), attempts `startLockTask()` on the current [android.app.Activity] — both
+ * still right here, right before navigating, for the same one-off-write reason.
  */
 @Composable
 private fun MainNavGraph(
@@ -360,10 +375,13 @@ private fun MainNavGraph(
     articleRepository: ArticleRepository,
     taskRepository: TaskRepository,
     userPreferencesRepository: UserPreferencesRepository,
+    focusShieldController: FocusShieldController,
     widthSizeClass: WindowWidthSizeClass,
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val activity = context as? Activity
 
     NavHost(
         navController = navController,
@@ -452,13 +470,38 @@ private fun MainNavGraph(
                     // Feature 04c: a top-bar action on Tasks, not a fourth bottom-nav tab
                     // (Out of Scope) — see StatsScreen's KDoc and Routes.STATS below.
                     onStatsClick = { navController.navigate(Routes.STATS) },
-                    // Modo Foco (D4): the entry dialog's confirm callback lands here with the
-                    // chosen code. The roster is frozen from the *current* task list (never the
-                    // filtered/sorted uiState a search or sort chip could have shaped), the
-                    // session is persisted, and only then do we navigate — matching the feature
-                    // spec's session-lifecycle diagram exactly.
-                    onFocusClick = { code ->
+                    // Modo Foco (D4) / Modo Foco blindaje (D4 of that spec): the entry dialog's
+                    // confirm callback lands here with the chosen code and shield options. The
+                    // full write-ahead start sequence runs in this exact order — save the
+                    // options (D11 defaults for next time), apply the Do-Not-Disturb measure
+                    // (receipt written before the effect, D4), attempt screen pinning
+                    // (Activity-scoped, D1/D7), freeze the roster from the *current* task list
+                    // (never the filtered/sorted uiState a search or sort chip could have
+                    // shaped), persist the session, and only then navigate — matching the
+                    // feature spec's session-lifecycle diagram exactly.
+                    onFocusClick = { code, shieldOptions ->
                         coroutineScope.launch {
+                            userPreferencesRepository.saveFocusShieldOptions(shieldOptions)
+
+                            applyFocusShieldOnSessionStart(
+                                controller = focusShieldController,
+                                userPreferencesRepository = userPreferencesRepository,
+                                enqueueBackstop = { FocusShieldRestoreWorker.enqueue(context) },
+                                doNotDisturbRequested = shieldOptions.doNotDisturb,
+                            )
+
+                            // D7/D10: startLockTask() can throw or be refused — caught, swallowed,
+                            // the session continues regardless. No receipt (D1): FocusRoute reads
+                            // the verified state back with getLockTaskModeState() once it composes.
+                            if (shieldOptions.screenPinning) {
+                                try {
+                                    activity?.startLockTask()
+                                } catch (_: IllegalStateException) {
+                                    // Pinning disabled system-wide, an OEM restriction, or an
+                                    // activity in an unsupported state — the session continues.
+                                }
+                            }
+
                             val roster = focusRosterFor(taskRepository.observeTasks().first())
                             userPreferencesRepository.startFocusSession(
                                 FocusSession(

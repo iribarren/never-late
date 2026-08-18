@@ -87,6 +87,7 @@ el backlog con prerrequisitos y features propuestas vive en
 | 20b | [tiempo-restante-localizable](20b-tiempo-restante-localizable.md) | Dónde puede nacer el texto de cara al usuario: sacar el formateo del dominio a la UI, `NumberFormat` + recursos con placeholder, `<plurals>` vs abreviatura, refactor de un tipo compartido | ✅ |
 | 20c | [reducir-movimiento](20c-reducir-movimiento.md) | `MotionDurationScale` como `CoroutineContext.Element`, animar vs. refrescar, por qué `LocalAccessibilityManager` no sirve, derogar una instrucción previa con conocimiento de causa | ✅ |
 | 20d | [modo-foco](20d-modo-foco.md) | `BackHandler` y su alcance honesto, gestos personalizados con `CustomAccessibilityAction`, las tres capas de estado del ciclo de vida (y cuál se deja sin usar), diseñar fricción sin diseñar una trampa | ✅ |
+| 20e | [modo-foco-blindaje](20e-modo-foco-blindaje.md) | Accesos especiales vs. permisos runtime, el recibo *write-ahead* para deshacer estado global a prueba de muerte de proceso, elegir disparador (predicado / alarma / `WorkManager`), efectos de ventana con `DisposableEffect`, lock task y el hábito del estado verificado | ✅ |
 
 ## Bloque 5 — Producción
 

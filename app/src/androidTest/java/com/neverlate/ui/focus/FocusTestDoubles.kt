@@ -43,3 +43,18 @@ internal class FakeFocusTaskRepository(initialTasks: List<Task> = emptyList()) :
 // com.neverlate.data.FakeUserPreferencesRepository (D12 of
 // docs/specs/2026-08-18-focus-mode-shielding.md) — callers pass the seeded UserPreferences
 // straight to its constructor, e.g. FakeUserPreferencesRepository(activeSessionPreferences()).
+
+/**
+ * In-memory [FocusShieldController] fake for Modo Foco blindaje instrumented tests
+ * (`docs/specs/2026-08-18-focus-mode-shielding.md`) — [FocusViewModel] now requires one; every
+ * method here is a harmless no-op/fixed-value, since these UI tests never assert on the shield's
+ * own device-level effects (that is [FocusShieldControllerTest]/[AndroidFocusShieldControllerTest]'s
+ * job in `test/`) — only on what [FocusScreen] renders given a [FocusUiState].
+ */
+internal class FakeFocusShieldController : FocusShieldController {
+    override suspend fun applyDoNotDisturb(): Boolean = true
+    override suspend fun restore(sessionActive: Boolean) = Unit
+    override fun isPolicyAccessGranted(): Boolean = true
+    override fun currentInterruptionFilter(): Int = 0
+    override fun cancelBackstop() = Unit
+}

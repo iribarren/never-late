@@ -1,11 +1,12 @@
 package com.neverlate.ui.notification
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.neverlate.MainActivity
@@ -38,16 +39,36 @@ object ReminderNotificationHelper {
      * that channel, the importance is only honoured the **first** time this id is created; Android
      * freezes it afterwards so the user stays in control. Guarded by `SDK_INT >= O` for the same
      * reason as [TasksNotificationHelper.ensureChannel]: channels are an API 26+ concept.
+     *
+     * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D3/AC-14): built as a
+     * platform [NotificationChannel] rather than through `NotificationChannelCompat.Builder` (the
+     * builder used before this feature), because only the platform type exposes
+     * `setBypassDnd(true)` — the flag that lets this channel's alerts survive a Modo Foco
+     * session's `INTERRUPTION_FILTER_PRIORITY` (D2 never sets `INTERRUPTION_FILTER_NONE`, which
+     * would suppress alarms too; a bypassing channel is how the app's own reminders stay a
+     * priority interruption without touching the device's global policy). Setting the flag is
+     * guarded by [android.app.NotificationManager.isNotificationPolicyAccessGranted] — the
+     * platform silently refuses it without that special access, so it must never be attempted
+     * unguarded (D3). **Two accepted, documented limits, not bugs to chase**: on an install that
+     * already created this channel before this update, Android may keep `bypassDnd = false` since
+     * channel settings are user-owned after first creation — this app never deletes and recreates
+     * the channel to force it (that would reset every preference the person set on it, see D3);
+     * and API 24-25 have no channels at all, so `_PRIORITY` there silences this channel exactly
+     * like it silences anything else not in the global policy's priority categories.
      */
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannelCompat.Builder(
+            val channel = NotificationChannel(
                 REMINDER_NOTIFICATION_CHANNEL_ID,
-                NotificationManagerCompat.IMPORTANCE_HIGH,
-            )
-                .setName(context.getString(R.string.reminder_channel_name))
-                .setDescription(context.getString(R.string.reminder_channel_description))
-                .build()
+                context.getString(R.string.reminder_channel_name),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = context.getString(R.string.reminder_channel_description)
+                val notificationManager = context.getSystemService(NotificationManager::class.java)
+                if (notificationManager?.isNotificationPolicyAccessGranted == true) {
+                    setBypassDnd(true)
+                }
+            }
             NotificationManagerCompat.from(context).createNotificationChannel(channel)
         }
     }

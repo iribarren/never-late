@@ -348,4 +348,24 @@
         <item quantity="other">Sesión completada: %1$d tareas terminadas</item>
     </plurals>
     <string name="focus_snackbar_abandoned">Sesión abandonada</string>
+
+    <!-- Modo Foco blindaje (docs/specs/2026-08-18-focus-mode-shielding.md): the entry dialog's
+         three optional device measures (AC-V1/AC-V2). Every description states what the measure
+         does NOT do (US-6's honesty budget) — never "bloquear" for anything Android will not
+         actually block. -->
+    <string name="focus_entry_dialog_shield_section_title">Durante la sesión</string>
+    <string name="focus_shield_keep_screen_on_label">Pantalla siempre encendida</string>
+    <string name="focus_shield_keep_screen_on_description">La pantalla no se apaga y se ocultan las barras del sistema. Desliza para recuperarlas.</string>
+    <string name="focus_shield_do_not_disturb_label">No molestar</string>
+    <string name="focus_shield_do_not_disturb_description">Silencia llamadas y notificaciones mientras dura la sesión. Las alarmas del sistema siempre suenan; tus propios recordatorios pueden no hacerlo si el sistema no lo permite.</string>
+    <string name="focus_shield_do_not_disturb_access_notice">Necesita el permiso de No molestar del sistema.</string>
+    <string name="focus_shield_do_not_disturb_access_action">Conceder acceso</string>
+    <string name="focus_shield_screen_pinning_label">Fijar la pantalla</string>
+    <string name="focus_shield_screen_pinning_description">Añade fricción para salir de la app. No es un bloqueo: puedes soltarla manteniendo pulsado Atrás y Recientes.</string>
+
+    <!-- Modo Foco blindaje: the in-session indicator (D7/AC-36) — text alongside each icon, never
+         icon or colour alone. "Pantalla siempre encendida" is deliberately not shown here (see
+         FocusShieldIndicatorRow's KDoc). -->
+    <string name="focus_shield_indicator_do_not_disturb">No molestar</string>
+    <string name="focus_shield_indicator_screen_pinning">Pantalla fijada</string>
 </resources>

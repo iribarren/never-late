@@ -1,5 +1,6 @@
 package com.neverlate.data
 
+import com.neverlate.domain.focus.FocusShieldOptions
 import com.neverlate.domain.tasks.FocusSession
 import com.neverlate.domain.tasks.TaskListCriteria
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +56,12 @@ class FakeUserPreferencesRepository(
     var endFocusSessionCallCount = 0
         private set
 
+    /** Every [FocusShieldOptions] passed to [saveFocusShieldOptions], in call order. */
+    val savedFocusShieldOptions = mutableListOf<FocusShieldOptions>()
+
+    /** Every filter (or `null`) passed to [saveFocusShieldPriorFilter], in call order. */
+    val savedFocusShieldPriorFilters = mutableListOf<Int?>()
+
     override suspend fun saveOnboarding(name: String) {
         savedNames.add(name)
         userPreferences.value = userPreferences.value.copy(name = name.trim(), onboarded = true)
@@ -103,5 +110,15 @@ class FakeUserPreferencesRepository(
     override suspend fun endFocusSession() {
         endFocusSessionCallCount++
         userPreferences.value = userPreferences.value.copy(focusSession = null)
+    }
+
+    override suspend fun saveFocusShieldOptions(options: FocusShieldOptions) {
+        savedFocusShieldOptions.add(options)
+        userPreferences.value = userPreferences.value.copy(focusShieldOptions = options)
+    }
+
+    override suspend fun saveFocusShieldPriorFilter(filter: Int?) {
+        savedFocusShieldPriorFilters.add(filter)
+        userPreferences.value = userPreferences.value.copy(focusShieldPriorFilter = filter)
     }
 }

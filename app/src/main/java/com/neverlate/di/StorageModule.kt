@@ -7,6 +7,8 @@ import com.neverlate.data.auth.EncryptedTokenStorage
 import com.neverlate.data.auth.TokenStorage
 import com.neverlate.data.settings.MotionSettings
 import com.neverlate.data.settings.SystemMotionSettings
+import com.neverlate.ui.focus.AndroidFocusShieldController
+import com.neverlate.ui.focus.FocusShieldController
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -65,5 +67,18 @@ abstract class StorageModule {
         @Singleton
         fun provideSystemMotionSettings(@ApplicationContext context: Context): SystemMotionSettings =
             SystemMotionSettings(context)
+
+        /**
+         * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`): the one Hilt entry
+         * point for [FocusShieldController] — it needs `@ApplicationContext` and
+         * [UserPreferencesRepository], both already provided in this module, so no new Hilt module
+         * is warranted.
+         */
+        @Provides
+        @Singleton
+        fun provideFocusShieldController(
+            @ApplicationContext context: Context,
+            userPreferencesRepository: UserPreferencesRepository,
+        ): FocusShieldController = AndroidFocusShieldController(context, userPreferencesRepository)
     }
 }

@@ -57,7 +57,7 @@ class FocusScreenChromeTest {
                 ),
             ),
         )
-        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository)
+        val viewModel = FocusViewModel(taskRepository, userPreferencesRepository, FakeFocusShieldController())
 
         composeTestRule.setContent {
             NeverLateTheme {

@@ -1,5 +1,6 @@
 package com.neverlate
 
+import android.app.ActivityManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,11 +10,14 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.neverlate.data.ThemeMode
 import com.neverlate.data.UserPreferencesRepository
 import com.neverlate.data.articles.ArticleRepository
 import com.neverlate.data.auth.AuthRepositoryImpl
 import com.neverlate.data.tasks.TaskRepository
+import com.neverlate.domain.tasks.isFocusSessionActive
+import com.neverlate.ui.focus.FocusShieldController
 import com.neverlate.ui.navigation.AppNavHost
 import com.neverlate.ui.notification.ReminderNotificationHelper
 import com.neverlate.ui.notification.TasksNotificationService
@@ -23,6 +27,8 @@ import com.neverlate.ui.widget.TaskSurfacesRefreshWorker
 import com.neverlate.data.sync.SyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Single entry point of the app. In Compose there is usually one Activity that hosts the whole
@@ -74,10 +80,33 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var articleRepository: ArticleRepository
 
+    @Inject
+    lateinit var focusShieldController: FocusShieldController
+
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, D7/AC-23): screen
+        // pinning has no receipt (D1) — the system's own lock-task state is the source of truth.
+        // On a cold start with no active session, release any pinning still in effect (e.g. the
+        // process died while pinned and the reboot/relaunch skipped the ritual's own stopLockTask
+        // call). getLockTaskModeState() is read back rather than assumed, same "verified state"
+        // rule the ritual's own pinning call follows.
+        lifecycleScope.launch {
+            val session = userPreferencesRepository.userPreferences.first().focusSession
+            val sessionActive = isFocusSessionActive(session, now = System.currentTimeMillis())
+            val activityManager = getSystemService(ActivityManager::class.java)
+            if (!sessionActive && activityManager?.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE) {
+                try {
+                    stopLockTask()
+                } catch (_: IllegalStateException) {
+                    // Not actually in lock-task mode by the time this runs (e.g. a race with the
+                    // user's own back+overview unpin) — nothing to release (D10).
+                }
+            }
+        }
 
         // Feature 13 (guest mode): belt-and-braces adoption trigger. taskRepository must exist
         // before this can be wired, which is why it is assigned here (both fields already
@@ -137,6 +166,7 @@ class MainActivity : ComponentActivity() {
                     repository = userPreferencesRepository,
                     taskRepository = taskRepository,
                     articleRepository = articleRepository,
+                    focusShieldController = focusShieldController,
                     openTasksOnStart = openTasksOnStart,
                     widthSizeClass = windowSizeClass.widthSizeClass,
                 )

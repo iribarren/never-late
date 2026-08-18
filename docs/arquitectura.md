@@ -729,6 +729,95 @@ keep working regardless.
 
 ---
 
+## Feature `focus-mode-shielding` — Modo Foco blindaje: silenciar el teléfono durante la sesión
+
+**D1 — window-scoped vs device-scoped is the line the whole architecture falls out of.** The three
+optional measures ("Pantalla siempre encendida", "Fijar la pantalla", "No molestar") look like a list
+of three similar switches; they are not. Immersive + keep-screen-on are **window-scoped** — pure
+`Activity` window flags that die the instant the window does, applied by a `DisposableEffect` inside
+`FocusRoute` and reverted in `onDispose`, needing no persistence and no undo machinery of any kind.
+Screen pinning is **task-stack-scoped** — the system's own lock-task state, which survives our process
+dying but which the system itself always knows and always offers its own escape from, so it needs no
+receipt either, only a **query** (`ActivityManager.getLockTaskModeState()`), read back after
+`startLockTask()` and again on every cold start via `MainActivity.onCreate`. Do Not Disturb is the one
+**device-scoped** measure — a global `NotificationManager` setting that outlives our process and that
+*nothing else will ever undo* — and it alone gets the write-ahead receipt below. Treating the three as
+interchangeable and "consistently" persisting all three would invent two restoration problems that do
+not exist; the asymmetry is the design, not an oversight.
+
+**D4 — the write-ahead receipt: exactly one persisted key, written *before* the effect.**
+`UserPreferences.focusShieldPriorFilter` (an `Int?` in the same `user_prefs` DataStore, never a second
+store) is the interruption filter that was in effect right before the shield turned Do Not Disturb on.
+**Presence of the key is the receipt itself** — there is no separate "did we apply it" boolean, no
+timestamp, no serialized options blob, because every extra field is another way for the record to
+disagree with itself. The ordering is the entire point and must never be reordered:
+`applyFocusShieldOnSessionStart` (in `ui/focus/FocusShieldController.kt`) writes the receipt, **then**
+enqueues the 12h `FocusShieldRestoreWorker` backstop, **and only then** applies the effect
+(`setInterruptionFilter(PRIORITY)`). Every point that sequence could be interrupted at (process death
+right after the receipt; right after applying; mid-session; right after restoring) converges on a safe
+state — worked through row by row in the spec's D4 table — and the rule that survives compression is:
+**persist the intent to change global state before you change it, and clear it only after you have
+undone it.** The restoration decision itself is `domain/focus/FocusShieldRestore.kt`'s
+`shieldRestoreActionFor` — a pure `(state) → action` function with no Android import, mirroring
+`isFocusSessionActive`'s "keep the decision in plain Kotlin" shape — and its most consequential row is
+row 4: if the person changed Do Not Disturb themselves mid-session, their change wins and the app
+forgets its own receipt rather than overwriting them. Three triggers run that one function identically
+— the deliberate exit (`FocusViewModel`), every cold start (`NeverLateApplication.onCreate`, via an
+immediate non-unique `FocusShieldRestoreWorker` enqueue), and the 12h backstop itself — because the
+defining risk this whole feature is organised around is leaving someone's phone silent forever, and an
+app that only undoes Do Not Disturb on the happy path is not 95% correct, it is broken.
+
+**Never `INTERRUPTION_FILTER_NONE`, never `setNotificationPolicy`.** `_NONE` silences system alarms,
+which for an app whose purpose is people who struggle with time is not an acceptable trade; the app
+always sets `INTERRUPTION_FILTER_PRIORITY`, borrowing whatever priority policy the person already
+configured for themselves rather than redefining it. `setNotificationPolicy` (which would allow/deny
+categories precisely) is never called anywhere — one `Int` in, one `Int` out is the feature's entire
+device-level footprint, on purpose, because a second piece of global state to snapshot and restore is
+a second, structurally richer way to get the restoration wrong.
+
+**`ReminderNotificationHelper.ensureChannel` moved off `NotificationChannelCompat.Builder`.** The
+`task_reminders` channel is now built as a platform `NotificationChannel` directly, because only that
+type exposes `setBypassDnd(true)` — the flag that lets the app's own time-up alert survive a session's
+`_PRIORITY` filter. Guarded by `isNotificationPolicyAccessGranted()` (the platform silently refuses the
+flag without that access). Two accepted, documented platform limits, not bugs to chase: the flag may be
+ignored on a channel that already existed before this update (channel settings are user-owned after
+first creation, and this app never deletes/recreates the channel to force it), and API 24-25 have no
+channels at all, so `_PRIORITY` there falls back to the global policy the same way it does for any
+other non-priority notification.
+
+**`ui/components/SpecialAccessNotice.kt` is an extraction, not a new pattern.** The *check → explain →
+send to Settings* idiom already existed once, as `SettingsScreen.kt`'s private `ExactAlarmPermissionNotice`
+(feature 09's `SCHEDULE_EXACT_ALARM`). Promoting it to a shared composable — Settings becomes its first
+caller, the Focus entry dialog's Do-Not-Disturb row its second — is the same "one mapping, thin
+per-call-site resolvers" shape `ColorRole.kt` and the widget refactor already established, and it fixes
+a real staleness bug the original had for free: the extracted version re-checks the grant on
+`Lifecycle.Event.ON_RESUME`, so returning from system Settings after granting clears the notice
+immediately instead of waiting for the next full recomposition.
+
+**`FocusShieldRestoreWorker` over a fourth `AlarmManager` alarm.** Deferrable `WorkManager` work
+persists its own queue and re-enqueues after `BOOT_COMPLETED` for free, needs no `SCHEDULE_EXACT_ALARM`
+involvement, and needs no new slot carved out of `requestCodeFor(taskId, kind)`'s per-task numbering —
+"sometime in the next few hours after the 12h mark" is a perfectly good time to un-silence a phone whose
+owner stopped using the app half a day ago. Its initial delay reads the *same* `FOCUS_SESSION_MAX_AGE_MILLIS`
+constant the núcleo's `isFocusSessionActive` uses (promoted from `private` to `internal` in
+`domain/tasks/FocusSession.kt`), asserted equal by a test, so the worker's backstop and the session's
+own expiry can never quietly drift apart. Deliberately **not** hosted on the existing
+`BootRescheduleWorker`: that worker returns early when `remindersEnabled` is off, an invariant that has
+nothing to do with whether a phone is stuck in Do Not Disturb — only the cold-start hook the two share
+(`NeverLateApplication.onCreate`) is reused, not the worker itself.
+
+**Refused, not deferred: blocking other apps.** A normal Play-Store app can only do that via device-owner
+enterprise provisioning (never available to this app's users) or an `AccessibilityService` (a
+Play-Store-policy minefield when used to police app usage, not to aid accessibility). The app's copy
+never implies otherwise, and this is written down so the omission is never later mistaken for
+something merely unfinished.
+
+No backend, contract, Room migration or new Gradle dependency. `docs/diferidos.md` carries what this
+spec deliberately deferred (mid-session toggling of the measures, a Settings home for them, session
+history, blocking the notification shade while pinned).
+
+---
+
 ## Transversal — Permisos y manifest
 
 **Permissions** (declared in `AndroidManifest.xml`): `POST_NOTIFICATIONS` (feature 06; runtime
@@ -746,4 +835,11 @@ connectivity-aware WorkManager job. A later bugfix adds Auto Backup rules
 that **exclude the Keystore-sealed `auth_secure_prefs` file** from cloud backup/device transfer: its
 hardware-bound key can't follow it, so a restored copy only throws `AEADBadTagException` on launch —
 `EncryptedTokenStorage` now also recovers from that by clearing and recreating the store (see
-`tutorial/12b-keystore-recuperacion.md`).
+`tutorial/12b-keystore-recuperacion.md`). The `focus-mode-shielding` spec adds
+`ACCESS_NOTIFICATION_POLICY` — a **special access**, never a runtime-permission dialog — checked via
+`NotificationManager.isNotificationPolicyAccessGranted()` and, when missing, offered through
+`ui/components/SpecialAccessNotice.kt`'s shared *check → explain → send to
+`Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS`* idiom; a denied or later-revoked grant never
+blocks the session (see that feature's D10) — the Do Not Disturb measure is simply not applied, with
+no crash and no repeated prompt. No new `<receiver>`/`<service>`: `WorkManager`'s own manifest wiring
+covers `FocusShieldRestoreWorker`.

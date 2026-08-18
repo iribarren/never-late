@@ -1,5 +1,8 @@
 package com.neverlate.ui.tasks
 
+import android.app.NotificationManager
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +20,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Assignment
@@ -46,6 +52,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -64,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -80,6 +88,7 @@ import com.neverlate.data.tasks.Priority
 import com.neverlate.data.tasks.Task
 import com.neverlate.data.tasks.durationParts
 import com.neverlate.data.tasks.formatDeadlineForDisplay
+import com.neverlate.domain.focus.FocusShieldOptions
 import com.neverlate.domain.tasks.ShapedTaskList
 import com.neverlate.domain.tasks.SortDirection
 import com.neverlate.domain.tasks.TaskGroupAxis
@@ -91,6 +100,7 @@ import com.neverlate.domain.tasks.deadlineProgressFor
 import com.neverlate.domain.tasks.urgencyLevelFor
 import com.neverlate.ui.components.BrandIconChip
 import com.neverlate.ui.components.MessageState
+import com.neverlate.ui.components.SpecialAccessNotice
 import com.neverlate.ui.components.brandedTopAppBarColors
 import com.neverlate.ui.components.formatRemainingLabel
 import com.neverlate.ui.notification.RequestNotificationPermissionEffect
@@ -150,10 +160,11 @@ fun TasksRoute(
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
     onStatsClick: () -> Unit = {},
-    // Modo Foco (D4): confirming the entry dialog's 4-digit code calls this with that code so the
-    // caller (AppNavHost) can freeze the roster and persist the session before navigating — see
-    // AppNavHost's Routes.TASKS composable.
-    onFocusClick: (String) -> Unit = {},
+    // Modo Foco (D4): confirming the entry dialog's 4-digit code calls this with that code and the
+    // chosen device measures (focus-mode-shielding, D11) so the caller (AppNavHost) can freeze the
+    // roster and persist the session (and apply the shield) before navigating — see AppNavHost's
+    // Routes.TASKS composable.
+    onFocusClick: (String, FocusShieldOptions) -> Unit = { _, _ -> },
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: TasksViewModel = hiltViewModel(),
@@ -163,6 +174,7 @@ fun TasksRoute(
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val criteria by viewModel.criteria.collectAsStateWithLifecycle()
     val userName by viewModel.userName.collectAsStateWithLifecycle()
+    val focusShieldOptions by viewModel.focusShieldOptions.collectAsStateWithLifecycle()
     // Feature 04b: collected separately from criteria above — the field reads this StateFlow
     // directly so every keystroke shows up immediately, while criteria's sort/group values are
     // the only ones still bundled together (see TasksViewModel's KDoc).
@@ -217,6 +229,7 @@ fun TasksRoute(
         criteria = criteria,
         query = query,
         userName = userName,
+        focusShieldOptions = focusShieldOptions,
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
         onAddTaskClick = onAddTaskClick,
@@ -259,6 +272,7 @@ fun TasksScreen(
     criteria: TaskListCriteria?,
     query: String,
     userName: String = "",
+    focusShieldOptions: FocusShieldOptions = FocusShieldOptions(),
     onRefresh: () -> Unit,
     onAddTaskClick: () -> Unit,
     onTaskClick: (Long) -> Unit,
@@ -273,7 +287,7 @@ fun TasksScreen(
     onPriorityFilterToggle: (Priority) -> Unit,
     onClearFilters: () -> Unit,
     onStatsClick: () -> Unit = {},
-    onFocusClick: (String) -> Unit = {},
+    onFocusClick: (String, FocusShieldOptions) -> Unit = { _, _ -> },
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
@@ -417,9 +431,10 @@ fun TasksScreen(
 
     if (showFocusEntryDialog) {
         FocusEntryDialog(
-            onConfirm = { code ->
+            initialOptions = focusShieldOptions,
+            onConfirm = { code, options ->
                 showFocusEntryDialog = false
-                onFocusClick(code)
+                onFocusClick(code, options)
             },
             onDismiss = { showFocusEntryDialog = false },
         )
@@ -435,16 +450,30 @@ fun TasksScreen(
  * D8/US-6: the explanatory copy (`focus_entry_dialog_message`) deliberately describes the mode
  * without lockdown language — it must never claim to block the device or other apps, since
  * `BackHandler` only ever intercepts this app's own back gesture (see the feature spec's D8).
+ *
+ * Modo Foco blindaje (`docs/specs/2026-08-18-focus-mode-shielding.md`, AC-V1/AC-29): grows the
+ * dialog with the three optional device measures, pre-filled from [initialOptions] (D11's
+ * remembered defaults) — the code field stays the primary input, the three switches sit under
+ * their own "Durante la sesión" heading beneath it (AC-V1), and the whole dialog **scrolls**
+ * (AC-34) so the confirm/cancel actions stay reachable at the largest font scale. The
+ * Do-Not-Disturb row shows the shared [SpecialAccessNotice] **inline directly beneath it**
+ * (AC-V3, D9) whenever `ACCESS_NOTIFICATION_POLICY` is not granted.
  */
 @Composable
-private fun FocusEntryDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+private fun FocusEntryDialog(
+    initialOptions: FocusShieldOptions,
+    onConfirm: (String, FocusShieldOptions) -> Unit,
+    onDismiss: () -> Unit,
+) {
     var code by remember { mutableStateOf("") }
+    var options by remember { mutableStateOf(initialOptions) }
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.focus_title)) },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.focus_entry_dialog_message))
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -455,11 +484,51 @@ private fun FocusEntryDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit)
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = stringResource(R.string.focus_entry_dialog_shield_section_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                FocusShieldSwitchRow(
+                    checked = options.keepScreenOn,
+                    onCheckedChange = { checked -> options = options.copy(keepScreenOn = checked) },
+                    label = stringResource(R.string.focus_shield_keep_screen_on_label),
+                    description = stringResource(R.string.focus_shield_keep_screen_on_description),
+                )
+
+                FocusShieldSwitchRow(
+                    checked = options.doNotDisturb,
+                    onCheckedChange = { checked -> options = options.copy(doNotDisturb = checked) },
+                    label = stringResource(R.string.focus_shield_do_not_disturb_label),
+                    description = stringResource(R.string.focus_shield_do_not_disturb_description),
+                )
+                // AC-V3/D9: inline, directly beneath the row it explains — never at the top or
+                // bottom of the dialog.
+                SpecialAccessNotice(
+                    isGranted = {
+                        val notificationManager = context.getSystemService(NotificationManager::class.java)
+                        notificationManager?.isNotificationPolicyAccessGranted ?: true
+                    },
+                    message = stringResource(R.string.focus_shield_do_not_disturb_access_notice),
+                    actionLabel = stringResource(R.string.focus_shield_do_not_disturb_access_action),
+                    settingsIntent = { Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS) },
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
+                )
+
+                FocusShieldSwitchRow(
+                    checked = options.screenPinning,
+                    onCheckedChange = { checked -> options = options.copy(screenPinning = checked) },
+                    label = stringResource(R.string.focus_shield_screen_pinning_label),
+                    description = stringResource(R.string.focus_shield_screen_pinning_description),
+                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(code) },
+                onClick = { onConfirm(code, options) },
                 enabled = code.length == FOCUS_EXIT_CODE_LENGTH,
             ) { Text(stringResource(R.string.focus_entry_dialog_start_button)) }
         },
@@ -467,6 +536,43 @@ private fun FocusEntryDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit)
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.focus_entry_dialog_cancel_button)) }
         },
     )
+}
+
+/**
+ * One of the three device-measure switch rows (AC-33, AC-V2): a single ≥48dp tappable unit — label
+ * (`bodyLarge`) + one-line honest description (`bodySmall`/`onSurfaceVariant`) + [Switch] — toggled
+ * by tapping anywhere on the row via [Modifier.toggleable] with `role = Role.Switch`, which merges
+ * the row into one accessibility node whose name is [label] and whose state is [checked] (the
+ * [Switch] itself is decorative to a screen reader, `role = null`, since the row already carries
+ * the semantics). Every description states what the measure does **not** do (US-6's "honesty
+ * budget") — the strings themselves carry that, not this composable.
+ */
+@Composable
+private fun FocusShieldSwitchRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String,
+    description: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, onValueChange = onCheckedChange, role = Role.Switch)
+            .minimumInteractiveComponentSize()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Switch(checked = checked, onCheckedChange = null)
+    }
 }
 
 /** Modo Foco (AC-18): the exit code is always exactly 4 digits, both at entry and in the exit ritual's

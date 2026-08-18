@@ -115,6 +115,21 @@ Del inventario completo, esto se consideró y **no** se convirtió en prompt:
   movimiento nuevo**, justo lo que ese feature explícitamente no hace (su único objetivo era la
   cadencia del contador, no mejorar ninguna animación). Si se quiere alguna vez, empieza como su
   propia spec.
+- **Del feature `focus-mode-shielding`** (`docs/specs/2026-08-18-focus-mode-shielding.md`), cuatro
+  items que su propia sección *Deferred, and to where* apuntó aquí explícitamente:
+  - **Cambiar las tres medidas de blindaje a mitad de sesión.** Hoy solo se eligen en el diálogo de
+    entrada. Añadirlo abriría una cuarta vía hacia el estado global (junto a inicio, salida y el
+    backstop de `WorkManager`) para una necesidad que nadie ha pedido todavía.
+  - **Elegir las medidas desde Ajustes**, como preferencia duradera editable fuera del flujo de
+    entrada — separaría la elección del compromiso de la sesión, que es precisamente lo que D1 de ese
+    feature decidió no hacer.
+  - **Bloquear la bandeja de notificaciones mientras la pantalla está fijada** — necesitaría un
+    enfoque que hoy no existe en el repo (fijar pantalla no da acceso a eso).
+  - **Historial de qué medidas se usaron en cada sesión** — necesita una tabla Room y por tanto una
+    migración; excluido con el mismo criterio que el núcleo de Modo Foco ya aplicó a su propio
+    historial de sesiones.
+  - (Un quinto item de esa misma sección — un temporizador por sesión y su propia alerta sonora — ya
+    estaba diferido por el núcleo del feature y no es nuevo.)
 
 ---
 
